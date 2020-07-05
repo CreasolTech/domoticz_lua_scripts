@@ -1,3 +1,11 @@
+## Domoticz lua scripts, by Creasol https://www.creasol.it
+In this repository you can find several lua scripts and config files for Domoticz, the easy and powerful open-source home automation system controller.
+
+All scripts are provided freely, with absolute no warranty. Use them at your own risk.
+
+
+----------------------------------
+
 ## Welcome to GitHub Pages
 
 You can use the [editor on GitHub](https://github.com/CreasolTech/domoticz_lua_scripts/edit/master/index.md) to maintain and preview the content for your website in Markdown files.
