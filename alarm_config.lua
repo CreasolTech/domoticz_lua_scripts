@@ -59,12 +59,12 @@ ALARMlist={
 -- List of magnetic contact sensors (window + associated shutter)
 -- Magnetic sensors name must start with MCS prefix
 MCSlist={ -- MCS_window/door, MCS_shutter, delay[s]
-    {'MCS_Soggiorno_Window1','MCS_Soggiorno_Blind1',0,},	--00000001
-    {'MCS_Soggiorno_Window2','MCS_Soggiorno_Blind2',0,},	--00000002
-    {'MCS_Soggiorno_Window3','MCS_Soggiorno_Blind3',0,},	--00000004
-    {'MCS_Soggiorno_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
-	{'MCS_Cucina_Window1','MCS_Cucina_Blind1',0},			--00000010	-- finestra1 non collegato
-	{'MCS_Cucina_Window2','MCS_Cucina_Blind2',0},			--00000020	-- finestra2 non collegato
+    {'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
+    {'MCS_Kitchen_Window2','MCS_Kitchen_Blind2',0,},	--00000002
+    {'MCS_Kitchen_Window3','MCS_Kitchen_Blind3',0,},	--00000004
+    {'MCS_Kitchen_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
+	{'MCS_Living_Window1','MCS_Living_Blind1',0},			--00000010	-- finestra1 non collegato
+	{'MCS_Living_Window2','MCS_Living_Blind2',0},			--00000020	-- finestra2 non collegato
     {'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},			--00000040
     {'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},			--00000080
     {'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},			--00000100
@@ -78,15 +78,15 @@ MCSlist={ -- MCS_window/door, MCS_shutter, delay[s]
 	{'MCS_Garage_Door_Pranzo','',0},								--00010000
 	{'','MCS_Scale_Blind',0},										--00020000
 	{'MCS_Notte_Scorrevole','',0},									--00040000
-	{'MCS_Camera_Door','',0},										--00080000
-	{'MCS_Camera_Window1','MCS_Camera_Blind1',0},					--00100000
-	{'MCS_Camera_Window2','MCS_Camera_Blind2',0},					--00200000
-	{'MCS_Camera_Window3','MCS_Camera_Blind3',0},					--00400000
+	{'MCS_Bedroom_Door','',0},										--00080000
+	{'MCS_Bedroom_Window1','MCS_Bedroom_Blind1',0},					--00100000
+	{'MCS_Bedroom_Window2','MCS_Bedroom_Blind2',0},					--00200000
+	{'MCS_Bedroom_Window3','MCS_Bedroom_Blind3',0},					--00400000
 	{'','MCS_Stireria_Scuri',0},									--00800000
 	{'','MCS_BagnoP1_Blind',0},										--01000000
-	{'','MCS_Camera_Ospiti_Scuri',0},								--02000000
-	{'','MCS_Camera_Valentina_Blind1',0},							--04000000
-	{'','MCS_Camera_Valentina_Blind2',0},							--08000000
+	{'','MCS_Bedroom_Ospiti_Scuri',0},								--02000000
+	{'','MCS_Bedroom_Valentina_Blind1',0},							--04000000
+	{'','MCS_Bedroom_Valentina_Blind2',0},							--08000000
 }
 
 
@@ -101,8 +101,8 @@ PIRlist={
 
 -- Tampers name must start with TAMPER prefix
 TAMPERlist={ -- device_name
-	{'TAMPER_Soggiorno_Finestre'},
-	{'TAMPER_Soggiorno_Cucina_Scuri'},
+	{'TAMPER_Kitchen_Finestre'},
+	{'TAMPER_Kitchen_Living_Scuri'},
 	{'TAMPER_Sud'},
 	{'TAMPER_PT_Est'},
 	{'TAMPER_P1_Est'},
@@ -115,7 +115,7 @@ SIRENlist={ -- output_device, alarmLevel, delayed, duration[min]  -- delayed sho
 	{'SIREN_External',ALARM_AWAY,1,5},
 	{'SIREN_Internal',ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,0,5},
 	{'SIREN_Internal_d',ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,0,5},
-	{'Light_Camera',ALARM_NIGHT+ALARM_AWAY,0,5},
+	{'Light_Bedroom',ALARM_NIGHT+ALARM_AWAY,0,5},
 	{'Light_Scale',ALARM_NIGHT+ALARM_AWAY,0,5},
 }  -- REMEMBER TO SET THE LIST of IDX associated to the sirens on alarmSet.sh : this is needed to switch off sirens setting alarmLevel to OFF
 
@@ -129,10 +129,10 @@ ALARM_Lights={
 	-- light dev,   min duration[s], max duration	min/max delay before switching next ON
 	{'Light_Pranzo',20,				2700,			4,7},
 	{'Light_Scale',	12,				25,				-2,2},
-	{'Light_Camera',20,				900,			0,0,},
+	{'Light_Bedroom',20,				900,			0,0,},
 --	{'Light_Pranzo',10,				20,			4,7},
 --	{'Light_Scale',	10,				20,				-2,2},
---	{'Light_Camera',10,				20,			0,0,},
+--	{'Light_Bedroom',10,				20,			0,0,},
 }
 -- ------------------ Some common functions ---------------------------
 function log(level, msg)
