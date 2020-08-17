@@ -15,6 +15,8 @@ For any requests, you can join DomBus channel on Telegram, https://t.me/DomBus
 ## Script POWER 
 File: scripts/lua/script_device_power.lua
 
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
 Used to check power from energy meter (SDM120, SDM230, ...) and performs the following actions
 
   1. Send notification when consumed power is above a threshold (to avoid power outage)
@@ -24,4 +26,4 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
   3. Emergency lights: turn ON some LED devices in case of power outage, and turn off when power is restored
 
   4. Show on DomBusTH LEDs red and green the produced/consumed power: red LED flashes 1..N times if power consumption is greater than 1..N kW; 
-     green LED flashes 1..M times if photovoltaic produces up to 1..M kWatt 
+     green LED flashes 1..M times if photovoltaic produces up to 1..M kW 

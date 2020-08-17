@@ -25,7 +25,7 @@ DOMOTICZ_URL="http://127.0.0.1:8080"    -- Domoticz URL (used to create variable
 PowerMeter={'PowerMeter'}
 ledsGreen={'Led_Cucina_Green'}	-- green LEDs that show power production
 ledsRed={'Led_Cucina_Red'}		-- red LEDs that show power usage
-ledsWhite={'Light_Night_Led'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
+ledsWhite={'Light_Night_Led','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
 ledsWhiteSelector={'Led_Cucina_White'}	-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
 blackoutDevice='Supply_HeatPump'	-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
 
@@ -267,28 +267,34 @@ for devName,devValue in pairs(devicechanged) do
 			commandArray['Variable:zPower']=json.encode(Power)
 		end
 	end
+
+	-- if blackout, turn on white leds in the building!
 	if (devName==blackoutDevice) then
 		print("BLACKOUT: devValue="..devValue.."otherdevices="..otherdevices[blackoutDevice])
 		if (devValue=='Off') then -- blackout
 			for k,led in pairs(ledsWhite) do
 				if (otherdevices[led]~='0n') then
 					commandArray[led]='On'
+					Power['BL_'..k]='On'	-- store in a variable that this led was activated by blackout check
 				end
 			end
 			for k,led in pairs(ledsWhiteSelector) do
 				if (otherdevices_svalues[led]~='1') then
 					commandArray[led]="Set Level 1"
+					Power['BLS_'..k]='On'	-- store in a variable that this led was activated by blackout check
 				end
 			end
 		else -- power restored
 			for k,led in pairs(ledsWhite) do
-				if (otherdevices[led]~='0ff') then
+				if (otherdevices[led]~='0ff' and (Power['BL_'..k]==nil or Power['BL_'..k]=='On')) then
 					commandArray[led]='Off'
+					Power['BL_'..k]=nil
 				end
 			end
 			for k,led in pairs(ledsWhiteSelector) do
-				if (otherdevices_svalues[led]~='0') then
+				if (otherdevices_svalues[led]~='0' and (Power['BLS_'..k]==nil or Power['BLS_'..k]=='On')) then
 					commandArray[led]="Set Level 0"
+					Power['BLS_'..k]=nil
 				end
 			end
 		end
