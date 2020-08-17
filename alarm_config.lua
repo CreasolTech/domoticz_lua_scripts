@@ -2,9 +2,9 @@
 -- Written by Creasol, https://creasol.it/products
 --
 -- Some constants: TO BE MODIFIED WITH YOUR VALUES
-TELEGRAM_DEBUG_CHATID="91676505"	-- Telegram chatid where to send testing notifications (when DEBUG_LEVEL >= 2)
-TELEGRAM_IMPORTANT_CHATID="-1001192035046"
-TELEGRAM_TOKEN="671359246:AAG2v9DpxUpEla1ql0FiuGI1cRdEK7B7fzo"
+TELEGRAM_DEBUG_CHATID="97654321"	-- Telegram chatid where to send testing notifications (when DEBUG_LEVEL >= 2)
+TELEGRAM_IMPORTANT_CHATID="-1234567890123"
+TELEGRAM_TOKEN="67ddddd46:AAG2vcafe123456789FiuGI1cRdEK7B7fzo"
 DOMOTICZ_URL="http://127.0.0.1:8080"	-- Domoticz URL (used to create variables using JSON URL
 
 -- bitmask associated to alarmLevel: don't care
@@ -59,34 +59,34 @@ ALARMlist={
 -- List of magnetic contact sensors (window + associated shutter)
 -- Magnetic sensors name must start with MCS prefix
 MCSlist={ -- MCS_window/door, MCS_shutter, delay[s]
-    {'MCS_Soggiorno_Finestra1','MCS_Soggiorno_Scuro1',0,},	--00000001
-    {'MCS_Soggiorno_Finestra2','MCS_Soggiorno_Scuro2',0,},	--00000002
-    {'MCS_Soggiorno_Finestra3','MCS_Soggiorno_Scuro3',0,},	--00000004
-    {'MCS_Soggiorno_Porta','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
-	{'MCS_Cucina_Finestra1','MCS_Cucina_Scuro1',0},			--00000010	-- finestra1 non collegato
-	{'MCS_Cucina_Finestra2','MCS_Cucina_Scuro2',0},			--00000020	-- finestra2 non collegato
-    {'MCS_Pranzo_Finestra1','MCS_Pranzo_Scuro1',0},			--00000040
-    {'MCS_Pranzo_Finestra2','MCS_Pranzo_Scuro2',0},			--00000080
-    {'MCS_Pranzo_Finestra3','MCS_Pranzo_Scuro3',0},			--00000100
-	{'MCS_Sud_Porta','',0},									--00000200
-	{'MCS_Lab_Finestra_Sud','MCS_Lab_Scuro_Sud',0},			--00000400
-	{'MCS_Lab_Finestra_Nord','MCS_Lab_Scuro_Nord',0},		--00000800
-	{'MCS_BagnoPT_Finestra','MCS_BagnoPT_Scuro',0},			--00001000
-	{'MCS_Magazzino_Finestra_Sud','MCS_Magazzino_Scuro_Sud',0},		--00002000
-	{'MCS_Magazzino_Finestra_Nord','MCS_Magazzino_Scuro_Nord',0},	--00004000
-	{'MCS_Garage_Porta_Magazzino','',0},							--00008000
-	{'MCS_Garage_Porta_Pranzo','',0},								--00010000
-	{'','MCS_Scale_Scuro',0},										--00020000
+    {'MCS_Soggiorno_Window1','MCS_Soggiorno_Blind1',0,},	--00000001
+    {'MCS_Soggiorno_Window2','MCS_Soggiorno_Blind2',0,},	--00000002
+    {'MCS_Soggiorno_Window3','MCS_Soggiorno_Blind3',0,},	--00000004
+    {'MCS_Soggiorno_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
+	{'MCS_Cucina_Window1','MCS_Cucina_Blind1',0},			--00000010	-- finestra1 non collegato
+	{'MCS_Cucina_Window2','MCS_Cucina_Blind2',0},			--00000020	-- finestra2 non collegato
+    {'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},			--00000040
+    {'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},			--00000080
+    {'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},			--00000100
+	{'MCS_Sud_Door','',0},									--00000200
+	{'MCS_Lab_Window_Sud','MCS_Lab_Blind_Sud',0},			--00000400
+	{'MCS_Lab_Window_Nord','MCS_Lab_Blind_Nord',0},		--00000800
+	{'MCS_BagnoPT_Window','MCS_BagnoPT_Blind',0},			--00001000
+	{'MCS_Magazzino_Window_Sud','MCS_Magazzino_Blind_Sud',0},		--00002000
+	{'MCS_Magazzino_Window_Nord','MCS_Magazzino_Blind_Nord',0},	--00004000
+	{'MCS_Garage_Door_Magazzino','',0},							--00008000
+	{'MCS_Garage_Door_Pranzo','',0},								--00010000
+	{'','MCS_Scale_Blind',0},										--00020000
 	{'MCS_Notte_Scorrevole','',0},									--00040000
-	{'MCS_Camera_Porta','',0},										--00080000
-	{'MCS_Camera_Finestra1','MCS_Camera_Scuro1',0},					--00100000
-	{'MCS_Camera_Finestra2','MCS_Camera_Scuro2',0},					--00200000
-	{'MCS_Camera_Finestra3','MCS_Camera_Scuro3',0},					--00400000
+	{'MCS_Camera_Door','',0},										--00080000
+	{'MCS_Camera_Window1','MCS_Camera_Blind1',0},					--00100000
+	{'MCS_Camera_Window2','MCS_Camera_Blind2',0},					--00200000
+	{'MCS_Camera_Window3','MCS_Camera_Blind3',0},					--00400000
 	{'','MCS_Stireria_Scuri',0},									--00800000
-	{'','MCS_BagnoP1_Scuro',0},										--01000000
+	{'','MCS_BagnoP1_Blind',0},										--01000000
 	{'','MCS_Camera_Ospiti_Scuri',0},								--02000000
-	{'','MCS_Camera_Valentina_Scuro1',0},							--04000000
-	{'','MCS_Camera_Valentina_Scuro2',0},							--08000000
+	{'','MCS_Camera_Valentina_Blind1',0},							--04000000
+	{'','MCS_Camera_Valentina_Blind2',0},							--08000000
 }
 
 

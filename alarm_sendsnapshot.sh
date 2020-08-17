@@ -18,19 +18,19 @@ message=$3
 log `date`
 log "$0 $ipcamera1 $ipcamera2 $message" 
 
-#TELEGRAMCHATID='91676505' #paolo
-TELEGRAMCHATID='-1001192035046'
-TELEGRAMSCRIPT='/home/pi/domoticz/scripts/telegramSendText.sh'
+#TELEGRAMCHATID='98765432' #paolo
+TELEGRAMCHATID='-1234567890123'
+TELEGRAMSCRIPT='/home/pi/domoticz/scripts/lua/telegramSendText.sh'
 
 #SNAPURL='http://192.168.3.201:8088/snap.jpg'  #snapshot URL: if camera does not support snapshot, comment this variable
 #MEDIAURL='192.168.3.201:554/mpeg4cif' #low quality stream
 MEDIAURL1="${ipcamera1}/mpeg4cif"	#high quality stream
 MEDIAUSER1='admin'
-MEDIAPASS1='iuafio'
+MEDIAPASS1='password'
 
 MEDIAURL2="${ipcamera2}/mpeg4cif"	#high quality stream
 MEDIAUSER2='admin'
-MEDIAPASS2='iuafio'
+MEDIAPASS2='password'
 
 #Used to get light status, and set lights ON before snapshot and OFF after a while...
 DOMOTICZ_URL='http://127.0.0.1:8080'
