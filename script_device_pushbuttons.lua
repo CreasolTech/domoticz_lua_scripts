@@ -139,6 +139,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- compute pulse length
 			pulseLen=timeElapsed(devName)
 			if (debug>0) then print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s") end
+			print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
 			if (pulseLen<=1 and otherdevices['LightOut2']=='Off') then
 				-- short pulse, and commanded device is OFF => ON
 				commandArray['LightOut2']='On FOR 15 MINUTES'
