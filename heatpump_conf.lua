@@ -49,7 +49,9 @@ DEVlist={
 
 DEVauxlist={
 	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value
-	{'Camera_Ospiti_Dehumidifier',2,			2,				300,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,},	-- Dehumidifier
+	{'Dehumidifier_Camera',			2,			2,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,},	-- Dehumidifier
+	{'Dehumidifier_Camera_Ospiti',	2,			2,				30000,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,},	-- Dehumidifier (disabled)
+	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,},	-- Dehumidifier
 }
 
 -- heat pump working level

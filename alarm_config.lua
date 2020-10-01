@@ -134,6 +134,14 @@ ALARM_Lights={
 --	{'Light_Scale',	10,				20,				-2,2},
 --	{'Light_Bedroom',10,				20,			0,0,},
 }
+
+-- Leds activated for few seconds when alarm has been activated
+LEDS_ON={'Led_Bedroom1_Red','Led_Bedroom2_Red'}
+-- Leds activated for few seconds when alarm has been disactivated
+LEDS_OFF={'LEd_Bedroom1_Green','Led_Bedroom2_Green'}
+--
+
+
 -- ------------------ Some common functions ---------------------------
 function log(level, msg)
 	if (alarmLevel~=ALARM_OFF or level>=E_WARNING) then

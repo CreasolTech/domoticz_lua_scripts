@@ -198,7 +198,7 @@ else
 
 	zonesOn=0	-- number of zones that are ON
 	SPOffset=0	-- offset on setpoint
-	if (prodPower>800) then	-- more than 800W fed to the electrical grid
+	if (prodPower>1200) then	-- more than 800W fed to the electrical grid
 		SPOffset=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 	end
 	
@@ -414,12 +414,14 @@ if (levelOld==HP['Level']) then
 	-- level was not changed: parse DEVauxlist to check if anything should be enabled or disabled
 	-- if level has changed, don't enable/disable aux devices because the measured prodPower may change 
 	for n,v in pairs(DEVauxlist) do
-		if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
-
-		if (prodPower<(v[4]-100) or HP['Level']<v[devLevel] or cond==v[devCond+1] or otherdevices['VMC_Rinnovo']=='On') then
-			deviceOff(v[1],'a'..n)
-		else
-			deviceOn(v[1],'a'..n)
+		if (otherdevices[ v[devCond] ]~=nil) then
+			if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
+	
+			if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
+				deviceOff(v[1],'a'..n)
+			else
+				deviceOn(v[1],'a'..n)
+			end
 		end
 	end
 end

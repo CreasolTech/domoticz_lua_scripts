@@ -45,6 +45,26 @@ end
 ------------------------------------- changed device is MCS,PIR,TAMPER,SIREN or ALARM* ---------------------------------
 dofile "scripts/lua/alarm_config.lua"
 
+-- Function called when alarm is activated in Night mode
+function alarmNightOn()
+	commandArray['Group:AlarmNight']='On'
+	for i,ledDev in pairs(LEDS_ON) do
+		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
+			commandArray[ledDev]='On FOR 3 SECONDS'
+		end
+	end
+end
+
+-- Function called when alarm is disactivated
+function alarmNightOff()
+	commandArray['Group:AlarmNight']='Off'
+	for i,ledDev in pairs(LEDS_OFF) do
+		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
+			commandArray[ledDev]='On FOR 3 SECONDS'
+		end
+	end
+end
+
 -- function called when a sensor has been activated, to activate the alarm notification and sirens
 function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 	log(E_ERROR,"Alarm activated by "..sensorName)
@@ -480,18 +500,18 @@ for devName,devValue in pairs(devicechanged) do
 				  		-- turn ON/OFF LEDs in bedroom
 						if (otherdevices['Light_Night_Led']=='Off') then
 							commandArray['Light_Night_Led']='On FOR 20 MINUTES'
+							commandArray['Led_Camera_White']='On FOR 20 MINUTES'
 						else
 							commandArray['Light_Night_Led']='Off'
+							commandArray['Led_Camera_White']='Off'
 						end
 					else
-						--checkDoorsWindowsBlindsOpen()  -- check if any MCS is open
-						--commandArray['Group:AlarmDay']='Off'
-						commandArray['Group:AlarmNight']='On'
+						alarmNightOn() -- Alarm not active or not in night mode => Activate alarm in night mode!!
 					end
 				elseif (pulseLen<=4) then
 					-- 2-3s pulse => disactivate alarm
 					alarmLevel=ALARM_OFF
-					commandArray['Group:AlarmNight']='Off'
+					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
 					print("TODO")
@@ -516,20 +536,12 @@ for devName,devValue in pairs(devicechanged) do
 							commandArray['Led_Camera_Ospiti_WhiteLow']='Off'
 						end
 					else
-						--checkDoorsWindowsBlindsOpen()  -- check if any MCS is open
-						--commandArray['Group:AlarmDay']='Off'
-						commandArray['Group:AlarmNight']='On'
-						if (otherdevices['Led_Camera_Ospiti_Red']~='On') then
-							commandArray['Led_Camera_Ospiti_Red']='On FOR 3 SECONDS'
-						end
+						alarmNightOn() -- Alarm not active or not in night mode => Activate alarm in night mode!!
 					end
 				elseif (pulseLen<=4) then
 					-- 2-3s pulse => disactivate alarm
 					alarmLevel=ALARM_OFF
-					commandArray['Group:AlarmNight']='Off'
-					if (otherdevices['Led_Camera_Ospiti_Green']~='On') then
-						commandArray['Led_Camera_Ospiti_Green']='On FOR 3 SECONDS'
-					end
+					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
 					print("TODO")
