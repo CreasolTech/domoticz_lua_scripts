@@ -43,15 +43,15 @@ DEVlist={
 	{'HeatPump_Fancoil',		3,				3	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
 	{'HeatPump_Summer',			100,			1	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid)
 	{'Valve_Radiant_Coil',		1,				2	},	-- Valve to switch between Radiant (On) or Coil (Off) circuit
-	{'VMC_CaldoFreddo',			3,				1	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
+	{'VMC_CaldoFreddo',			1,				1	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
 	{'VMC_Deumidificazione',	100,			1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
 DEVauxlist={
-	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value
-	{'Dehumidifier_Camera',			2,			2,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,},	-- Dehumidifier
-	{'Dehumidifier_Camera_Ospiti',	2,			2,				30000,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,},	-- Dehumidifier (disabled)
-	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,},	-- Dehumidifier
+	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes
+	{'Dehumidifier_Camera',			2,			2,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
+	{'Dehumidifier_Camera_Ospiti',	2,			2,				30000,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
+	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		480},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
 }
 
 -- heat pump working level
@@ -85,10 +85,10 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	['Cucina']={		'Temp_Cucina',		'',					'',						5,		22,		-0.2,	1,		7,		23,		0.2,	1},	
+	['Cucina']={		'Temp_Cucina',		'RH_Cucina',		'',						5,		22,		-0.2,	1,		7,		23,		0.2,	1},	
 	['Studio']={		'Temp_Studio',		'',                 '',						8,		19,		-2,		0.8,	8,		19,		0.5,	0.8},
 	['Bagno']={			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.5,	16,		19,		1,		0.5},
-	['Camera']={		'Temp_Camera', 		'',                 'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
+	['Camera']={		'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
     ['Camera_Valentina']={'Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,	24,		-0.5,	0.5,	13,		23,		0.5,	0.8},	
     ['Camera_Ospiti']={'Temp_Camera_Ospiti','',                 'Valve_Camera_Ospiti',	13,		24,		-0.5,	0.5,	13,		23,		0.5,	0.3},
     ['Stireria']={'Temp_Stireria',			'',                 'Valve_Stireria',		13,		20,		-1,		0.5,	8,		20,		1,		0.3},
@@ -168,7 +168,7 @@ function checkVar(varname,vartype,value)
         print('Created variable ' .. varname..' = ' .. value)
         url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value
         -- openurl works, but can open only 1 url per time. If I have 10 variables to initialize, it takes 10 minutes to do that!
-		print("url="..url)
+		-- print("url="..url)
         -- commandArray['OpenURL']=url
         os.execute('curl "'..url..'"')
         uservariables[varname] = value;

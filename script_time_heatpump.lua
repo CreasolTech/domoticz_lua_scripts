@@ -172,7 +172,7 @@ else
 		zone_weight=ZONE_WINTER_WEIGHT
 		level_max=LEVEL_WINTER_MAX -- max value for HP['Level']
 		-- heating enable when usage power > 500 watt only if room temperature is distant from the set point (temperature < setpoint - 0.4)
-	 	diffMaxHigh_value=0.4	-- if diffMax<diffMaxHigh_value, temperature is near the set point
+	 	diffMaxHigh_value=0.3	-- if diffMax<diffMaxHigh_value, temperature is near the set point
 		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
 		prodPower_incLevel=300		--minimum production power to increment level
 		prodPower_incLevel2=1000	--minimum production power to increment level by 2
@@ -194,7 +194,7 @@ else
 	end
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
 	rhMax=0		-- max value of relative humidity
-	rhMax=70    -- DEBUG: force RH to a high value to force dehumidification
+	-- rhMax=70    -- DEBUG: force RH to a high value to force dehumidification
 
 	zonesOn=0	-- number of zones that are ON
 	SPOffset=0	-- offset on setpoint
@@ -410,17 +410,47 @@ updateValves()
 -- now check heaters and dehumidifiers in DEVauxlist...
 -- devLevel for DEVauxlist is the same as DEVlist -- if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
 if (uservariables['HeatPumpSummer']==1) then devCond=8 else devCond=5 end	-- devCond = field that contains the device name for condition used to switch ON/OFF device
-if (levelOld==HP['Level']) then
-	-- level was not changed: parse DEVauxlist to check if anything should be enabled or disabled
-	-- if level has changed, don't enable/disable aux devices because the measured prodPower may change 
-	for n,v in pairs(DEVauxlist) do
-		if (otherdevices[ v[devCond] ]~=nil) then
-			if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
-	
-			if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
-				deviceOff(v[1],'a'..n)
+
+-- prodPower=950 --DEBUG: force device activation even if no power is available
+
+-- Parse DEVauxlist to check if anything should be enabled or disabled
+-- If heat pump level has changed, don't enable/disable aux devices because the measured prodPower may change 
+for n,v in pairs(DEVauxlist) do
+	if (otherdevices[ v[devCond] ]~=nil) then
+		if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
+		-- check timeout, if defined
+		auxTimeout=0
+		auxMaxTimeout=1440
+		if (v[11]~=nil and v[11]>0) then
+			-- max timeout defined => check that device has not reached the working time = max timeout in minutes
+			auxMaxTimeout=v[11]
+			checkVar('Timeout_'..v[1],0,0) -- check that uservariable at1 exists, else create it with type 0 (integer) and value 0
+			auxTimeout=uservariables['Timeout_'..v[1]]
+			if (otherdevices[ v[1] ]~='Off') then
+				-- device is actually on => increment timeout
+				auxTimeout=auxTimeout+1
+				commandArray['Variable:Timeout_'..v[1]]=tostring(auxTimeout)
+				if (auxTimeout>=v[11]) then
+					-- timeout reached -> send notification and stop device
+					deviceOff(v[1],'a'..n)
+					log(TELEGRAM_LEVEL,"Timeout reached for "..v[1]..": device was stopped")
+				end
+			end
+		end
+		-- change state only if previous heatpump level match the current one (during transitions from a power level to another, power consumption changes)
+		if (levelOld==HP['Level']) then
+			if (otherdevices[ v[1] ]~='Off') then
+				-- device is ON
+				if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
+					deviceOff(v[1],'a'..n)
+					prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
+				end
 			else
-				deviceOn(v[1],'a'..n)
+				-- device is OFF
+				if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1]) then
+					deviceOn(v[1],'a'..n)
+					prodPower=prodPower-v[4] 	-- update prodPower
+				end
 			end
 		end
 	end

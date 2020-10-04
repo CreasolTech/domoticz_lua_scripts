@@ -500,7 +500,6 @@ for devName,devValue in pairs(devicechanged) do
 				  		-- turn ON/OFF LEDs in bedroom
 						if (otherdevices['Light_Night_Led']=='Off') then
 							commandArray['Light_Night_Led']='On FOR 20 MINUTES'
-							commandArray['Led_Camera_White']='On FOR 20 MINUTES'
 						else
 							commandArray['Light_Night_Led']='Off'
 							commandArray['Led_Camera_White']='Off'
