@@ -114,6 +114,7 @@ else
 end
 
 levelOld=HP['Level']	-- save previous level
+diffMax=0
 checkVar('HeatPumpSummer',0,0)
 checkVar('HeatPumpWinter',0,0)
 
@@ -172,7 +173,7 @@ else
 		zone_weight=ZONE_WINTER_WEIGHT
 		level_max=LEVEL_WINTER_MAX -- max value for HP['Level']
 		-- heating enable when usage power > 500 watt only if room temperature is distant from the set point (temperature < setpoint - 0.4)
-	 	diffMaxHigh_value=0.3	-- if diffMax<diffMaxHigh_value, temperature is near the set point
+	 	diffMaxHigh_value=0.4	-- if diffMax<diffMaxHigh_value, temperature is near the set point
 		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
 		prodPower_incLevel=300		--minimum production power to increment level
 		prodPower_incLevel2=1000	--minimum production power to increment level by 2
@@ -289,8 +290,17 @@ else
 	-- Also, I have to consider the availability of power from photovoltaic
 	if (otherdevices[powerMeter]~=nil) then
 		-- power meter exists, returning value "usagePower;totalEnergy"
-		
-		log(E_INFO,"currentPower:"..usagePower.."W")
+	
+		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
+			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
+			for p in otherdevices[inverterMeter]:gmatch("[^;]+") do
+				inverterPower=p
+				break
+			end
+			log(E_INFO,"currentPower:"..usagePower.."W  From PV:"..inverterPower.."W")
+		else
+			log(E_INFO,"currentPower:"..usagePower.."W")
+		end
 		-- Level indicate how much power the heating/cooling system can use, for example:
 		-- Level 1 => dehumidifier ON (HeatPump ON, Ventilation ON, Ventilation chiller ON
 		-- Level 2 => + radiant system ON
@@ -303,16 +313,22 @@ else
 			incLevel()
 		end
 		
+		if (minutesnow<timeofday['SunriseInMinutes']+180 and diffMax<diffMaxHigh_value) then 
+			-- in the morning, if temperature is not so distant from the setpoint, try to not consume from the grid
+			diffMaxHigh_power=0 
+		end
 		if (diffMax>0) then
 			-- must heat/cool!
 			if (prodPower>prodPower_incLevel) then
+				-- more available power => increment level
 				if (HP['Level']<level_max) then
 					incLevel()
 					if (prodPower>prodPower_incLevel2 and HP['Level']<level_max) then
 						incLevel()
 					end
 				end	
-			elseif (usagePower>diffMaxHigh_power) then -- if heatpump is consuming energy from grid (>500 during Winter or >200 during Summer)
+			else
+				-- low or no power from PV
 				-- if setpoint is much distant from actual temperature, and we're operating in "warm" hours, enable FANCOIL mode (higher temperature)
 				if (diffMax>diffMaxHigh_value) then
 					-- no power from photovoltaic, but temperature is far from setpoint
@@ -324,7 +340,7 @@ else
 					if (uservariables['HeatPumpWinter']==1 and HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes'])) then
 						incLevel()
 					end
-				else  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
+				elseif ((HP['Level']>1 or (minutesnow<timeofday['SunsetInMinutes']-240)) and usagePower>diffMaxHigh_power)  then  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
 					decLevel()
 				end
 			end
@@ -395,23 +411,21 @@ end
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
 for n,v in pairs(DEVlist) do
-	-- n=table index
-	-- v={deviceName, winterLevel, summerLevel}
-	if (HP['Level']>=v[devLevel]) then
-		-- this device has a level <= of current level => enable it
-		deviceOn(v[1],n)
-	else
-		-- this device has a level > of current level => disable it
-		deviceOff(v[1],n)
-	end
+-- n=table index
+-- v={deviceName, winterLevel, summerLevel}
+if (HP['Level']>=v[devLevel]) then
+	-- this device has a level <= of current level => enable it
+	deviceOn(v[1],n)
+else
+	-- this device has a level > of current level => disable it
+	deviceOff(v[1],n)
+end
 end
 updateValves()	
 
 -- now check heaters and dehumidifiers in DEVauxlist...
 -- devLevel for DEVauxlist is the same as DEVlist -- if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
 if (uservariables['HeatPumpSummer']==1) then devCond=8 else devCond=5 end	-- devCond = field that contains the device name for condition used to switch ON/OFF device
-
--- prodPower=950 --DEBUG: force device activation even if no power is available
 
 -- Parse DEVauxlist to check if anything should be enabled or disabled
 -- If heat pump level has changed, don't enable/disable aux devices because the measured prodPower may change 
@@ -457,7 +471,7 @@ for n,v in pairs(DEVauxlist) do
 end
 
 -- save variables
-log(E_INFO,'Level='..HP['Level']..' HPout='..otherdevices[tempHPout]..' HPin='..otherdevices[tempHPin]..' HPLimit='..tempFluidLimit..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' HPout='..otherdevices[tempHPout]..' HPin='..otherdevices[tempHPin]..' HPLimit='..tempFluidLimit..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
 commandArray['Variable:zHeatPump']=json.encode(HP)
 
 ::mainEnd::

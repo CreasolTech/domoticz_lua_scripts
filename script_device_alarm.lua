@@ -302,13 +302,19 @@ end
 
 function ZAinit()
     if (ZA==nil) then ZA={} end
-    if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=os.time() end
-    if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=os.time() end
-	if (ZA['ALARM_Button1']==nil) then ZA['ALARM_Button1']=os.time() end
-	if (ZA['ALARM_ButtonSU']==nil) then ZA['ALARM_ButtonSU']=os.time() end
-	if (ZA['ALARM_ButtonCO']==nil) then ZA['ALARM_ButtonCO']=os.time() end
+    if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=os.time() end		--time when PIR_G has been activated and video recording started
+    if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=os.time() end	--time when PIR_SE has been activated and video recording started
+    if (ZA['PIR_SEn']==nil) then ZA['PIR_SEn']=0 end			--number of video recordings due to PIR_SE activations
+	if (ZA['Button1']==nil) then ZA['Button1']=os.time() end	--time the Button1 has been pushed
+	if (ZA['ButtonSU']==nil) then ZA['ButtonSU']=os.time() end	--time the ButtonSU has been pushed
+	if (ZA['ButtonCO']==nil) then ZA['ButtonCO']=os.time() end	--time the ButtonCO has been pushed
 end
 
+function grabVideoSE()  -- grab a video when PIR_SE has been activated
+	ZA['PIR_SEn']=ZA['PIR_SEn']+1	-- increment variable that count the number of videos grabbed
+	ZA['PIR_SEs']=os.time()			-- set the time of the current video
+	os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_SudEst 2>&1 >/tmp/alarm_sendsnapshot_sud.log &")
+end
 
 --[[
 Variables:
@@ -451,16 +457,27 @@ for devName,devValue in pairs(devicechanged) do
 				end
 				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
-			if (devName=='PIR_SudEst' and (os.time()-ZA['PIR_SEs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+			if (devName=='PIR_SudEst') then
 				if (timeofday['Nighttime']) then
 					if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
 					if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
 				end
+				-- grab video only if South port has not been opened
 				if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Sud_Porta']~='Open' and timedifference(otherdevices_lastupdate['MCS_Sud_Porta'])>600 ) then
-					-- don't take video os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_SudEst 2>&1 >/tmp/alarm_sendsnapshot_sud.log &")
-					ZA['PIR_SEs']=os.time()
+					diffTime=(os.time()-ZA['PIR_SEs']) -- seconds from last video
+					-- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+					-- grab max 2 consecutive videos, with minimum 30s of delay
+					-- then wait that device stays stable OFF for at least 30 minutes
+					if (diffTime>=30 and ZA['PIR_SEn']<2) then
+						-- at least 30s, needed to grab a video
+						grabVideoSE()
+					elseif (timedifference(otherdevices_lastupdate['PIR_SudEst'])>1800) then
+						ZA['PIR_SEn']=0
+						grabVideoSE()
+					end
 				end
-				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
+				-- activate display, but only if alarm is not active (it's useless to activate display if nobody is home)
+				if (otherdevices['Display_Lab_12V']~='On' and alarmLevel<ALARM_NIGHT) then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
 		end		
 	elseif (devName:sub(1,6)=='TAMPER') then 
@@ -486,13 +503,13 @@ for devName,devValue in pairs(devicechanged) do
 			end
 		end
 	elseif (devName:sub(1,5)=='ALARM') then
-		if (devName=='ALARM_Button1') then
+		if (devName:sub(7)=='Button1') then
 			-- 1 short pulse => set alarmLevel to ALARM_NIGHT
 			-- 1 long pulse  => set alarmLevel to ALARM_OFF
 			if (devValue=='Off') then
 				-- compute pulse length
-				pulseLen=os.time()-ZA[devName]	-- ZA['ALARM_Button'] contains the date/time when pushbutton has been pushed
-				print("ALARM_Button hold for "..pulseLen.." seconds")
+				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
+				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
 					
 					-- else set alarmLevel=ALARM_NIGHT
@@ -517,15 +534,15 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				-- pushbutton just pushed => record the current time
-				ZA[devName]=os.time()
+				ZA[devName:sub(7)]=os.time()
 			end		
-		elseif (devName=='ALARM_ButtonCO') then
+		elseif (devName:sub(7)=='ButtonCO') then
 			-- 1 short pulse => set alarmLevel to ALARM_NIGHT
 			-- 1 long pulse  => set alarmLevel to ALARM_OFF
 			if (devValue=='Off') then
 				-- compute pulse length
-				pulseLen=os.time()-ZA[devName]	-- ZA['ALARM_Button'] contains the date/time when pushbutton has been pushed
-				print("ALARM_Button hold for "..pulseLen.." seconds")
+				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
+				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
 					if (alarmLevel==ALARM_NIGHT) then 
 				  		-- turn ON/OFF LEDs in bedroom
@@ -547,15 +564,15 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				-- pushbutton just pushed => record the current time
-				ZA[devName]=os.time()
+				ZA[devName:sub(7)]=os.time()
 			end
-		elseif (devName=='ALARM_ButtonSU') then
+		elseif (devName:sub(7)=='ButtonSU') then
 			-- 1 short pulse => disable alarm
 			-- 1 long pulse 5s => start siren
 			if (devValue=='Off') then
 				-- compute pulse length
-				pulseLen=os.time()-ZA[devName]	-- ZA['ALARM_Button'] contains the date/time when pushbutton has been pushed
-				print("ALARM_Button hold for "..pulseLen.." seconds")
+				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
+				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
 					alarmLevel=ALARM_OFF
 					if (otherdevices_scenesgroups['AlarmDay']=='On') then
@@ -573,7 +590,7 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				-- pushbutton just pushed => record the current time
-				ZA[devName]=os.time()
+				ZA[devName:sub(7)]=os.time()
 			end
 		else
 			for item,otherRow in pairs(ALARM_OTHERlist) do

@@ -14,6 +14,7 @@ OVERCOOL=-0.5						-- Decrease temperature setpoint in case of available power f
 
 gasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: not supported yet
 powerMeter='PowerMeter'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
+inverterMeter='kWh Meter Inverter 1'	-- Inverter output power (photovoltaic). Set to '' if not available
 tempHPout='Temp_HeatPumpFluidOut' 	-- Temperature of water produced by heat pump (before entering coils or underfloor radiant system)
 tempHPin= 'Temp_HeatPumpFluidIn'	-- Temperature of water that exits from coils and/or underfloor radiant system, and gets into the Heat Pump again
 tempOutdoor='Meteo outdoor'			-- Temperature outdoor, or meteo sensor ("temp;humidity;pression;0")
@@ -51,7 +52,8 @@ DEVauxlist={
 	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes
 	{'Dehumidifier_Camera',			2,			2,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
 	{'Dehumidifier_Camera_Ospiti',	2,			2,				30000,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
-	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		480},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
+	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	65,		'RH_Cantina',         		1,  60,		480},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
+	{'Bagno_Scaldasalviette',		3,			100,			450,	'Temp_Bagno',				0,	22,		'Temp_Bagno',				0,	20,		0},	-- Electric heater in bathroom
 }
 
 -- heat pump working level
