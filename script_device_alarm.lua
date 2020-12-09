@@ -45,6 +45,26 @@ end
 ------------------------------------- changed device is MCS,PIR,TAMPER,SIREN or ALARM* ---------------------------------
 dofile "scripts/lua/alarm_config.lua"
 
+-- Function called when alarm is activated in Day mode
+function alarmDayOn()
+	commandArray['Group:AlarmDay']='On'
+	for i,ledDev in pairs(LEDS_ON) do
+		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
+			commandArray[ledDev]='On FOR 3 SECONDS'
+		end
+	end
+end
+
+-- Function called when alarm is disactivated
+function alarmDayOff()
+	commandArray['Group:AlarmDay']='Off'
+	for i,ledDev in pairs(LEDS_OFF) do
+		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
+			commandArray[ledDev]='On FOR 3 SECONDS'
+		end
+	end
+end
+
 -- Function called when alarm is activated in Night mode
 function alarmNightOn()
 	commandArray['Group:AlarmNight']='On'
@@ -458,26 +478,33 @@ for devName,devValue in pairs(devicechanged) do
 				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
 			if (devName=='PIR_SudEst') then
-				if (timeofday['Nighttime']) then
-					if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
-					if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
+				-- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
+				for str in otherdevices['Rain']:gmatch("[^;]+") do
+					rainRate=tonumber(str);
+					break
 				end
-				-- grab video only if South port has not been opened
-				if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Sud_Porta']~='Open' and timedifference(otherdevices_lastupdate['MCS_Sud_Porta'])>600 ) then
-					diffTime=(os.time()-ZA['PIR_SEs']) -- seconds from last video
-					-- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
-					-- grab max 2 consecutive videos, with minimum 30s of delay
-					-- then wait that device stays stable OFF for at least 30 minutes
-					if (diffTime>=30 and ZA['PIR_SEn']<2) then
-						-- at least 30s, needed to grab a video
-						grabVideoSE()
-					elseif (timedifference(otherdevices_lastupdate['PIR_SudEst'])>1800) then
-						ZA['PIR_SEn']=0
-						grabVideoSE()
+				if (rainRate<1*40) then -- ignore PIR if it's raining! 1mm/h
+					if (timeofday['Nighttime']) then
+						if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
+						if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
 					end
+					-- grab video only if South port has not been opened
+					if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Sud_Porta']~='Open' and timedifference(otherdevices_lastupdate['MCS_Sud_Porta'])>600 ) then
+						diffTime=(os.time()-ZA['PIR_SEs']) -- seconds from last video
+						-- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+						-- grab max 2 consecutive videos, with minimum 30s of delay
+						-- then wait that device stays stable OFF for at least 30 minutes
+						if (diffTime>=30 and ZA['PIR_SEn']<2) then
+							-- at least 30s, needed to grab a video
+							grabVideoSE()
+						elseif (timedifference(otherdevices_lastupdate['PIR_SudEst'])>1800) then
+							ZA['PIR_SEn']=0
+							grabVideoSE()
+						end
+					end
+					-- activate display, but only if alarm is not active (it's useless to activate display if nobody is home)
+					if (otherdevices['Display_Lab_12V']~='On' and alarmLevel<ALARM_NIGHT) then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 				end
-				-- activate display, but only if alarm is not active (it's useless to activate display if nobody is home)
-				if (otherdevices['Display_Lab_12V']~='On' and alarmLevel<ALARM_NIGHT) then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
 		end		
 	elseif (devName:sub(1,6)=='TAMPER') then 
@@ -566,31 +593,20 @@ for devName,devValue in pairs(devicechanged) do
 				-- pushbutton just pushed => record the current time
 				ZA[devName:sub(7)]=os.time()
 			end
-		elseif (devName:sub(7)=='ButtonSU') then
-			-- 1 short pulse => disable alarm
-			-- 1 long pulse 5s => start siren
-			if (devValue=='Off') then
-				-- compute pulse length
-				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
-				print("Button hold for "..pulseLen.." seconds")
-				if (pulseLen<=1) then
-					alarmLevel=ALARM_OFF
-					if (otherdevices_scenesgroups['AlarmDay']=='On') then
-						commandArray['Group:AlarmDay']='Off'
-					end
-					if (otherdevices_scenesgroups['AlarmNight']=='On') then
-						commandArray['Group:AlarmNight']='Off'
-					end
-					if (otherdevices_scenesgroups['AlarmAway']=='On') then
-						commandArray['Group:AlarmDay']='Off'
-					end
-				elseif (pulseLen>=5 and pulseLen<=8) then
-					-- long pulse => start siren
-					print('TODO: start siren')
+		elseif (devName:sub(7)=='ButtonPC') then
+			--twinbutton configured as selector switch
+			print("ButtonPC="..devValue)
+			if (devValue=='Down') then
+				alarmLevel=ALARM_OFF
+				if (otherdevices_scenesgroups['AlarmNight']=='On') then
+					commandArray['Group:AlarmNight']='Off'
 				end
-			else
-				-- pushbutton just pushed => record the current time
-				ZA[devName:sub(7)]=os.time()
+				if (otherdevices_scenesgroups['AlarmAway']=='On') then
+					commandArray['Group:AlarmDay']='Off'
+				end
+				alarmDayOff()
+			elseif (devValue=='Up') then
+				alarmDayOn()
 			end
 		else
 			for item,otherRow in pairs(ALARM_OTHERlist) do

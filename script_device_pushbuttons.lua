@@ -86,16 +86,19 @@ end
 -- loop through all the changed devices
 for devName,devValue in pairs(devicechanged) do
 	if (debug > 0) then print('EVENT: devname="'..devName..'" and value='..devValue) end
-	if (devName:sub(1,7)=='esplab_' and devName:sub(1,10)~='esplab_Out') then
+	if (devName:sub(1,7)=='esplab_' and devName:sub(1,10)~='esplab_Out' and devName:sub(1,11)~='esplab_AnIn') then
 		-- esp lab used to test creDomESP1 boards
 		-- if all inputs are 1, activate relays outputs
-		if (otherdevices['esplab_In1']=='On' and otherdevices['esplab_In3']=='On' and otherdevices['esplab_SCL']=='On' and otherdevices['esplab_SDA']=='On' and otherdevices['esplab_1wire']=='On') then
+		print("Device "..devName.." = "..devValue)
+		if (otherdevices['esplab_SCL']=='On' and otherdevices['esplab_SDA']=='On' and otherdevices['esplab_1wire']=='On') then
+			print("*** ESPLAB ON ***")
 			commandArray['esplab_Out1']='On'
 			commandArray['esplab_Out2']='On'
 			commandArray['esplab_Out3']='On'
 			commandArray['esplab_Out4']='On'
 			commandArray['esplab_OutSSR']='On'
-		elseif (otherdevices['esplab_In1']=='Off' and otherdevices['esplab_In3']=='Off' and otherdevices['esplab_SCL']=='Off' and otherdevices['esplab_SDA']=='Off' and otherdevices['esplab_1wire']=='Off') then
+		elseif (otherdevices['esplab_SCL']=='Off' and otherdevices['esplab_SDA']=='Off' and otherdevices['esplab_1wire']=='Off') then
+			print("*** ESPLAB OFF ***")
 			commandArray['esplab_Out1']='Off'
 			commandArray['esplab_Out2']='Off'
 			commandArray['esplab_Out3']='Off'
@@ -104,28 +107,28 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 
-	if (devName:sub(1,10)=='domtest_IN') then
+	if (devName:sub(1,19)=='dombus - [Hff01] IN') then
 		-- esp lab used to test creDomESP1 boards
 		-- if all inputs are 1, activate relays outputs
 		local bitmask=0
-		if (otherdevices['domtest_IN1']=='Off') then bitmask=bitmask+1; end
-		if (otherdevices['domtest_IN2']=='Off') then bitmask=bitmask+2; end
-		if (otherdevices['domtest_IN3']=='Off') then bitmask=bitmask+4; end
-		if (otherdevices['domtest_IN4']=='Off') then bitmask=bitmask+8; end
-		if (otherdevices['domtest_IN5']=='Off') then bitmask=bitmask+16; end
-		if (otherdevices['domtest_IN6']=='Off') then bitmask=bitmask+32; end
+		if (otherdevices['dombus - [Hff01] IN1']=='Off') then bitmask=bitmask+1; end
+		if (otherdevices['dombus - [Hff01] IN2']=='Off') then bitmask=bitmask+2; end
+		if (otherdevices['dombus - [Hff01] IN3']=='Off') then bitmask=bitmask+4; end
+		if (otherdevices['dombus - [Hff01] IN4']=='Off') then bitmask=bitmask+8; end
+		if (otherdevices['dombus - [Hff01] IN5']=='Off') then bitmask=bitmask+16; end
+		if (otherdevices['dombus - [Hff01] IN6']=='Off') then bitmask=bitmask+32; end
 
 		print(string.format('INPUT MASK=0x%02x',bitmask))
-		if (otherdevices['domtest_IN1']=='Off' and otherdevices['domtest_IN2']=='Off' and otherdevices['domtest_IN3']=='Off' and otherdevices['domtest_IN4']=='Off' and otherdevices['domtest_IN5']=='Off' and otherdevices['domtest_IN6']=='Off') then
-			commandArray['domtest_OUT1']='On AFTER 1'
-			commandArray['domtest_OUT2']='On AFTER 2'
-			commandArray['domtest_OUT3']='On AFTER 3'
---			commandArray['domtest_SSR']='On AFTER 4'
-		elseif (otherdevices['domtest_IN1']=='On' and otherdevices['domtest_IN2']=='On' and otherdevices['domtest_IN3']=='On' and otherdevices['domtest_IN4']=='On' and otherdevices['domtest_IN5']=='On' and otherdevices['domtest_IN6']=='On') then
-			commandArray['domtest_OUT1']='Off'
-			commandArray['domtest_OUT2']='Off'
-			commandArray['domtest_OUT3']='Off'
---			commandArray['domtest_SSR']='Off'
+		if (bitmask==0x3f) then
+			commandArray['dombus - [Hff01] OUT1 Relay']='On AFTER 1'
+			commandArray['dombus - [Hff01] OUT2 Relay']='On AFTER 2'
+			commandArray['dombus - [Hff01] OUT3 Relay/SSR']='On AFTER 3'
+--			commandArray['dombus - [Hff01] SSR']='On AFTER 4'
+		elseif (bitmask==0x00) then
+			commandArray['dombus - [Hff01] OUT1 Relay']='Off'
+			commandArray['dombus - [Hff01] OUT2 Relay']='Off'
+			commandArray['dombus - [Hff01] OUT3 Relay/SSR']='Off'
+--			commandArray['dombus - [Hff01] SSR']='Off'
 		end
 	end
 

@@ -149,10 +149,13 @@ tempFluidLimit=25	-- initialize value to avoid any error
 -- Also, I have to consider the availability of power from photovoltaic
 if (otherdevices[powerMeter]~=nil) then
 	-- power meter exists, returning value "usagePower;totalEnergy"
+	--[[
 	for str in otherdevices[powerMeter]:gmatch("[^;]+") do
 		usagePower=tonumber(str)
 		break
 	end
+	]]
+	usagePower=uservariables['avgPower']	-- use the average power instead of instant power!
 else 
 	usagePower=500 -- power meter does not exist: set usagePower to 500W by default
 end
@@ -173,7 +176,9 @@ else
 		zone_weight=ZONE_WINTER_WEIGHT
 		level_max=LEVEL_WINTER_MAX -- max value for HP['Level']
 		-- heating enable when usage power > 500 watt only if room temperature is distant from the set point (temperature < setpoint - 0.4)
-	 	diffMaxHigh_value=0.4	-- if diffMax<diffMaxHigh_value, temperature is near the set point
+	 	diffMaxHigh_value=0.3	-- if diffMax<diffMaxHigh_value, temperature is near the set point
+		if (timenow.hour < 12) then diffMaxHigh_value=diffMaxHigh_value+0.2 end
+
 		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
 		prodPower_incLevel=300		--minimum production power to increment level
 		prodPower_incLevel2=1000	--minimum production power to increment level by 2
@@ -275,8 +280,9 @@ else
 		end
 	end
 	
-	diffMax=diffMax*coeff
-	log(E_INFO,'Time of day coeff='..coeff..' diffMax='..diffMax..' RHMax='..rhMax)
+	diffMaxValue=diffMax	-- difference between setpoint and real temperature
+	diffMax=diffMax*coeff	-- diffMaxValue * weight that depends by time of the day
+	log(E_INFO,'diffMaxValue='..diffMaxValue..' diffMax='..diffMax..' coeff='..coeff..' RHMax='..rhMax)
 
 	-- check outdoorTemperature
 	outdoorTemperature=string.gsub(otherdevices[tempOutdoor],';.*','')
@@ -290,17 +296,18 @@ else
 	-- Also, I have to consider the availability of power from photovoltaic
 	if (otherdevices[powerMeter]~=nil) then
 		-- power meter exists, returning value "usagePower;totalEnergy"
-	
+		-- Also, script_device_power.lua is writing the user variable avgPower with average consumed power in the minute
 		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
 			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
 			for p in otherdevices[inverterMeter]:gmatch("[^;]+") do
 				inverterPower=p
 				break
 			end
-			log(E_INFO,"currentPower:"..usagePower.."W  From PV:"..inverterPower.."W")
+			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W From PV:"..inverterPower.."W")
 		else
-			log(E_INFO,"currentPower:"..usagePower.."W")
+			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W")
 		end
+
 		-- Level indicate how much power the heating/cooling system can use, for example:
 		-- Level 1 => dehumidifier ON (HeatPump ON, Ventilation ON, Ventilation chiller ON
 		-- Level 2 => + radiant system ON
@@ -332,13 +339,20 @@ else
 				-- if setpoint is much distant from actual temperature, and we're operating in "warm" hours, enable FANCOIL mode (higher temperature)
 				if (diffMax>diffMaxHigh_value) then
 					-- no power from photovoltaic, but temperature is far from setpoint
+					--[[
 					-- increase level to level_max-1
 					if (HP['Level']<(level_max-1)) then
 						incLevel(); 
 					end
+					]]
 					-- in winter mode, during the day, increase again the level (it's better to use heatpump during the day than during the night!)
-					if (uservariables['HeatPumpWinter']==1 and HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes'])) then
-						incLevel()
+					if (uservariables['HeatPumpWinter']==1) then
+						if (HP['Level']<1) then
+							incLevel()
+						end
+						if (HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes'])) then
+							incLevel()
+						end
 					end
 				elseif ((HP['Level']>1 or (minutesnow<timeofday['SunsetInMinutes']-240)) and usagePower>diffMaxHigh_power)  then  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
 					decLevel()
@@ -350,7 +364,7 @@ else
 				tempFluidLimit=30
 				-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
 				if (HP['otmin']<10) then -- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
-					tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/2 --30°C if min outdoor temp = 10°C, 40°C if min outodor temp = -10°C
+					tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/1.5 --30°C if min outdoor temp = 10°C, 40°C if min outodor temp = -5°C
 				end
 				-- also, regulate fluid temperature in base of of DeltaT
 				tempFluidLimit=tempFluidLimit+diffMax*2
@@ -383,11 +397,21 @@ else
 
 			-- regulate fluid tempeature in case of max Level 
 			if (uservariables['HeatPumpWinter']==1) then
-				if ((HP['Level']>=level_max and tonumber(otherdevices[tempHPout])>tempFluidLimit)) then
-					log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
-					while (HP['Level']>=3) do decLevel() end
+				-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
+				-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
+				-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
+				if ((HP['Level']>=LEVEL_WINTER_FANCOIL and (tonumber(otherdevices[tempHPout])>tempFluidLimit-1))) then
+					-- fluid temperature > tempFluidLimit => assure that heatpump power is low
+					if (HP['Level']>LEVEL_WINTER_FANCOIL) then
+						decLevel()
+					end
+					if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
+						log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
+						while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
+					end
 				end
 			else -- Summer
+				-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
 				if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
 					log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
 					while (HP['Level']>=3) do decLevel() end
@@ -411,16 +435,41 @@ end
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
 for n,v in pairs(DEVlist) do
--- n=table index
--- v={deviceName, winterLevel, summerLevel}
-if (HP['Level']>=v[devLevel]) then
-	-- this device has a level <= of current level => enable it
-	deviceOn(v[1],n)
-else
-	-- this device has a level > of current level => disable it
-	deviceOff(v[1],n)
+	-- n=table index
+	-- v={deviceName, winterLevel, summerLevel}
+	if (v[devLevel]<=level_max) then -- ignore devices configured to have a very high level
+		if (HP['Level']>=v[devLevel]) then
+			-- this device has a level <= of current level => enable it
+			deviceOn(v[1],n)
+		else
+			-- this device has a level > of current level => disable it
+			deviceOff(v[1],n)
+		end
+	end
 end
+
+
+if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
+	-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMaxValue>=GHdiffMax
+	if (--[[HP['Level']==LEVEL_OFF and ]] minutesnow>=GHtimeMin and minutesnow<GHtimeMax and diffMaxValue>=GHdiffMax and outdoorTemperature<GHoutdoorTemperatureMax) then
+		HP['Level']=LEVEL_OFF	-- force heat pump off and use only gas heater, in the night
+		if (otherdevices[GasHeater]~='On') then
+			deviceOn(GasHeater,'GH')
+			-- enable devices that must be enabled when gas heater is On
+			for n,v in pairs(GHdevicesToEnable) do
+				commandArray[v]='On'
+			end
+		end
+	else
+		if (otherdevices[GasHeater]~='Off' and (HP['dGH']~=nil and HP['dGH']=='a')) then
+			deviceOff(GasHeater,'GH')
+			for n,v in pairs(GHdevicesToEnable) do
+				commandArray[v]='Off'
+			end
+		end
+	end
 end
+
 updateValves()	
 
 -- now check heaters and dehumidifiers in DEVauxlist...
@@ -470,8 +519,23 @@ for n,v in pairs(DEVauxlist) do
 	end
 end
 
+-- other customizations....
+-- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
+if (uservariables['HeatPumpSummer']==0) then
+	if (HP['Level']>LEVEL_OFF or outdoorTemperature<=8) then
+		if (otherdevices['Valve_Radiant_Coil']~='On') then
+			commandArray['Valve_Radiant_Coil']='On'
+		end
+	else
+		if (otherdevices['Valve_Radiant_Coil']~='Off') then
+			commandArray['Valve_Radiant_Coil']='Off'
+		end
+	end
+end
+
+
 -- save variables
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' HPout='..otherdevices[tempHPout]..' HPin='..otherdevices[tempHPin]..' HPLimit='..tempFluidLimit..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..otherdevices[GasHeater]..' HPout='..otherdevices[tempHPout]..' HPLimit='..tempFluidLimit..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
 commandArray['Variable:zHeatPump']=json.encode(HP)
 
 ::mainEnd::

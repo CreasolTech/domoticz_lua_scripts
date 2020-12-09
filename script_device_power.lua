@@ -80,6 +80,22 @@ function PowerInit()
 	if (Power['usage']==nil) then Power['usage']=0 end
 end	
 
+
+
+function setAvgPower() -- store in the user variable avgPower the building power usage
+	if (uservariables['avgPower']==nil) then
+		-- create a Domoticz variable, coded in json, within all variables used in this module
+		avgPower=currentPower
+		url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=avgPower&vtype=0&vvalue='..tostring(currentPower)
+		os.execute('curl "'..url..'"')
+		-- initialize variable
+	else
+		avgPower=uservariables['avgPower']
+	end
+	commandArray['Variable:avgPower']=tostring(math.floor((avgPower*14 + currentPower - Power['usage'] )/15)) -- average on 15*2s=30s
+end
+
+
 function getPower() -- extract the values coded in JSON format from domoticz zPower variable, into Power dictionary
 	if (Power==nil) then
 		-- check variable zPower
@@ -163,8 +179,6 @@ for devName,devValue in pairs(devicechanged) do
 			-- currentPower is good
 			getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
 
-			
-			log("currentPower="..currentPower.." Used_by_heaters="..Power['usage'])
 			-- update LED statuses
 			-- red led when power usage >=0 (1=>1000W, 2=>2000W, ...)
 			-- green led when power production >0 (1 if <1000W, 2 if <2000W, ...)
@@ -221,12 +235,12 @@ for devName,devValue in pairs(devicechanged) do
 						end
 					elseif (timenow.sec<=40 and currentPower<0) then
 						-- renewable sources are producing more than current consumption: activate extra loads
-						log("sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
+						-- log("sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
 						availablePower=0-currentPower
 						if (uservariables['HeatPumpWinter']==1) then
 							-- check electric heaters
 							for k,loadRow in pairs(Heaters) do
-								log("Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
+								-- log("Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
 								if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<availablePower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
 									-- enable this new load
 									log('Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
@@ -271,8 +285,11 @@ for devName,devValue in pairs(devicechanged) do
 			-- save variables in Domoticz, in a json variable Power
 			-- log("commandArray['Variable:zPower']="..json.encode(Power))
 			commandArray['Variable:zPower']=json.encode(Power)
+			setAvgPower()
+			log("currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
 		end
 	end
+
 
 	-- if blackout, turn on white leds in the building!
 	if (devName==blackoutDevice) then
