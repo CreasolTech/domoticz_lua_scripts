@@ -432,6 +432,43 @@ else
 	end
 end
 
+gasHeaterOn=0
+if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
+	-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMaxValue>=GHdiffMax
+	if (otherdevices[GasHeater]=='On') then
+		-- add some histeresys to prevent gas heater switching ON/OFF continuously
+		GHdiffMax=GHdiffMax-0.1
+		GHoutdoorTemperatureMax=GHoutdoorTemperatureMax+1
+	end
+	if (--[[HP['Level']==LEVEL_OFF and ]] minutesnow>=GHtimeMin and minutesnow<GHtimeMax and diffMaxValue>=GHdiffMax and outdoorTemperature<GHoutdoorTemperatureMax) then
+		HP['Level']=LEVEL_OFF	-- force heat pump off and use only gas heater, in the night
+		if (otherdevices[GasHeater]~='On') then
+			gasHeaterOn=1
+			deviceOn(GasHeater,'GH')
+			-- enable devices that must be enabled when gas heater is On
+			for n,v in pairs(GHdevicesToEnable) do
+				commandArray[v]='On'
+			end
+		end
+	else
+		if (otherdevices[GasHeater]~='Off' and (HP['dGH']~=nil and HP['dGH']=='a')) then
+			deviceOff(GasHeater,'GH')
+			gasHeaterOn=0
+			for n,v in pairs(GHdevicesToEnable) do
+				commandArray[v]='Off'
+			end
+		end
+	end
+	if (otherdevices[GasHeater]=='On') then
+		-- gas heater on by script, or forced ON by user => disable heat pump
+		gasHeaterOn=1
+		decLevel()
+		decLevel()
+		decLevel()
+		decLevel()
+	end
+end
+
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
 for n,v in pairs(DEVlist) do
@@ -444,28 +481,6 @@ for n,v in pairs(DEVlist) do
 		else
 			-- this device has a level > of current level => disable it
 			deviceOff(v[1],n)
-		end
-	end
-end
-
-
-if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
-	-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMaxValue>=GHdiffMax
-	if (--[[HP['Level']==LEVEL_OFF and ]] minutesnow>=GHtimeMin and minutesnow<GHtimeMax and diffMaxValue>=GHdiffMax and outdoorTemperature<GHoutdoorTemperatureMax) then
-		HP['Level']=LEVEL_OFF	-- force heat pump off and use only gas heater, in the night
-		if (otherdevices[GasHeater]~='On') then
-			deviceOn(GasHeater,'GH')
-			-- enable devices that must be enabled when gas heater is On
-			for n,v in pairs(GHdevicesToEnable) do
-				commandArray[v]='On'
-			end
-		end
-	else
-		if (otherdevices[GasHeater]~='Off' and (HP['dGH']~=nil and HP['dGH']=='a')) then
-			deviceOff(GasHeater,'GH')
-			for n,v in pairs(GHdevicesToEnable) do
-				commandArray[v]='Off'
-			end
 		end
 	end
 end
@@ -522,7 +537,7 @@ end
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 if (uservariables['HeatPumpSummer']==0) then
-	if (HP['Level']>LEVEL_OFF or outdoorTemperature<=8) then
+	if (HP['Level']>LEVEL_OFF or GasHeaterOn==1 or outdoorTemperature<=8) then
 		if (otherdevices['Valve_Radiant_Coil']~='On') then
 			commandArray['Valve_Radiant_Coil']='On'
 		end

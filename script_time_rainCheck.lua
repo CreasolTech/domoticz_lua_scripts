@@ -1,6 +1,6 @@
 -- control rain, wind, ....
-RAINDEV='Rain'
-WINDDEV='Wind'
+RAINDEV='Rain'		-- name of device that shows the rain rate/level
+WINDDEV='Wind'		-- name of device that shows the wind speed/gust
 commandArray={}
 
 -- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
@@ -9,7 +9,7 @@ for str in otherdevices[RAINDEV]:gmatch("[^;]+") do
 	break
 end
 
--- If it's raining, disable the 230V socket in the garden
+-- If it's raining more than 8mm/hour, disable the 230V socket in the garden
 dev='Prese_Giardino'
 if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
 	print("Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")

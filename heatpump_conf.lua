@@ -107,8 +107,8 @@ coeffArray={
 	-- [minutes since midnigth]=coeff  => value of coefficient from 0 or previous time, to this time. 
 	-- The coefficient is multiplied by temperature_difference and then compare with diffMax (0.3°C)
 	[180]=0.4,  -- 00:00 -> 02:00 => start pump if diffMax>=0.3/0.4=0.75C (really different temperature)
-	[300]=0.7,  -- 03:00 -> 05:00 => start pump if diffMax>=0.3/0.7=0.4C
-	[360]=0.9,  -- 05:00 -> 06:00 => start pump if diffMax>=0.3/0.9=0.33C
+	[300]=0.9,  -- 03:00 -> 05:00 => start pump if diffMax>=0.3/0.8=0.4C
+	[360]=0.4,  -- 05:00 -> 06:00 => start pump if diffMax>=0.3/0.9=0.75C  (gas heater will be ON)
 	[timeofday['SunriseInMinutes']+60]=0.5, -- 06:00 -> Sunrise+60min => stop pump
 	[480]=0.5,
 	[timeofday['SunsetInMinutes']-30]=1,    -- from Sunrise+60m or 08:00 -> Sunset-30 => coeff = 1
@@ -117,9 +117,9 @@ coeffArray={
 }
 
 -- GasHeater parameters
-GHdiffMax=0.4				-- activate gas heater, during the night, if difference between setpoint and temperature is >0.4°C
-GHoutdoorTemperatureMax=4	-- GasHeater disabled if outdoor temperature >= GHoutdoorTemperatureMax
-GHtimeMin=0					-- Minutes from midnight when GasHeater will be enabled
+GHdiffMax=0.6				-- activate gas heater, during the night, if difference between setpoint and temperature is >0.4°C
+GHoutdoorTemperatureMax=2	-- GasHeater disabled if outdoor temperature >= GHoutdoorTemperatureMax
+GHtimeMin=300				-- Minutes from midnight when GasHeater will be enabled
 GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 

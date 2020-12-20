@@ -448,6 +448,24 @@ for devName,devValue in pairs(devicechanged) do
 				end
 				break
 			end
+			-- custom features
+			-- if MCS_Garage_Porta_Pranzo or MCS_Garage_Porta_Magazzino, toggle on Light_Garage 
+			if (timeofday['Nighttime']) then
+				if (devName=='MCS_Garage_Porta_Pranzo' or devName=='MCS_Garage_Porta_Magazzino') then
+					if (otherdevices[devName]=='Open') then
+						if (otherdevices['Light_Garage']=='On') then
+							commandArray['Light_Garage']='Off'
+						else
+							commandArray['Light_Garage']='On FOR 3 minutes'
+						end
+					else
+						-- door has been closed
+						if (timedifference(otherdevices_lastupdate[devName])>=10 and otherdevices['Light_Garage']=='On') then
+							commandArray['Light_Garage']='Off'
+						end
+					end
+				end
+			end
 		end
 	elseif (devName:sub(1,3)=='PIR') then 
 		for item,pirRow in pairs(PIRlist) do
