@@ -17,7 +17,7 @@ end
 
 function setMinutesOff()
 --	commandArray['Variable:vNightLightsOff']=timeofday['SunriseInMinutes']-math.random(20, 40) -- after 5.30 switch lights off, even in the Winter
-	newvalue= math.min(timeofday['SunriseInMinutes'], 330) - math.random(20,45) -- after 5.30 switch lights off, even in the Winter
+	newvalue= math.min(timeofday['SunriseInMinutes'], 360) - math.random(20,45) -- after 5.30 switch lights off, even in the Winter
 	-- telegramNotify('Night lights: will be OFF at ' .. min2hours(newvalue))
 	commandArray['Variable:vNightLightsOff'] = tostring(newvalue)
 

@@ -551,6 +551,7 @@ for devName,devValue in pairs(devicechanged) do
 		if (devName:sub(7)=='Button1') then
 			-- 1 short pulse => set alarmLevel to ALARM_NIGHT
 			-- 1 long pulse  => set alarmLevel to ALARM_OFF
+			-- 1 5s pulse => start external siren
 			if (devValue=='Off') then
 				-- compute pulse length
 				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
@@ -575,7 +576,7 @@ for devName,devValue in pairs(devicechanged) do
 					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
-					print("TODO")
+					commandArray['SIREN_External']='On for 5 minutes'
 				end
 			else
 				-- pushbutton just pushed => record the current time
@@ -605,7 +606,7 @@ for devName,devValue in pairs(devicechanged) do
 					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
-					print("TODO")
+					commandArray['SIREN_External']='On for 5 minutes'
 				end
 			else
 				-- pushbutton just pushed => record the current time

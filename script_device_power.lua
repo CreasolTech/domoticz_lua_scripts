@@ -31,10 +31,10 @@ blackoutDevice='Supply_HeatPump'	-- device used to monitor the 230V voltage. Off
 
 if (DEBUG>1) then
 	PowerThreshold={ --DEBUG values
-		1000,  	-- available power (Italy: power+10%)
-		1300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
+		2000,  	-- available power (Italy: power+10%)
+		2100,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
 		80,		-- send alert after 4800s (80minutes)
-		10		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
+		60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
 	}
 else
 	PowerThreshold={
@@ -46,13 +46,14 @@ else
 end
 
 PowerMeterAlerts={
-	{'PowerMeterBuzzer','Off','On'},
+	{'Display_Lab_12V','Off','On'},
+	{'Buzzer_Cucina2','Off','On'},
 }
 
 -- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)
 overloadDisconnect={ -- syntax: device name, command to disable, command to enable
-	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
 	{'HeatPump_FullPower','Off','On'},	-- heat pump, full power
+	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
 	{'HeatPump','Off','On'},			-- heat pump (general)
 	{'Irrigazione','Off','On'},			-- garden watering pump
 }
@@ -78,6 +79,7 @@ function PowerInit()
 	if (Power['th2Time']==nil) then Power['th2Time']=0 end
 	if (Power['above']==nil) then Power['above']=0 end
 	if (Power['usage']==nil) then Power['usage']=0 end
+	if (Power['disc']==nil) then Power['disc']=0 end
 end	
 
 
@@ -115,11 +117,16 @@ end
 
 function powerMeterAlert(on)
 	for k,pma in pairs(PowerMeterAlerts) do
-		if (on) then
-			log("Activate sould alert "..pma[1])
-			commandArray[pma[1]]=pma[3]
+		if (on~=0) then
+			if (otherdevices[ pma[1] ]~=pma[3]) then
+				log("Activate sould alert "..pma[1])
+				commandArray[ pma[1] ]=pma[3]
+			end
 		else
-			commandArray[pma[1]]=pma[2]
+			-- OFF command
+			if (otherdevices[ pma[1] ]~=pma[2]) then
+				commandArray[ pma[1] ]=pma[2]
+			end
 		end
 	end
 end
@@ -132,7 +139,7 @@ function scanHeaters()
 	for k,loadRow in pairs(Heaters) do
 		if (otherdevices[loadRow[1]]=='On') then
 			devAuto=0
-			devKey='Heater'..k
+			devKey='H'..k
 			if (Power[devKey]~=nil and Power[devKey]=='auto') then
 				devAuto=1
 				devOn=loadRow[1]
@@ -150,20 +157,31 @@ function scanHeaters()
 	end
 end
 
-function powerDisconnect(forced) 
-	-- disconnect the last device in Heater table, that is ON. Return 0 in case of no devices to be disconnected
+function powerDisconnect(forced,msg) 
+	-- disconnect the last device in Heater table, that is ON. Return 0 in case that no devices have been disconnected
 	scanHeaters()
 	if (devOn=='') then
-		-- TODO: try to disable overloadDisconnect devices
+		if (forced~=0) then
+			-- TODO: try to disable overloadDisconnect devices
+			for k,loadRow in pairs(overloadDisconnect) do
+				if (otherdevices[ loadRow[1] ]=='On') then
+					log(msg..': disconnect '..loadRow[1])
+					commandArray[ loadRow[1] ]=loadRow[2]
+					Power['disc']=os.time()
+					return 1
+				end
+			end
+		end
 		return 0
 	elseif (devAuto~=0 or forced~=0) then
-		log('disconnect '..devOn..' to save '..devPower..'W')
+		log(msg..': disconnect '..devOn..' to save '..devPower..'W')
 		commandArray[devOn]='Off'
 		Power[devKey]='off/man'
 		Power['usage']=Power['usage']-devPower
 		if (Power['usage']<0) then 
 			Power['usage']=0
 		end
+		Power['disc']=os.time()
 		return 1
 	end
 end
@@ -216,24 +234,28 @@ for devName,devValue in pairs(devicechanged) do
 				-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
 				Power['th1Time']=0
 				Power['th2Time']=0
---				currentPower=-1200
---				log('currentPower='..currentPower)
-				if (currentPower>toleratedUsagePower+100) then
+				--	currentPower=-1200
+				limit=toleratedUsagePower+100
+				if (currentPower>limit) then
 					-- disconnect only if power remains high for more than 5*2s
 					if (Power['above']>5) then 
-						powerDisconnect(0) 
+						--log("currentPower > toleratedUsagePower+100 for more than 5 minutes")
+						powerDisconnect(0,"currentPower>"..limit.." for more than 5 minutes") 
 						Power['above']=0
 					else
 						Power['above']=Power['above']+1
 					end
 				else
+					-- currentPower < 300W in Winter, and 0W in Summer
 					Power['above']=0
-					if (timenow.sec>=53 and currentPower>-600) then
-						-- if HeatPump is on, and HP['level']<LEVEL_MAX (heatpump fullpower == Off), disable electric heaters to permit script_time_heatpump.lua to increase heatpump power level
-						if (otherdevices['HeatPump_Fancoil']=='Off'  and Power['usage']-currentPower>800) then
-							powerDisconnect(0)
-						end
-					elseif (timenow.sec<=40 and currentPower<0) then
+					
+--					if (timenow.sec>=53 and currentPower>-600) then
+--						-- if HeatPump is on, and HP['level']<LEVEL_MAX (heatpump fullpower == Off), disable electric heaters to permit script_time_heatpump.lua to increase heatpump power level
+--						if (otherdevices['HeatPump_Fancoil']=='Off'  and Power['usage']-currentPower>800) then
+--							powerDisconnect(0)
+--						end
+--					elseif (timenow.sec<=40 and currentPower<0) then
+					if (timenow.sec<=40 and currentPower<0) then
 						-- renewable sources are producing more than current consumption: activate extra loads
 						-- log("sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
 						availablePower=0-currentPower
@@ -245,7 +267,7 @@ for devName,devValue in pairs(devicechanged) do
 									-- enable this new load
 									log('Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
 									commandArray[loadRow[1]]='On'
-									Power['Heater'..k]='auto'
+									Power['H'..k]='auto'
 									scanHeaters()
 									Power['usage']=Power['usage']+loadRow[2]
 									break
@@ -254,32 +276,43 @@ for devName,devValue in pairs(devicechanged) do
 						end	
 						--TODO: if a lower priority device is enabled, maybe it's possible to disable it and enable a higher priority device that needs more power tha lower priority device
 					end
+					powerMeterAlert(0)
 				end 
+				powerMeterAlert(0)
 			elseif (currentPower<PowerThreshold[2]) then
 				-- power consumption a little bit more than available power => long intervention time, before disconnecting
-				log("Power<PowerThreshold[2]")
+				time=(os.time()-Power['th1Time'])
+				log("Power>"..PowerThreshold[1].." for "..time.."s")
 				Power['th2Time']=0
 				if (Power['th1Time']==0) then
 					Power['th1Time']=os.time()
-				elseif ((os.time()-Power['th1Time'])>PowerThreshold[3]) then
+				elseif (time>PowerThreshold[3]) then
 					-- can I disconnect anything?
-					if (powerDisconnect(1)==0) then
+					time=os.time()-Power['disc']	-- disconnect devices every 50s
+					if (time>50 and powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
 						-- nothing to disconnect
 						powerMeterAlert(1)	-- send alert
+					else
+						powerMeterAlert(0)
 					end
 				end
 			else
-				log("Power>PowerThreshold[2]")
+				time=(os.time()-Power['th2Time'])
+				log("Power>"..PowerThreshold[2].." for "..time.."s")
 				if (Power['th2Time']==0) then
 					Power['th2Time']=os.time()
-				elseif ((os.time()-Power['th2Time'])>PowerThreshold[4]) then
+				elseif (time>PowerThreshold[4]) then
 					-- can I disconnect anything?
 					-- very high power consumption: short intervention time before power outage
-					if (powerDisconnect(1)==0) then
+					time=os.time()-Power['disc']	-- disconnect devices every 50s
+					if (time>20 and powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
 						-- nothing to disconnect
 						log("nothing to disconnect")
 						powerMeterAlert(1)  -- send alert
+					else
+						powerMeterAlert(0)
 					end
+
 				end
 			end	-- currentPower has a right value
 			-- save variables in Domoticz, in a json variable Power

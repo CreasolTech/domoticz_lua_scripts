@@ -7,10 +7,11 @@ TELEGRAM_IMPORTANT_CHATID="-1001192035046"
 TELEGRAM_TOKEN="671359246:AAG2v9DpxUpEla1ql0FiuGI1cRdEK7B7fzo"
 DOMOTICZ_URL="http://127.0.0.1:8080"	-- Domoticz URL (used to create variables using JSON URL
 TEMP_HISTERESIS=0.1
-TEMP_WINTER_HP_MAX=38				-- maximum fluid temperature from HP during the Winter
+TEMP_WINTER_HP_MAX=40				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
 OVERHEAT=1.0						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.5						-- Decrease temperature setpoint in case of available power from solar photovoltaic
+POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than 4500
 
 GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 powerMeter='PowerMeter'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)

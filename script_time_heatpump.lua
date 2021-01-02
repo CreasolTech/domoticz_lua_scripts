@@ -177,7 +177,7 @@ else
 		level_max=LEVEL_WINTER_MAX -- max value for HP['Level']
 		-- heating enable when usage power > 500 watt only if room temperature is distant from the set point (temperature < setpoint - 0.4)
 	 	diffMaxHigh_value=0.3	-- if diffMax<diffMaxHigh_value, temperature is near the set point
-		if (timenow.hour < 12) then diffMaxHigh_value=diffMaxHigh_value+0.2 end
+		if (timenow.hour < 10) then diffMaxHigh_value=diffMaxHigh_value+0.2 end
 
 		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
 		prodPower_incLevel=300		--minimum production power to increment level
@@ -325,97 +325,101 @@ else
 			diffMaxHigh_power=0 
 		end
 		if (diffMax>0) then
-			-- must heat/cool!
-			if (prodPower>prodPower_incLevel) then
-				-- more available power => increment level
-				if (HP['Level']<level_max) then
-					incLevel()
-					if (prodPower>prodPower_incLevel2 and HP['Level']<level_max) then
+			if (usagePower<POWER_MAX-1700) then
+				-- must heat/cool!
+				if (prodPower>prodPower_incLevel) then
+					-- more available power => increment level
+					if (HP['Level']<level_max) then
 						incLevel()
-					end
-				end	
-			else
-				-- low or no power from PV
-				-- if setpoint is much distant from actual temperature, and we're operating in "warm" hours, enable FANCOIL mode (higher temperature)
-				if (diffMax>diffMaxHigh_value) then
-					-- no power from photovoltaic, but temperature is far from setpoint
-					--[[
-					-- increase level to level_max-1
-					if (HP['Level']<(level_max-1)) then
-						incLevel(); 
-					end
-					]]
-					-- in winter mode, during the day, increase again the level (it's better to use heatpump during the day than during the night!)
-					if (uservariables['HeatPumpWinter']==1) then
-						if (HP['Level']<1) then
+						if (prodPower>prodPower_incLevel2 and HP['Level']<level_max) then
 							incLevel()
 						end
-						if (HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes'])) then
-							incLevel()
+					end	
+				else
+					-- low or no power from PV
+					-- if setpoint is much distant from actual temperature, and we're operating in "warm" hours, enable FANCOIL mode (higher temperature)
+					if (diffMax>diffMaxHigh_value) then
+						-- no power from photovoltaic, but temperature is far from setpoint
+						--[[
+						-- increase level to level_max-1
+						if (HP['Level']<(level_max-1)) then
+							incLevel(); 
 						end
-					end
-				elseif ((HP['Level']>1 or (minutesnow<timeofday['SunsetInMinutes']-240)) and usagePower>diffMaxHigh_power)  then  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
-					decLevel()
-				end
-			end
-			-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
-			if (uservariables['HeatPumpWinter']==1) then
-				-- make tempFluidLimit higher if rooms are cold
-				tempFluidLimit=30
-				-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
-				if (HP['otmin']<10) then -- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
-					tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/1.5 --30°C if min outdoor temp = 10°C, 40°C if min outodor temp = -5°C
-				end
-				-- also, regulate fluid temperature in base of of DeltaT
-				tempFluidLimit=tempFluidLimit+diffMax*2
-				-- if (diffMax<0.5) then tempFluidLimit=tempFluidLimit+0.5 end
-				-- if (diffMax<=0.2) then tempFluidLimit=tempFluidLimit+0.5 end
-				if (tempFluidLimit>TEMP_WINTER_HP_MAX) then
-					tempFluidLimit=TEMP_WINTER_HP_MAX
-				end
-			else
-				-- during the Summer
-				-- make tempFluidLimit lower if rooms are warm
-				tempFluidLimit=18
-				-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
-				if (outdoorTemperature>28) then
-					tempFluidLimit=tempFluidLimit-(outdoorTemperature-28)/3
-				end
-				-- also, regulate fluid temperature in base of of DeltaT
-				tempFluidLimit=tempFluidLimit-diffMax
-				-- if (diffMax<0.5) then tempFluidLimit=tempFluidLimit+0.5 end
-				-- if (diffMax<=0.2) then tempFluidLimit=tempFluidLimit+0.5 end
-				if (tempFluidLimit<TEMP_SUMMER_HP_MIN) then
-					tempFluidLimit=TEMP_SUMMER_HP_MIN
-				end
-			end
-
-			if (diffMax<=0.1 and HP['Level']>3) then 
-				log(E_INFO,"Rooms are almost in temperature: avoid high power levels")
-				decLevel() 
-			end		-- less power when rooms are in temperature
-
-			-- regulate fluid tempeature in case of max Level 
-			if (uservariables['HeatPumpWinter']==1) then
-				-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
-				-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
-				-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
-				if ((HP['Level']>=LEVEL_WINTER_FANCOIL and (tonumber(otherdevices[tempHPout])>tempFluidLimit-1))) then
-					-- fluid temperature > tempFluidLimit => assure that heatpump power is low
-					if (HP['Level']>LEVEL_WINTER_FANCOIL) then
+						]]
+						-- in winter mode, during the day, increase again the level (it's better to use heatpump during the day than during the night!)
+						if (uservariables['HeatPumpWinter']==1) then
+							if (HP['Level']<2) then
+								incLevel()
+							end
+							if (HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes']+120)) then
+								incLevel()
+							end
+						end
+					elseif ((HP['Level']>1 or (minutesnow<timeofday['SunsetInMinutes']-240)) and usagePower>diffMaxHigh_power)  then  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
 						decLevel()
 					end
-					if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
-						log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
-						while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
+				end
+				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
+				if (uservariables['HeatPumpWinter']==1) then
+					-- make tempFluidLimit higher if rooms are cold
+					tempFluidLimit=30
+					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
+					if (HP['otmin']<10) then -- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
+						tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/1.3 --30°C if min outdoor temp = 10°C, 40°C if min outodor temp = -3°C
+					end
+					-- also, regulate fluid temperature in base of of DeltaT
+					tempFluidLimit=tempFluidLimit+diffMax*2
+					-- if (diffMax<0.5) then tempFluidLimit=tempFluidLimit+0.5 end
+					-- if (diffMax<=0.2) then tempFluidLimit=tempFluidLimit+0.5 end
+					if (tempFluidLimit>TEMP_WINTER_HP_MAX) then
+						tempFluidLimit=TEMP_WINTER_HP_MAX
+					end
+				else
+					-- during the Summer
+					-- make tempFluidLimit lower if rooms are warm
+					tempFluidLimit=18
+					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
+					if (outdoorTemperature>28) then
+						tempFluidLimit=tempFluidLimit-(outdoorTemperature-28)/3
+					end
+					-- also, regulate fluid temperature in base of of DeltaT
+					tempFluidLimit=tempFluidLimit-diffMax
+					-- if (diffMax<0.5) then tempFluidLimit=tempFluidLimit+0.5 end
+					-- if (diffMax<=0.2) then tempFluidLimit=tempFluidLimit+0.5 end
+					if (tempFluidLimit<TEMP_SUMMER_HP_MIN) then
+						tempFluidLimit=TEMP_SUMMER_HP_MIN
 					end
 				end
-			else -- Summer
-				-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
-				if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
-					log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
-					while (HP['Level']>=3) do decLevel() end
+
+				if (diffMax<=0.1 and HP['Level']>3) then 
+					log(E_INFO,"Rooms are almost in temperature: avoid high power levels")
+					decLevel() 
+				end		-- less power when rooms are in temperature
+
+				-- regulate fluid tempeature in case of max Level 
+				if (uservariables['HeatPumpWinter']==1) then
+					-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
+					-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
+					-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
+					if ((HP['Level']>=LEVEL_WINTER_FANCOIL and (tonumber(otherdevices[tempHPout])>tempFluidLimit-1))) then
+						-- fluid temperature > tempFluidLimit => assure that heatpump power is low
+						if (HP['Level']>LEVEL_WINTER_FANCOIL) then
+							decLevel()
+						end
+						if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
+							log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
+							while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
+						end
+					end
+				else -- Summer
+					-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
+					if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
+						log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
+						while (HP['Level']>=3) do decLevel() end
+					end
 				end
+			elseif (usagePower>=POWER_MAX-500) then --usagePower>=POWER_MAX: decrement level
+				decLevel()
 			end
 		else
 			-- diffMax<=0 => All zones are in temperature!
@@ -537,7 +541,7 @@ end
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 if (uservariables['HeatPumpSummer']==0) then
-	if (HP['Level']>LEVEL_OFF or GasHeaterOn==1 or outdoorTemperature<=8) then
+	if (HP['Level']>LEVEL_OFF or GasHeaterOn==1 or outdoorTemperature<=4) then
 		if (otherdevices['Valve_Radiant_Coil']~='On') then
 			commandArray['Valve_Radiant_Coil']='On'
 		end
@@ -550,7 +554,7 @@ end
 
 
 -- save variables
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..otherdevices[GasHeater]..' HPout='..otherdevices[tempHPout]..' HPLimit='..tempFluidLimit..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..otherdevices[GasHeater]..' HPout='..otherdevices[tempHPout]..' HPLimit='..string.format("%.1f", tempFluidLimit)..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor]..' zHeatPump='..json.encode(HP))
 commandArray['Variable:zHeatPump']=json.encode(HP)
 
 ::mainEnd::
