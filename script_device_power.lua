@@ -45,9 +45,10 @@ else
 	}
 end
 
-PowerMeterAlerts={
-	{'Display_Lab_12V','Off','On'},
-	{'Buzzer_Cucina2','Off','On'},
+PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very high and the script can't disable any load to reduce usage power
+	--buzzer device   OFF_command  ON_command
+--	{'Display_Lab_12V','Off','On'},
+	{'Buzzer_Cucina','Off','On'},
 }
 
 -- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)

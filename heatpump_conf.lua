@@ -110,8 +110,8 @@ coeffArray={
 	[180]=0.4,  -- 00:00 -> 02:00 => start pump if diffMax>=0.3/0.4=0.75C (really different temperature)
 	[300]=0.9,  -- 03:00 -> 05:00 => start pump if diffMax>=0.3/0.8=0.4C
 	[360]=0.4,  -- 05:00 -> 06:00 => start pump if diffMax>=0.3/0.9=0.75C  (gas heater will be ON)
-	[timeofday['SunriseInMinutes']+60]=0.5, -- 06:00 -> Sunrise+60min => stop pump
-	[480]=0.5,
+	[timeofday['SunriseInMinutes']+30]=0.6, -- 06:00 -> Sunrise+60min => stop pump
+	[480]=0.6,
 	[timeofday['SunsetInMinutes']-30]=1,    -- from Sunrise+60m or 08:00 -> Sunset-30 => coeff = 1
 	[1200]=1,                             -- Sunset-30m -> 20:00 => coeff=0.8
 	[1440]=0.6,                             -- stop pump after 20:00
@@ -120,7 +120,8 @@ coeffArray={
 -- GasHeater parameters
 GHdiffMax=0.6				-- activate gas heater, during the night, if difference between setpoint and temperature is >0.4°C
 GHoutdoorTemperatureMax=2	-- GasHeater disabled if outdoor temperature >= GHoutdoorTemperatureMax
-GHtimeMin=300				-- Minutes from midnight when GasHeater will be enabled
+GHoutdoorHumidityMin=88		-- Minimum outdoor humidity to start GasHeater, else start heat pump
+GHtimeMin=300				-- Minutes from midnight when GasHeater will be enabled (or heatpump, if outdoor humidity is not high)
 GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 
@@ -130,7 +131,7 @@ E_WARNING=2
 E_INFO=3
 E_DEBUG=4
 
-DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_INFO
 TELEGRAM_LEVEL=E_CRITICAL
 
 -- ------------------ Some common functions ---------------------------
