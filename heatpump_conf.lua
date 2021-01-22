@@ -88,7 +88,7 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	['Cucina']={		'Temp_Cucina',		'RH_Cucina',		'',						4,		22,		-0.2,	1,		7,		23,		0.2,	1},	
+	['Cucina']={		'Temp_Cucina',		'RH_Cucina',		'',						4,		21,		-0.2,	1,		7,		23,		0.2,	1},	
 	['Studio']={		'Temp_Studio',		'',                 '',						8,		19,		-2,		0.8,	8,		19,		0.5,	0.8},
 	['Bagno']={			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.5,	16,		19,		1,		0.5},
 	['Camera']={		'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
@@ -117,8 +117,11 @@ coeffArray={
 	[1440]=0.6,                             -- stop pump after 20:00
 }
 
+-- Temperature device for a zone that is always active (used to compute gradients)
+TempZoneAlwaysOn='Temp_Cucina'
+
 -- GasHeater parameters
-GHdiffMax=0.6				-- activate gas heater, during the night, if difference between setpoint and temperature is >0.4°C
+GHdiffMax=0.4				-- activate gas heater, during the night, if difference between setpoint and temperature is >0.4°C
 GHoutdoorTemperatureMax=2	-- GasHeater disabled if outdoor temperature >= GHoutdoorTemperatureMax
 GHoutdoorHumidityMin=88		-- Minimum outdoor humidity to start GasHeater, else start heat pump
 GHtimeMin=300				-- Minutes from midnight when GasHeater will be enabled (or heatpump, if outdoor humidity is not high)
@@ -131,7 +134,7 @@ E_WARNING=2
 E_INFO=3
 E_DEBUG=4
 
-DEBUG_LEVEL=E_INFO
+DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 
 -- ------------------ Some common functions ---------------------------

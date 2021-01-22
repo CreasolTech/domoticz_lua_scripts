@@ -34,6 +34,17 @@ function HPinit()
 	if (HP['Level']==nil) then HP['Level']=0 end
 end
 
+-- Initialize the HPZ domoticz variable (json coded, used to compute temperature gradient of a zone that is always enabled)
+function HPZinit()
+	if (HPZ==nil) then HPZ={} end
+	if (HPZ['t0']==nil) then HPZ['t0']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, at the current hh:00 time
+	if (HPZ['t1']==nil) then HPZ['t1']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 1 hour ago (at hh-1:00)
+	if (HPZ['t2']==nil) then HPZ['t2']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 2 hour ago (at hh-1:00)
+	if (HPZ['t3']==nil) then HPZ['t3']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 3 hour ago (at hh-1:00)
+	if (HPZ['t4']==nil) then HPZ['t4']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 4 hour ago (at hh-1:00)
+	if (HPZ['gr']==nil) then HPZ['gr']=0 end -- gradient for a zone always ON
+end
+
 function deviceOn(devName,devIndex)
 	-- if devname is off => turn it on
 	if (otherdevices[devName]~='On') then 
@@ -113,6 +124,29 @@ else
 	HPinit()	-- check that all variables in HP table are initialized
 end
 
+if (uservariables['zHeatPumpZone'] == nil) then
+	-- initialize variable
+	HPZinit()	--init HPZ table
+	-- create a Domoticz variable, coded in json, within all variables used in this module
+	checkVar('zHeatPumpZone',2,json.encode(HPZ))
+else
+	HPZ=json.decode(uservariables['zHeatPumpZone'])
+	HPZinit()	-- check that all variables in HP table are initialized
+end
+
+if (timenow.min==0) then
+	log(E_INFO,"Shift")
+	-- shift temperatures in HPZ['tn'] and compute new gradient
+	HPZ['t4']=HPZ['t3']
+	HPZ['t3']=HPZ['t2']
+	HPZ['t2']=HPZ['t1']
+	HPZ['t1']=HPZ['t0']
+	HPZ['t0']=otherdevices[TempZoneAlwaysOn]
+	HPZ['gr']=math.floor((HPZ['t0']-HPZ['t1'])/0.01+(HPZ['t1']-HPZ['t2'])/0.0125+(HPZ['t2']-HPZ['t3'])/0.015+(HPZ['t3']-HPZ['t4'])/0.02)/100
+end
+gradient=HPZ['gr']
+
+
 levelOld=HP['Level']	-- save previous level
 diffMax=0
 checkVar('HeatPumpSummer',0,0)
@@ -175,11 +209,15 @@ else
 		zone_offset=ZONE_WINTER_OFFSET
 		zone_weight=ZONE_WINTER_WEIGHT
 		level_max=LEVEL_WINTER_MAX -- max value for HP['Level']
-		-- heating enable when usage power > 500 watt only if room temperature is distant from the set point (temperature < setpoint - 0.4)
-	 	diffMaxHigh_value=0.3	-- if diffMax<diffMaxHigh_value, temperature is near the set point
-		if (timenow.hour < 10) then diffMaxHigh_value=diffMaxHigh_value+0.2 end
 
-		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
+
+		-- diffMaxHigh is used to define when room temperature is distant from the set point
+	 	diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
+		-- reduce diffMaxHigh if outdoor temperature is low (to use higher temperatures to heat the building)
+		diffMaxHigh=0.3+(HP['otmin']/40)
+
+		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
+
 		prodPower_incLevel=300		--minimum production power to increment level
 		prodPower_incLevel2=1000	--minimum production power to increment level by 2
 		spOffset=OVERHEAT
@@ -192,8 +230,8 @@ else
 		zone_weight=ZONE_SUMMER_WEIGHT
 		level_max=LEVEL_SUMMER_MAX -- max value for HP['Level']
 		-- cooling enabled only if consumed power is < 200 Watt. It's tolerated to consume more than 200W only if room temperature > setpoint + 2°C
-		diffMaxHigh_value=2		-- if diffMax<diffMaxHigh_value, temperature is near the set point
-		diffMaxHigh_power=200	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh_value)
+		diffMaxHigh=2		-- if diffMax<diffMaxHigh, temperature is near the set point
+		diffMaxHigh_power=200	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
 		prodPower_incLevel=800		--minimum production power to increment level
 		prodPower_incLevel2=1200	--minimum production power to increment level by 2
 		spOffset=OVERCOOL
@@ -254,35 +292,8 @@ else
 		end
 		log(E_INFO,valveState..' zone='..n..' RH='..rh..' Temp='..otherdevices[v[ZONE_TEMP_DEV] ]..' SP='..uservariables['TempSet_'..n]..'+'..temperatureOffset..'+('..SPOffset..') diff='..diff)
 	end
-	-- Now diffMax stores the max weighted-difference between setpoint and temperature 
-	-- To be sure that heat pump must be ON, I have to consider:
-	-- time of day (in the night or morning, maybe it's better to delay heat pump ON to avoid working with high humidity and low temperatures)
-	-- coeffArray defines a coefficient to be multiply for the average diffMax
-
-	-- Temperature setpoint during Winter
-	--                                      |^^^^^^^^^^^^^^^^^^^^^^^^^^^_______________________
-	-- _______________|^^^^^^^^^^^^^^^^^^^^^^                                                  |_____________________
-	-- 0          Sunrise+1                 11                    Sunset-0.5                   20
 	
-
-	-- Temperature setpoint during Summer
-	-- 0          Sunrise+1                 10                   Sunset-0.5                   22
-	-- ^^^^^^^^^^^^^^^|_____________________                                                  |^^^^^^^^^^^^^^^^^^^^^
-	--                                      |___________________________^^^^^^^^^^^^^^^^^^^^^^^
-	
-	local minutes=1441
-	local coeff=1
-	-- scan entire coeffArray dictionary (because it's not sorted)
-	for m,c in pairs(coeffArray) do
-		if (minutesnow<m and minutes>m) then
-			coeff=c
-			minutes=m
-		end
-	end
-	
-	diffMaxValue=diffMax	-- difference between setpoint and real temperature
-	diffMax=diffMax*coeff	-- diffMaxValue * weight that depends by time of the day
-	log(E_INFO,'diffMaxValue='..diffMaxValue..' diffMax='..diffMax..' coeff='..coeff..' RHMax='..rhMax)
+	log(E_INFO,'gradient='..gradient..' diffMax='..diffMax..' diffMaxHigh='..diffMaxHigh..' RHMax='..rhMax)
 
 	-- check outdoorTemperature
 	-- outdoorTemperature=string.gsub(otherdevices[tempOutdoor],';.*','')
@@ -327,54 +338,22 @@ else
 			incLevel()
 		end
 		
-		if (minutesnow<timeofday['SunriseInMinutes']+180 and diffMax<diffMaxHigh_value) then 
+		if (minutesnow<timeofday['SunriseInMinutes']+180 and diffMax<diffMaxHigh) then 
 			-- in the morning, if temperature is not so distant from the setpoint, try to not consume from the grid
 			diffMaxHigh_power=0 
 		end
-		if (diffMax>0) then
+		if (diffMax>=0) then
 			if (usagePower<POWER_MAX-1700) then
 				-- must heat/cool!
+				if (HP['Level']==0) then
+					incLevel()
+				end
 				if (prodPower>prodPower_incLevel) then
 					-- more available power => increment level
-					if (HP['Level']<level_max) then
-						log(E_INFO,"More power available from PV => increase level")
-						incLevel()
-						if (prodPower>prodPower_incLevel2 and HP['Level']<level_max) then
-							incLevel()
-						end
-					end	
-				else
-					-- low or no power from PV
-					-- if setpoint is much distant from actual temperature, and we're operating in "warm" hours, enable FANCOIL mode (higher temperature)
-					if (diffMax>diffMaxHigh_value) then
-						-- no power from photovoltaic, but temperature is far from setpoint
-						--[[
-						-- increase level to level_max-1
-						if (HP['Level']<(level_max-1)) then
-							incLevel(); 
-						end
-						]]
-						-- in winter mode, during the day, increase again the level (it's better to use heatpump during the day than during the night!)
-						if (uservariables['HeatPumpWinter']==1) then
-							if (HP['Level']<2) then
-								Log(E_INFO,"Winter, far from setpoint => Increment level to 2")
-								incLevel()
-							end
-							if (HP['Level']<level_max and (minutesnow>timeofday['SunriseInMinutes']+120 and minutesnow<=timeofday['SunsetInMinutes']+120)) then
-								Log(E_INFO,"Winter, far from setpoint, with sun => Increment level to level_max")
-								incLevel()
-							end
-						end
+					if (uservariables['HeatPumpWinter']==1) then
+						tempFluidLimit=tempFluidLimit+2
 					else
-						-- diffMax>0 and diffMax<diffMaxHigh_value
-						if (HP['Level']==LEVEL_OFF and uservariables['HeatPumpWinter']==1 and minutesnow<GHTimeMax and outdoorHumidity<GHoutdoorHumidityMin and outdoorTemperature<GHoutdoorTemperatureMax and diffMaxValue>=0.2) then
-							log(E_INFO,"Winter, night, outdoor temperature low and humidity is low => start HP")
-							HP['Level']=LEVEL_ON
-						end
-						if ((HP['Level']>1 or (minutesnow<timeofday['SunsetInMinutes']-240)) and usagePower>diffMaxHigh_power)  then  -- if diffMax<diffMaxHigh_value (temperature near setpoint) and no available power from renewables => reduce or turn off the cooling
-							log(E_INFO,"No power from PV => reduce power")
-							decLevel()
-						end
+						tempFluidLimit=tempFluidLimit-1
 					end
 				end
 				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
@@ -383,12 +362,8 @@ else
 					tempFluidLimit=30
 					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
 					if (HP['otmin']<10) then -- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
-						tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/1.3 --30°C if min outdoor temp = 10°C, 40°C if min outodor temp = -3°C
+						tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/4+diffMax*10-gradient*20 -- Tf=30+(10-outdoorTempMin)/4+deltaT*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
 					end
-					-- also, regulate fluid temperature in base of of DeltaT
-					tempFluidLimit=tempFluidLimit+diffMax*2
-					-- if (diffMax<0.5) then tempFluidLimit=tempFluidLimit+0.5 end
-					-- if (diffMax<=0.2) then tempFluidLimit=tempFluidLimit+0.5 end
 					if (tempFluidLimit>TEMP_WINTER_HP_MAX) then
 						tempFluidLimit=TEMP_WINTER_HP_MAX
 					end
@@ -409,43 +384,49 @@ else
 					end
 				end
 
-				if (diffMax<=0.1 and HP['Level']>3) then 
-					log(E_INFO,"Rooms are almost in temperature: avoid high power levels")
-					decLevel() 
-				end		-- less power when rooms are in temperature
-
+				if (HP['Level']>0) then
 				-- regulate fluid tempeature in case of max Level 
-				if (uservariables['HeatPumpWinter']==1) then
-					-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
-					-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
-					-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
-					if ((HP['Level']>=LEVEL_WINTER_FANCOIL and (tonumber(otherdevices[tempHPout])>tempFluidLimit-1))) then
-						-- fluid temperature > tempFluidLimit => assure that heatpump power is low
-						if (HP['Level']>LEVEL_WINTER_FANCOIL) then
-							decLevel()
+					if (uservariables['HeatPumpWinter']==1) then
+						-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
+						-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
+						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
+						if (tonumber(otherdevices[tempHPout])<=(tempFluidLimit-1)) then
+							-- must heat!
+							if (HP['Level']<LEVEL_WINTER_FANCOIL) then 
+								log(E_INFO,"Fluid temperature is low => must heat!")
+								incLevel()
+							elseif (HP['Level']<LEVEL_WINTER_MAX and (timenow.hour>=23 or timenow.hour<7 or prodPower>=prodPower_incLevel or diffMax>=diffMaxHigh)) then
+								log(E_INFO,"Enable full power!")
+								incLevel()
+							end
+						else
+							-- fluid temperature > tempFluidLimit-1 => assure that heatpump power is low
+							if (HP['Level']>LEVEL_WINTER_FANCOIL) then
+								log(E_INFO,"Fluid temperature almost equal to limit => reduce power")
+								decLevel()
+							end
+							if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
+								log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
+								while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
+							end
 						end
-						if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
-							log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
-							while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
+					else -- Summer
+						-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
+						if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
+							log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
+							while (HP['Level']>=3) do decLevel() end
 						end
 					end
-				else -- Summer
-					-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
-					if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
-						log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
-						while (HP['Level']>=3) do decLevel() end
-					end
-				end
+				end -- if (HP['Level']>0
 			elseif (usagePower>=POWER_MAX-500) then --usagePower>=POWER_MAX: decrement level
 				decLevel()
 			end
 		else
-			-- diffMax<=0 => All zones are in temperature!
+			-- diffMax<0 => All zones are in temperature!
 			--reached the set point => reduce HP['Level'] till LEVEL_ON (if must dehumidify) or LEVEL_OFF if humidity is ok
-			log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
-			if (uservariables['HeatPumpWinter']==1 or rhMax<60 or usagePower>0 or HP['Level']>LEVEL_ON)  then 
-				-- temperature and humidity are OK, or Level > 1
-				-- dehumidifier ignored during winter, and disabled when there is not enough power from photovoltaic
+			if (HP['Level']>LEVEL_OFF)  then 
+				-- temperature and humidity are OK
+				log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
 				decLevel() 
 			end
 		end
@@ -456,15 +437,20 @@ end
 
 gasHeaterOn=0
 if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
-	-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMaxValue>=GHdiffMax
+	-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMax>=GHdiffMax
 	if (otherdevices[GasHeater]=='On') then
 		-- add some histeresys to prevent gas heater switching ON/OFF continuously
 		GHdiffMax=GHdiffMax-0.1
 		GHoutdoorTemperatureMax=GHoutdoorTemperatureMax+1
 		GHoutdoorHumidityMin=GHoutdoorHumidityMin-2
 	end
-	-- starts gas heater only few hours before 8:00 (because gas heater takes a short time to heat the fluid, in respect to HP)
-	if (minutesnow<GHtimeMax and minutesnow>=GHtimeMin and outdoorHumidity>=GHoutdoorHumidityMin and diffMaxValue>=GHdiffMax and outdoorTemperature<GHoutdoorTemperatureMax) then
+	-- starts gas heater only few hours before 8:00 (because gas heater takes a short time to heat the fluid, in comparison to HP)
+	-- starts GH only if outdoor temperature is low and (outdoor humidity is high, or diffMax is high (HP is not able to heat enough))
+	if (outdoorHumidity<GHoutdoorHumidityMin) then
+		-- start gas heater only if diffMax > GHdiffMax+0.4 (we trust in heat pump!)
+		GHdiffMax=GHdiffMax+0.4
+	end
+	if (minutesnow<GHtimeMax and minutesnow>=GHtimeMin and diffMax>=GHdiffMax and outdoorTemperature<GHoutdoorTemperatureMax and diffMax>=GHdiffMax) then
 		-- high humidity: prefer to start gas heate
 		HP['Level']=LEVEL_OFF	-- force heat pump off and use only gas heater, in the night
 		if (otherdevices[GasHeater]~='On') then
@@ -578,7 +564,9 @@ end
 -- save variables
 log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..otherdevices[GasHeater]..' HPout='..otherdevices[tempHPout]..' HPLimit='..string.format("%.1f", tempFluidLimit)..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor])
 log(E_DEBUG,'zHeatPump='..json.encode(HP))
+log(E_DEBUG,'zHeatPumpZone='..json.encode(HPZ))
 commandArray['Variable:zHeatPump']=json.encode(HP)
+commandArray['Variable:zHeatPumpZone']=json.encode(HPZ)
 
 ::mainEnd::
 return commandArray

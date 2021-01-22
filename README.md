@@ -61,6 +61,8 @@ File: scripts/time/rainCheck.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
-Silly script that check the raining rate, and if above 8mm/h disable external socket (connected to the Xmas tree!!)
+Silly script that check the raining rate, and if above 8mm/h disable external socket in the garden (connected to the Xmas tree!!)
+Also, checks wind speed and direction and disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using
+wood stoves generating bad smoke smell.
 
 
