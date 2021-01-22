@@ -1,15 +1,18 @@
-## Domoticz lua scripts, by Creasol https://www.creasol.it
+## Domoticz lua scripts, by Creasol https://www.creasol.it/domotics
+
 In this repository you can find several LUA scripts and config files for Domoticz, the easy and powerful open-source home automation system controller.
 
 More information, scripts, application notes, examples are available at https://www.creasol.it/support/domotics-home-automation-and-diy
 
-Description of some products made by our company (DomBus1, DomBusTH, ...) are available at https://www.creasol.it/products/domotics and https://store.creasol.it/en/11-domotics
+Description of some products made by our company (DomBusTH, DomBus12, DomBus23, DomBus31, ...) are available at https://www.creasol.it/products/domotics and https://store.creasol.it/en/11-domotics
 
-All scripts are provided freely, with absolute no warranty. Use them at your own risk.
+Some scripts require that you install the dkjson package, with the command __apt install lua-dkjson__
+
+All scripts are free to use, with absolute no warranty. Use them at your own risk.
 
 
 ### Support or Contact
-For any requests, you can join DomBus channel on Telegram, https://t.me/DomBus
+For any requests, you can join DomBus channel on Telegram, https://t.me/DomBus 
 
 
 ## Script POWER 
