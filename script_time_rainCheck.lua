@@ -104,7 +104,7 @@ else
 		-- was forced OFF, now have been restarted => go for automatic
 		CMV['auto']=1
 	elseif (CMV['auto']==1 and (minutesNow>=(timeofday['SunsetInMinutes']+VENTILATION_STOP) or CMV['time']>=VENTILATION_TIME or windSpeed==0 or windDirection>160)) then
-		print("Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed="..windSpeed/10.." m/s, windDirection="..windDirection.."°")
+		print("Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 		CMV['auto']=0
 		commandArray[VENTILATION_DEV]='Off'
 	end
