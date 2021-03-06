@@ -90,19 +90,27 @@ function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 	log(E_ERROR,"Alarm activated by "..sensorName)
 	if (alarmLevel>ALARM_DAY) then
 		alarmStatus=STATUS_ALARM
+	elseif (alarmLevel==ALARM_DAY) then
+		-- custom rules to avoid alarm in such cases
+		-- if someone enters the garage, stop sending ALERT for next 120s 
+		if ((sensorName=='PIR_Garage' or sensorName:sub(1,16)=='MCS_Garage_Porta') and (timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])<120 or timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])<120)) then
+			return	-- skip alarm
+		end
 	end
 	urloff=''
 	for siren,sirenRow in pairs(SIRENlist) do
 		if ((sirenRow[2]&alarmLevel)~=0) then
 			-- activate this siren
-			log(E_INFO,"Activate "..sirenRow[1])
 			if (alarmLevel==ALARM_DAY) then
-				-- send a short pulse to internal sirens: enable siren ON using JSON, and use commandArray to disable siren.
-				url=DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=On'
-				os.execute('curl "'..url..'"')
-				cmd='Off'
-				urloff=urloff..DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=Off|'
+				if (timeNow>ZA['SirDis']) then
+					-- send a short pulse to internal sirens: enable siren ON using JSON, and use commandArray to disable siren.
+					url=DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=On'
+					os.execute('curl "'..url..'"')
+					cmd='Off'
+					urloff=urloff..DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=Off|'
+				end
 			else
+				log(E_INFO,"Activate "..sirenRow[1])
 				cmd="On"
 				if (sirenRow[3]>0 and sensorDelay>=3) then cmd=cmd.." AFTER "..sensorDelay end
 				if (sirenRow[4]>=1) then cmd=cmd.." FOR "..sirenRow[4] end
@@ -135,6 +143,9 @@ end
 
 
 function sensorChanged(sensorType, sensorItem, sensorDelay, sensorOn, sensorName) 
+	-- sensorType=='mcs', 'pir', 'tamper'
+	-- sensorItem==number of record in MCSlist or PIRlist or TAMPERlist
+	-- Note that MCSlist is divided in 2 structure, 32 records each. Also, each record has 2 sensor, window + blind
 	local enabledTAMPER,enabledPIR,enabledMCS1,enabledMCS2
 	sensorItemMask = 1<<(sensorItem-1)
 	if (sensorType=='tamper') then
@@ -192,7 +203,12 @@ function sensorChanged(sensorType, sensorItem, sensorDelay, sensorOn, sensorName
 				alarmMCS2=((~sensorItemMask)&alarmMCS2)
 			end
 			alarmMCSchanged=1 --TODO: a cosa serve?
+			-- if ALARM_DAY and (window/door is open and blind has been closed) => disable siren for 120s
+			if (alarmLevel==ALARM_DAY and otherdevices[ MCSlist[sensorItem][1] ]~=nil and otherdevices[ MCSlist[sensorItem][1] ]=='Open' and otherdevices[ MCSlist[sensorItem][2] ]~=nil and  otherdevices[ MCSlist[sensorItem][2] ]=='Closed') then
+				ZA['SirDis']=timeNow+60	-- disable siren for 120s
+			end
 			-- TODO: check alarmStatus and disable alarm if needed
+			
 		end
 	elseif (sensorType=='pir') then
 		if (sensorOn==1) then
@@ -204,8 +220,11 @@ function sensorChanged(sensorType, sensorItem, sensorDelay, sensorOn, sensorName
 				alarmPIR=(sensorItemMask|alarmPIR) -- add the current PIR to the list of PIRs that started an alarm
 				-- if (DEBUG_LEVEL>=3) then print("ALARM: alarmMCS1="..string.format("0x%x",alarmMCS1).." alarmStatus="..alarmStatus) end
 				if (alarmStatus~=STATUS_ALARM) then
-					-- activate alarm
-					alarmOn(sensorType, sensorItem, sensorName, PIRlist[sensorItem][2])
+					-- activate alarm?
+					-- custom check: disable PIR notification if ALARM_DAY and (MCS_Garage_Porta_Magazzino or MCS_Garage_Porta_Pranzo) has changed recently
+					if (alarmLevel~=ALARM_DAY or (timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])>120 and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])>120)) then
+						alarmOn(sensorType, sensorItem, sensorName, PIRlist[sensorItem][2])
+					end
 				end
 			end	
 		else
@@ -322,17 +341,18 @@ end
 
 function ZAinit()
     if (ZA==nil) then ZA={} end
-    if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=os.time() end		--time when PIR_G has been activated and video recording started
-    if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=os.time() end	--time when PIR_SE has been activated and video recording started
+    if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=timeNow end		--time when PIR_G has been activated and video recording started
+    if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=timeNow end	--time when PIR_SE has been activated and video recording started
     if (ZA['PIR_SEn']==nil) then ZA['PIR_SEn']=0 end			--number of video recordings due to PIR_SE activations
-	if (ZA['Button1']==nil) then ZA['Button1']=os.time() end	--time the Button1 has been pushed
-	if (ZA['ButtonSU']==nil) then ZA['ButtonSU']=os.time() end	--time the ButtonSU has been pushed
-	if (ZA['ButtonCO']==nil) then ZA['ButtonCO']=os.time() end	--time the ButtonCO has been pushed
+	if (ZA['Button1']==nil) then ZA['Button1']=timeNow end	--time the Button1 has been pushed
+	if (ZA['ButtonSU']==nil) then ZA['ButtonSU']=timeNow end	--time the ButtonSU has been pushed
+	if (ZA['ButtonCO']==nil) then ZA['ButtonCO']=timeNow end	--time the ButtonCO has been pushed
+	if (ZA['SirDis']==nil) then ZA['SirDis']=0 end			-- time of day when Siren will be enabled again in ALARM_DAY (used to disable siren while closing blinds
 end
 
 function grabVideoSE()  -- grab a video when PIR_SE has been activated
 	ZA['PIR_SEn']=ZA['PIR_SEn']+1	-- increment variable that count the number of videos grabbed
-	ZA['PIR_SEs']=os.time()			-- set the time of the current video
+	ZA['PIR_SEs']=timeNow			-- set the time of the current video
 	os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_SudEst 2>&1 >/tmp/alarm_sendsnapshot_sud.log &")
 end
 
@@ -363,6 +383,7 @@ if (Panel == 'Keypad Alarm Level') then
 end
 --]]
 
+timeNow=os.time()
 
 -- create user variables, if not already exist. 
 -- Also, create global variables instead of using domoticz user variables, and in the end update domoticz user variables if they have changed.
@@ -449,7 +470,7 @@ for devName,devValue in pairs(devicechanged) do
 				break
 			end
 			-- custom features
-			-- if MCS_Garage_Porta_Pranzo or MCS_Garage_Porta_Magazzino, toggle on Light_Garage 
+			-- if MCS_Garage_Porta_Pranzo or MCS_Garage_Porta_Magazzino opens, turn on Light_Garage 
 			if (timeofday['Nighttime']) then
 				if (devName=='MCS_Garage_Porta_Pranzo' or devName=='MCS_Garage_Porta_Magazzino') then
 					if (otherdevices[devName]=='Open') then
@@ -460,7 +481,7 @@ for devName,devValue in pairs(devicechanged) do
 						end
 					else
 						-- door has been closed
-						if (timedifference(otherdevices_lastupdate[devName])>=10 and otherdevices['Light_Garage']=='On') then
+						if (timedifference(otherdevices_lastupdate[devName])>6 and otherdevices['Light_Garage']=='On') then
 							commandArray['Light_Garage']='Off'
 						end
 					end
@@ -485,13 +506,13 @@ for devName,devValue in pairs(devicechanged) do
 		-- if PIR on garage toggles, but the two doors to the garage were not opened => take some snapshots from the camera outside garage
 		if (alarmLevel>=ALARM_OFF) then
 			-- get snapshot only every 4 seconds (time to grab media stream and create pictures) if PIR is active but internal doors were closed for more than 5 minutes
-			if (devName=='PIR_Garage' and (os.time()-ZA['PIR_Gs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+			if (devName=='PIR_Garage' and (timeNow-ZA['PIR_Gs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
 				if (timeofday['Nighttime']) then
 					if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 124 SECONDS' end
 				end
 				if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Garage_Porta_Pranzo']~='Open' and otherdevices['MCS_Garage_Porta_Magazzino']~='Open' and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])>300 and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])>300) then
 					os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.205 192.168.3.206 PIR_Garage 2>&1 >/tmp/alarm_sendsnapshot_garage.log &")
-					ZA['PIR_Gs']=os.time()
+					ZA['PIR_Gs']=timeNow
 				end
 				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
@@ -508,7 +529,7 @@ for devName,devValue in pairs(devicechanged) do
 					end
 					-- grab video only if South port has not been opened
 					if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Sud_Porta']~='Open' and timedifference(otherdevices_lastupdate['MCS_Sud_Porta'])>600 ) then
-						diffTime=(os.time()-ZA['PIR_SEs']) -- seconds from last video
+						diffTime=(timeNow-ZA['PIR_SEs']) -- seconds from last video
 						-- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
 						-- grab max 2 consecutive videos, with minimum 30s of delay
 						-- then wait that device stays stable OFF for at least 30 minutes
@@ -554,7 +575,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- 1 5s pulse => start external siren
 			if (devValue=='Off') then
 				-- compute pulse length
-				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
+				pulseLen=timeNow-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
 				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
 					
@@ -580,14 +601,14 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				-- pushbutton just pushed => record the current time
-				ZA[devName:sub(7)]=os.time()
+				ZA[devName:sub(7)]=timeNow
 			end		
 		elseif (devName:sub(7)=='ButtonCO') then
 			-- 1 short pulse => set alarmLevel to ALARM_NIGHT
 			-- 1 long pulse  => set alarmLevel to ALARM_OFF
 			if (devValue=='Off') then
 				-- compute pulse length
-				pulseLen=os.time()-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
+				pulseLen=timeNow-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
 				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
 					if (alarmLevel==ALARM_NIGHT) then 
@@ -610,7 +631,7 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				-- pushbutton just pushed => record the current time
-				ZA[devName:sub(7)]=os.time()
+				ZA[devName:sub(7)]=timeNow
 			end
 		elseif (devName:sub(7)=='ButtonPC') then
 			--twinbutton configured as selector switch

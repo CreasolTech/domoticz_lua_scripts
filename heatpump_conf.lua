@@ -9,7 +9,7 @@ DOMOTICZ_URL="http://127.0.0.1:8080"	-- Domoticz URL (used to create variables u
 TEMP_HISTERESIS=0.1
 TEMP_WINTER_HP_MAX=40				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
-OVERHEAT=1.0						-- Increase temperature setpoint in case of available power from solar photovoltaic
+OVERHEAT=1.5						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.5						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than 4500
 
@@ -51,10 +51,10 @@ DEVlist={
 
 DEVauxlist={
 	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes
-	{'Dehumidifier_Camera',			2,			2,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
-	{'Dehumidifier_Camera_Ospiti',	2,			2,				30000,	'RH_Camera_Ospiti',			1,	70,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
-	{'Dehumidifier_Cantina',		2,			2,				500,	'RH_Cantina',				1,	65,		'RH_Cantina',         		1,  60,		600},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
-	{'Bagno_Scaldasalviette',		3,			100,			450,	'Temp_Bagno',				0,	22,		'Temp_Bagno',				0,	20,		0},	-- Electric heater in bathroom
+--	{'Dehumidifier_Camera',			1,			1,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
+	{'Dehumidifier_Camera_Ospiti',	1,			1,				300,	'RH_Camera_Ospiti',			1,	60,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
+	{'Dehumidifier_Cantina',		1,			1,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		600},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
+	{'Bagno_Scaldasalviette',		1,			100,			450,	'Temp_Bagno',				0,	22,		'Temp_Bagno',				0,	20,		0},	-- Electric heater in bathroom
 }
 
 -- heat pump working level
@@ -134,7 +134,8 @@ E_WARNING=2
 E_INFO=3
 E_DEBUG=4
 
-DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_INFO
+-- DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 
 -- ------------------ Some common functions ---------------------------

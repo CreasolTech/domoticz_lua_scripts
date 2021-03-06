@@ -2,9 +2,13 @@
 RAINDEV='Rain'		-- name of device that shows the rain rate/level
 WINDDEV='Wind'		-- name of device that shows the wind speed/gust
 VENTILATION_DEV='VMC_Rinnovo'
-VENTILATION_START=120	--120 minutes after SunRise
-VENTILATION_STOP=-30	--30 minutes before SunSet
-VENTILATION_TIME=360	-- ventilation ON for max 6 hours a day
+-- VENTILATION_COIL_DEV=""	-- not defined: coil to heat/cool air is not available
+VENTILATION_COIL_DEV="VMC_CaldoFreddo"	-- coil to heat/cool air: will be activated only if Heat Pump is ON
+HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
+VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
+VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
+VENTILATION_TIME=300	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 
 
 function checkVar(varname,vartype,value)
@@ -31,6 +35,7 @@ function CMVinit()
 	-- check or initialize the CMV table of variables, that will be saved, coded in JSON, into the zVentilation Domoticz variable
 	if (CMV==nil) then CMV={} end
 	if (CMV['time']==nil) then CMV['time']=0 end	-- minutes the CMV was ON, today
+	if (CMV['maxtime']==nil) then CMV['maxtime']=VENTILATION_TIME end	-- minutes the CMV was ON, today
 	if (CMV['auto']==nil) then CMV['auto']=0 end	-- 1 of CMV has been started automatically by this script
 end
 
@@ -74,42 +79,69 @@ else
 	CMVinit()   -- check that all variables in CMV table are initialized
 end
 
--- at start time, reset time (ventilation active for TIME minutes) and set auto=0
+-- at start time, reset ventilation time (ventilation active for TIME minutes) and set auto=0
 if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	CMV['time']=0
+	CMV['maxtime']=VENTILATION_TIME
 	CMV['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
 end
 
+print("Ventilation "..otherdevices[VENTILATION_DEV]..": CMV['auto']="..CMV['auto'].." time="..CMV['time'].."/"..CMV['maxtime'].." windSpeed="..windSpeed.." windDirection="..windDirection)
 if (otherdevices[VENTILATION_DEV]=='Off') then
 	-- ventilation was OFF
-	if (CMV['auto']==1) then
+	if (CMV['auto']==1 or CMV['auto']==3) then
 		-- ventilation was ON by this script, but was forced OFF manually
 		CMV['auto']=2
-	elseif (CMV['auto']==3) then 
-		-- ventilation was forced ON, now has been disabled => go for automatic
-		CMV['auto']=0
-	elseif (CMV['auto']==0 and CMV['time']<VENTILATION_TIME and windSpeed>=5 and windDirection>=0 and windDirection<160) then
-		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+		if (CMV['time']>=VENTILATION_TIME or minutesNow>(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			-- already worked for a sufficient time: disable it
+			CMV['maxtime']=CMV['time']
+		end
+	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			print("Ventilation ON: windSpeed="..windSpeed.." windDirection="..windDirection)
 			CMV['auto']=1	-- ON
 			commandArray[VENTILATION_DEV]='On'
-		end
+--		end
 	end
 else
 	-- ventilation is ON
 	CMV['time']=CMV['time']+1
 	if (CMV['auto']==0) then
-		CMV['auto']=3	-- forced ON
+		-- ventilation ON manually: add another 30 minutes (VENTILATION_TIME_ADD) to the working time ?
+		CMV['auto']=3
+		if (CMV['time']>=CMV['maxtime']) then
+			CMV['maxtime']=CMV['maxtime']+VENTILATION_TIME_ADD
+		end
 	elseif (CMV['auto']==2) then
 		-- was forced OFF, now have been restarted => go for automatic
 		CMV['auto']=1
-	elseif (CMV['auto']==1 and (minutesNow>=(timeofday['SunsetInMinutes']+VENTILATION_STOP) or CMV['time']>=VENTILATION_TIME or windSpeed==0 or windDirection>160)) then
-		print("Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
-		CMV['auto']=0
-		commandArray[VENTILATION_DEV]='Off'
+	elseif (CMV['auto']==1 or CMV['auto']==3) then
+		if (CMV['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			print("Ventilation OFF: reached the stop time. Duration="..CMV['time'].." minutes")
+			CMV['auto']=0
+			commandArray[VENTILATION_DEV]='Off'
+		elseif (CMV['time']>=CMV['maxtime'] or windSpeed==0 or (windDirection>160 and windSpeed<20)) then
+			print("Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
+			CMV['auto']=0
+			commandArray[VENTILATION_DEV]='Off'
+		end
 	end
 end
 
+if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
+	-- ventilation coil exists: 
+	-- if ventilation is ON and heatpump ON => ventilation coil must be ON
+	-- else must be OFF
+	if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On'))) then
+		if (otherdevices[VENTILATION_COIL_DEV]~='On') then
+			commandArray[VENTILATION_COIL_DEV]='On'
+		end
+	else
+		if (otherdevices[VENTILATION_COIL_DEV]~='Off') then
+			commandArray[VENTILATION_COIL_DEV]='Off'
+		end
+	end
+end
 
 commandArray['Variable:zVentilation']=json.encode(CMV)
 return commandArray

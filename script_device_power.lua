@@ -61,7 +61,7 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 
 Heaters={	-- from the highest priority to the lowest priority
 	-- device name , power , 1 if should be enabled automatically when renewable sources produce more than secified power or 0 if this is just used to disconnect load preventing power outage, temperature device, max temperature
-	{'Pranzo_Stufetta',950,1,'Temp_Cucina',22},			-- 1000W heater connected to DOMESP1
+	{'Pranzo_Stufetta',950,1,'Temp_Cucina',23},			-- 1000W heater connected to DOMESP1
 --	{'Bagno_Scaldasalviette',450,1,'Temp_Bagno',22},	-- 450W heater connected to DOMBUS1
 }
 
@@ -133,7 +133,7 @@ function powerMeterAlert(on)
 end
 
 function scanHeaters()
-	devOn=''	-- used to store a ON device that can be turned off if forced==1
+	devOn=''	-- used to find a ON-device that can be turned off if forced==1
 	devPower=0
 	Power['usage']=0	--recompute currently used power
 	-- extract the name of the last device in Heaters that is ON

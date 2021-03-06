@@ -30,19 +30,22 @@ end
 -- Initialize the HP domoticz variable (json coded, within several state variables)
 function HPinit()
 	if (HP==nil) then HP={} end
-	if (HP['otmin']==nil) then HP['otmin']=20 end	-- outodorTemperatureMin
+	if (HP['otmin']==nil) then HP['otmin']=10 end	-- outodorTemperatureMin
+	if (HP['otmax']==nil) then HP['otmax']=10 end	-- outodorTemperatureMin
 	if (HP['Level']==nil) then HP['Level']=0 end
+	if (HP['SPoff']==nil) then HP['SPoff']=0 end
 end
 
--- Initialize the HPZ domoticz variable (json coded, used to compute temperature gradient of a zone that is always enabled)
+-- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
 function HPZinit()
 	if (HPZ==nil) then HPZ={} end
+	if (HPZ['temp']==nil) then HPZ['temp']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, at the current hh:00 time
 	if (HPZ['t0']==nil) then HPZ['t0']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, at the current hh:00 time
 	if (HPZ['t1']==nil) then HPZ['t1']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 1 hour ago (at hh-1:00)
 	if (HPZ['t2']==nil) then HPZ['t2']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 2 hour ago (at hh-1:00)
 	if (HPZ['t3']==nil) then HPZ['t3']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 3 hour ago (at hh-1:00)
 	if (HPZ['t4']==nil) then HPZ['t4']=otherdevices[TempZoneAlwaysOn] end	-- Temperature of a zone always ON, 4 hour ago (at hh-1:00)
-	if (HPZ['gr']==nil) then HPZ['gr']=0 end -- gradient for a zone always ON
+	if (HPZ['gr']==nil) then HPZ['gr']=0 end -- tempDerivate for a zone always ON
 end
 
 function deviceOn(devName,devIndex)
@@ -136,15 +139,18 @@ end
 
 if (timenow.min==0) then
 	log(E_INFO,"Shift")
-	-- shift temperatures in HPZ['tn'] and compute new gradient
+	-- shift temperatures in HPZ['tn'] and compute new tempDerivate
 	HPZ['t4']=HPZ['t3']
 	HPZ['t3']=HPZ['t2']
 	HPZ['t2']=HPZ['t1']
 	HPZ['t1']=HPZ['t0']
-	HPZ['t0']=otherdevices[TempZoneAlwaysOn]
-	HPZ['gr']=math.floor((HPZ['t0']-HPZ['t1'])/0.01+(HPZ['t1']-HPZ['t2'])/0.0125+(HPZ['t2']-HPZ['t3'])/0.015+(HPZ['t3']-HPZ['t4'])/0.02)/100
+	-- HPZ['t0']=otherdevices[TempZoneAlwaysOn]
+	HPZ['t0']=HPZ['temp']
+	HPZ['gr']=math.floor((HPZ['t0']-HPZ['t1'])/0.01+(HPZ['t1']-HPZ['t2'])/0.0125+(HPZ['t2']-HPZ['t3'])/0.015+(HPZ['t3']-HPZ['t4'])/0.02)/200
+else
+	HPZ['temp']=math.floor((HPZ['temp']*15+otherdevices[TempZoneAlwaysOn])/0.16)/100
 end
-gradient=HPZ['gr']
+tempDerivate=HPZ['gr']
 
 
 levelOld=HP['Level']	-- save previous level
@@ -183,12 +189,10 @@ tempFluidLimit=25	-- initialize value to avoid any error
 -- Also, I have to consider the availability of power from photovoltaic
 if (otherdevices[powerMeter]~=nil) then
 	-- power meter exists, returning value "usagePower;totalEnergy"
-	--[[
 	for str in otherdevices[powerMeter]:gmatch("[^;]+") do
-		usagePower=tonumber(str)
+		instPower=tonumber(str)
 		break
 	end
-	]]
 	usagePower=uservariables['avgPower']	-- use the average power instead of instant power!
 else 
 	usagePower=500 -- power meter does not exist: set usagePower to 500W by default
@@ -212,9 +216,9 @@ else
 
 
 		-- diffMaxHigh is used to define when room temperature is distant from the set point
-	 	diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
+	 	-- diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
 		-- reduce diffMaxHigh if outdoor temperature is low (to use higher temperatures to heat the building)
-		diffMaxHigh=0.3+(HP['otmin']/40)
+		diffMaxHigh=0.3+(HP['otmin']/40)+HP['otmax']/60
 
 		diffMaxHigh_power=500	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
 
@@ -241,9 +245,17 @@ else
 	-- rhMax=70    -- DEBUG: force RH to a high value to force dehumidification
 
 	zonesOn=0	-- number of zones that are ON
-	SPOffset=0	-- offset on setpoint
-	if (prodPower>1200) then	-- more than 800W fed to the electrical grid
-		SPOffset=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
+	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
+	if (HP['SPoff']==0) then
+		if ((prodPower>1200 or (uservariables['HeatPumpWinter']==1 and prodPower>800))) then	-- more than 800W fed to the electrical grid
+			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
+			log(E_INFO,"Enable OverHeating/Cooling")
+		end
+	else
+		if ((uservariables['HeatPumpSummer']==1 and prodPower<0) or (uservariables['HeatPumpWinter']==1 and usagePower>200 and instPower>200)) then
+			HP['SPoff']=0
+			log(E_INFO,"Disable OverHeating/Cooling")
+		end
 	end
 	
 	-- check temperatures and setpoints
@@ -270,7 +282,12 @@ else
 		end
 
 		-- diff=(setpoint+offset)-temperature: if diff>0 => must heat
-		diff=(uservariables['TempSet_'..n]+temperatureOffset+SPOffset)-tonumber(otherdevices[v[ZONE_TEMP_DEV] ]);
+		if (v[ZONE_TEMP_DEV]==TempZoneAlwaysOn) then
+			temp=HPZ['temp']
+		else
+			temp=tonumber(otherdevices[ v[ZONE_TEMP_DEV] ])
+		end
+		diff=(uservariables['TempSet_'..n]+temperatureOffset+HP['SPoff'])-temp;
 		if (uservariables['HeatPumpWinter']==0) then
 			-- summer => invert diff
 			diff=0-diff
@@ -290,10 +307,14 @@ else
 		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='') then
 			valveStateTemp[v[ZONE_VALVE] ]=valveState
 		end
-		log(E_INFO,valveState..' zone='..n..' RH='..rh..' Temp='..otherdevices[v[ZONE_TEMP_DEV] ]..' SP='..uservariables['TempSet_'..n]..'+'..temperatureOffset..'+('..SPOffset..') diff='..diff)
+		if (valveState=='On') then
+			log(E_INFO,valveState..' zone='..n..' RH='..rh..' Temp='..temp..' SP='..uservariables['TempSet_'..n]..'+'..temperatureOffset..'+('..HP['SPoff']..') diff='..diff)
+		else
+			log(E_DEBUG,valveState..' zone='..n..' RH='..rh..' Temp='..temp..' SP='..uservariables['TempSet_'..n]..'+'..temperatureOffset..'+('..HP['SPoff']..') diff='..diff)
+		end
 	end
 	
-	log(E_INFO,'gradient='..gradient..' diffMax='..diffMax..' diffMaxHigh='..diffMaxHigh..' RHMax='..rhMax)
+	log(E_INFO,'tempDerivate='..tempDerivate..' diffMax='..diffMax..' diffMaxHigh='..diffMaxHigh..' RHMax='..rhMax)
 
 	-- check outdoorTemperature
 	-- outdoorTemperature=string.gsub(otherdevices[tempOutdoor],';.*','')
@@ -310,6 +331,10 @@ else
 	if (minutesnow==0 or HP['otmin']==nil or HP['otmin']>outdoorTemperature) then 
 		HP['otmin']=outdoorTemperature
 	end
+	-- set outdoorTemperatureMax (reset every noon)
+	if (minutesnow==720 or HP['otmax']==nil or HP['otmax']<outdoorTemperature) then 
+		HP['otmax']=outdoorTemperature
+	end
 
 	-- Also, I have to consider the availability of power from photovoltaic
 	if (otherdevices[powerMeter]~=nil) then
@@ -318,10 +343,10 @@ else
 		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
 			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
 			for p in otherdevices[inverterMeter]:gmatch("[^;]+") do
-				inverterPower=p
+				inverterPower=tonumber(p)
 				break
 			end
-			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W From PV:"..inverterPower.."W")
+			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W InstPower="..instPower.." From PV:"..inverterPower.."W")
 		else
 			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W")
 		end
@@ -342,28 +367,19 @@ else
 			-- in the morning, if temperature is not so distant from the setpoint, try to not consume from the grid
 			diffMaxHigh_power=0 
 		end
-		if (diffMax>=0) then
+		if (diffMax>0) then
 			if (usagePower<POWER_MAX-1700) then
 				-- must heat/cool!
 				if (HP['Level']==0) then
 					incLevel()
-				end
-				if (prodPower>prodPower_incLevel) then
-					-- more available power => increment level
-					if (uservariables['HeatPumpWinter']==1) then
-						tempFluidLimit=tempFluidLimit+2
-					else
-						tempFluidLimit=tempFluidLimit-1
-					end
 				end
 				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
 				if (uservariables['HeatPumpWinter']==1) then
 					-- make tempFluidLimit higher if rooms are cold
 					tempFluidLimit=30
 					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
-					if (HP['otmin']<10) then -- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
-						tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/4+diffMax*10-gradient*20 -- Tf=30+(10-outdoorTempMin)/4+deltaT*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
-					end
+					-- outdoorTemperatureMin<10 => if min outdoor temperature is low, increase the fluid temperature from heatpump
+					tempFluidLimit=tempFluidLimit+(10-HP['otmin'])/4+diffMax*10-tempDerivate*10 -- Tf=30+(10-outdoorTempMin)/4+deltaT*10+tempDerivate*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
 					if (tempFluidLimit>TEMP_WINTER_HP_MAX) then
 						tempFluidLimit=TEMP_WINTER_HP_MAX
 					end
@@ -383,7 +399,15 @@ else
 						tempFluidLimit=TEMP_SUMMER_HP_MIN
 					end
 				end
-
+				if (prodPower>prodPower_incLevel) then
+					-- more available power => increment level
+					if (uservariables['HeatPumpWinter']==1) then
+						tempFluidLimit=tempFluidLimit+2
+					else
+						tempFluidLimit=tempFluidLimit-1
+					end
+				end
+	
 				if (HP['Level']>0) then
 				-- regulate fluid tempeature in case of max Level 
 					if (uservariables['HeatPumpWinter']==1) then
@@ -418,13 +442,26 @@ else
 						end
 					end
 				end -- if (HP['Level']>0
+				
+				-- Control heat pump power, reducing level if no power is available and temperature is near the set point
+				if (HP['Level']>1 and 
+					diffMax<diffMaxHigh and 
+					usagePower>diffMaxHigh_power and 
+					inverterPower>2500 and 
+					minutesnow>timeofday['SunriseInMinutes']+60 and 
+					minutesnow<timeofday['SunsetInMinutes']-180) then
+					log(E_INFO,"Almost in temperature => reduce power usage")
+					decLevel()
+				end
 			elseif (usagePower>=POWER_MAX-500) then --usagePower>=POWER_MAX: decrement level
 				decLevel()
 			end
 		else
-			-- diffMax<0 => All zones are in temperature!
-			--reached the set point => reduce HP['Level'] till LEVEL_ON (if must dehumidify) or LEVEL_OFF if humidity is ok
-			if (HP['Level']>LEVEL_OFF)  then 
+			-- diffMax<=0 => All zones are in temperature!
+			if (uservariables['HeatPumpWinter']==1 and (tempDerivate*4)<(diffMax-diffMaxHigh/2)) then
+				-- temperature is decreasing: turn ON heat pump at minimum level
+				HP['Level']=LEVEL_ON
+			elseif (HP['Level']>LEVEL_OFF)  then 
 				-- temperature and humidity are OK
 				log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
 				decLevel() 
@@ -434,6 +471,8 @@ else
 		log(E_DEBUG,'No power meter installed')
 	end
 end
+
+
 
 gasHeaterOn=0
 if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
@@ -511,6 +550,7 @@ for n,v in pairs(DEVauxlist) do
 		-- check timeout, if defined
 		auxTimeout=0
 		auxMaxTimeout=1440
+		log(E_DEBUG,"v="..v[1])
 		if (v[11]~=nil and v[11]>0) then
 			-- max timeout defined => check that device has not reached the working time = max timeout in minutes
 			auxMaxTimeout=v[11]
@@ -528,19 +568,19 @@ for n,v in pairs(DEVauxlist) do
 			end
 		end
 		-- change state only if previous heatpump level match the current one (during transitions from a power level to another, power consumption changes)
-		if (levelOld==HP['Level']) then
-			if (otherdevices[ v[1] ]~='Off') then
-				-- device is ON
-				if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
-					deviceOff(v[1],'a'..n)
-					prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
-				end
-			else
-				-- device is OFF
-				if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1]) then
-					deviceOn(v[1],'a'..n)
-					prodPower=prodPower-v[4] 	-- update prodPower
-				end
+		if (otherdevices[ v[1] ]~='Off') then
+			-- device is ON
+			if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
+				deviceOff(v[1],'a'..n)
+				prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
+			end
+		else
+			-- device is OFF
+			-- print(prodPower.." "..v[4])
+			log(E_DEBUG,'prodPower='..prodPower.." cond="..v[devCond+1].." auxTimeout="..auxTimeout)
+			if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1]) then
+				deviceOn(v[1],'a'..n)
+				prodPower=prodPower-v[4] 	-- update prodPower
 			end
 		end
 	end
