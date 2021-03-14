@@ -77,7 +77,7 @@ if (uservariables['HeatPumpWinter']==1) then
 				else
 					tempSet=18
 				end
-				print('tempSet for zona '..n..'='..tempSet)
+				log(E_INFO,'tempSet for zona '..n..'='..tempSet)
 				if (math.abs(diffTemp)>=v[2] and math.abs(gradient)>v[3] and tonumber(otherdevices[v[1]])<tempSet) then
 					telegramNotify('Zone '..n..': window open!! Temp='..otherdevices[v[1]]..' Gradient='..string.format('%0.2f',gradient)..'K/hour');
 					commandArray['Variable:zTemp_'..n]=otherdevices[v[1]]	-- update zTemp_ZONE temperature
