@@ -3,11 +3,11 @@
 # set a variable indicating the state of the alarm
 # Called by some scenes
 
+. /home/pi/domoticz/scripts/lua/globalvariables.lua # some variables common to all scripts
+
+
 #device idx (check Setup -> Devices) of all sirens that must be disabled when alarm is disactivated, separated by a space
 SIREN_IDX="154 52 72 73 259 239 261 828 831"	
-
-#domoticz url, automatically got from alarm_config.lua
-DOMOTICZ_URL=`egrep ^DOMOTICZ_URL= scripts/lua/alarm_config.lua | sed 's/^DOMOTICZ_URL="\(.*\)".*/\1/'` 	#get DOMOTICZ_URL from alarm_config.lua
 
 if [ $# -eq 1 ]; then
 	if [[ "a$1" == "a1" || "a$1" == "a2" || "a$1" == "a4" || "a$1" == "a8" || "a$1" == "a16" ]]; then

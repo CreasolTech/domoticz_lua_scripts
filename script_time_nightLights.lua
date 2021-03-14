@@ -1,19 +1,13 @@
-debug=0	-- if 1, print debug information
+
+dofile("/home/pi/domoticz/scripts/lua/globalvariables.lua") -- some variables common to all scripts
+dofile("/home/pi/domoticz/scripts/lua/globalfunctions.lua") -- some functions common to all scripts
+
 LightOnDeviceNames={'LightOut_Portico','LightOut_NordOvest','LightOut_Portico_Sud','LightOut_Est','LightOut_Nord'}	-- device names of lights that should be turned on after sunset
 LightOffDeviceNames={'LightOut_Terrazzo','LightOut_NordOvest','LightOut1','LightOut_Portico','LightOut_Portico_Sud','LightOut_Est','LightOut2','LightOut3','LightOut_Nord'}	-- device names of lights that should be turned off at sunrise
 commandArray={}
 newvalue=0
 
-if (debug>0) then print('---------------------------------- nightLights ---------------------------------------------') end
-
-function telegramNotify(msg)
-	os.execute('curl --data chat_id='..uservariables['telegramChatid']..' --data-urlencode "text='..msg..'"  "https://api.telegram.org/bot'..uservariables['telegramToken']..'/sendMessage" ')
-end
-
-function min2hours(mins)
-	-- convert minutes in hh:mm format
-	return string.format('%02d:%02d',math.floor(mins/60),mins%60)
-end
+log(E_INFO,'---------------------------------- nightLights ---------------------------------------------')
 
 function setMinutesOff()
 --	commandArray['Variable:vNightLightsOff']=timeofday['SunriseInMinutes']-math.random(20, 40) -- after 5.30 switch lights off, even in the Winter
@@ -45,7 +39,7 @@ else
 	minutesOff = uservariables['vNightLightsOff']
 end
 
-if (debug>0) then print('minutesnow=' .. minutesnow .. ' and minutesOn=' .. minutesOn .. ' and minutesOff=' .. minutesOff) end
+log(E_INFO,'minutesnow=' .. minutesnow .. ' and minutesOn=' .. minutesOn .. ' and minutesOff=' .. minutesOff)
 --if (debug>0) then minutesOff=minutesnow end
 
 	-- night lights are OFF
@@ -75,9 +69,4 @@ if (otherdevices['LightOut_Terrazzo']=='Off' and uservariables['alarmLevel']>1 a
 end
 
 --------------------------- ending.... ----------------------------
-if (debug>0) then 
-	for i, v in pairs(commandArray) do
-		print('### ++++++> Device Changes in commandArray: '..i..':'..v)
-	end
-end
 return commandArray

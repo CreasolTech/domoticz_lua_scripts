@@ -9,6 +9,10 @@
 --
 
 commandArray={}
+
+dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
+
 timenow = os.date("*t")
 
 --[[
@@ -19,9 +23,9 @@ if (timenow.hour<=(timeofday['SunriseInMinutes']/60) or timenow.hour>(timeofday[
 end
 ]]
 
---DEBUG=1
-DEBUG=0
-DOMOTICZ_URL="http://127.0.0.1:8080"    -- Domoticz URL (used to create variables using JSON URL
+DEBUG=E_WARNING
+DEBUG_PREFIX="Power: "
+
 PowerMeter={'PowerMeter'}
 ledsGreen={'Led_Cucina_Green'}	-- green LEDs that show power production
 ledsRed={'Led_Cucina_Red'}		-- red LEDs that show power usage
@@ -29,7 +33,7 @@ ledsWhite={'Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_C
 ledsWhiteSelector={'Led_Cucina_White'}	-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
 blackoutDevice='Supply_HeatPump'	-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
 
-if (DEBUG>1) then
+if (DEBUG>=E_DEBUG) then
 	PowerThreshold={ --DEBUG values
 		2000,  	-- available power (Italy: power+10%)
 		2100,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
@@ -67,12 +71,6 @@ Heaters={	-- from the highest priority to the lowest priority
 
 
 
-
-function log(text)
-	if (DEBUG>0) then
-		print('Power: '..text)
-	end
-end
 
 function PowerInit()
 	if (Power==nil) then Power={} end
@@ -120,7 +118,7 @@ function powerMeterAlert(on)
 	for k,pma in pairs(PowerMeterAlerts) do
 		if (on~=0) then
 			if (otherdevices[ pma[1] ]~=pma[3]) then
-				log("Activate sould alert "..pma[1])
+				log(E_INFO,"Activate sould alert "..pma[1])
 				commandArray[ pma[1] ]=pma[3]
 			end
 		else
@@ -145,7 +143,7 @@ function scanHeaters()
 				devAuto=1
 				devOn=loadRow[1]
 				devPower=loadRow[2]
-				log("devOn="..devOn.." devPower="..devPower.." devAuto="..devAuto)
+				log(E_INFO,"devOn="..devOn.." devPower="..devPower.." devAuto="..devAuto)
 			else
 				-- current device was enabled manually, not enabled from script_device_power.lua
 				if (devOn=='') then
@@ -166,7 +164,7 @@ function powerDisconnect(forced,msg)
 			-- TODO: try to disable overloadDisconnect devices
 			for k,loadRow in pairs(overloadDisconnect) do
 				if (otherdevices[ loadRow[1] ]=='On') then
-					log(msg..': disconnect '..loadRow[1])
+					log(E_WARNING, msg..': disconnect '..loadRow[1])
 					commandArray[ loadRow[1] ]=loadRow[2]
 					Power['disc']=os.time()
 					return 1
@@ -175,7 +173,7 @@ function powerDisconnect(forced,msg)
 		end
 		return 0
 	elseif (devAuto~=0 or forced~=0) then
-		log(msg..': disconnect '..devOn..' to save '..devPower..'W')
+		log(E_WARNING, msg..': disconnect '..devOn..' to save '..devPower..'W')
 		commandArray[devOn]='Off'
 		Power[devKey]='off/man'
 		Power['usage']=Power['usage']-devPower
@@ -199,7 +197,7 @@ for devName,devValue in pairs(devicechanged) do
 			getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
 
 			-- update LED statuses
-			-- red led when power usage >=0 (1=>1000W, 2=>2000W, ...)
+			-- red led when power usage >=0 (1=> <1000W, 2=> <2000W, ...)
 			-- green led when power production >0 (1 if <1000W, 2 if <2000W, ...)
 			--
 			if (currentPower<0) then
@@ -216,7 +214,7 @@ for devName,devValue in pairs(devicechanged) do
 
 			if (currentPower>0) then
 				-- red leds
-				l=math.floor(currentPower/1000)*10	-- 1=1000..1999W, 2=2000..2999W, ...
+				l=(math.floor(currentPower/1000)+1)*10	-- 1=0..999W, 2=1000..1999, 3=2000..2999W, ...
 			else
 				l=0	-- used power >0 => turn off green leds
 			end
@@ -240,7 +238,7 @@ for devName,devValue in pairs(devicechanged) do
 				if (currentPower>limit) then
 					-- disconnect only if power remains high for more than 5*2s
 					if (Power['above']>5) then 
-						--log("currentPower > toleratedUsagePower+100 for more than 5 minutes")
+						--log(E_INFO, "currentPower > toleratedUsagePower+100 for more than 5 minutes")
 						powerDisconnect(0,"currentPower>"..limit.." for more than 5 minutes") 
 						Power['above']=0
 					else
@@ -258,15 +256,15 @@ for devName,devValue in pairs(devicechanged) do
 --					elseif (timenow.sec<=40 and currentPower<0) then
 					if (timenow.sec<=40 and currentPower<0) then
 						-- renewable sources are producing more than current consumption: activate extra loads
-						-- log("sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
+						-- log(E_INFO, "sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
 						availablePower=0-currentPower
 						if (uservariables['HeatPumpWinter']==1) then
 							-- check electric heaters
 							for k,loadRow in pairs(Heaters) do
-								-- log("Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
+								-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
 								if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<availablePower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
 									-- enable this new load
-									log('Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
+									log(E_INFO, 'Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
 									commandArray[loadRow[1]]='On'
 									Power['H'..k]='auto'
 									scanHeaters()
@@ -283,7 +281,7 @@ for devName,devValue in pairs(devicechanged) do
 			elseif (currentPower<PowerThreshold[2]) then
 				-- power consumption a little bit more than available power => long intervention time, before disconnecting
 				time=(os.time()-Power['th1Time'])
-				log("Power>"..PowerThreshold[1].." for "..time.."s")
+				log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
 				Power['th2Time']=0
 				if (Power['th1Time']==0) then
 					Power['th1Time']=os.time()
@@ -299,7 +297,7 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			else
 				time=(os.time()-Power['th2Time'])
-				log("Power>"..PowerThreshold[2].." for "..time.."s")
+				log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
 				if (Power['th2Time']==0) then
 					Power['th2Time']=os.time()
 				elseif (time>PowerThreshold[4]) then
@@ -308,7 +306,7 @@ for devName,devValue in pairs(devicechanged) do
 					time=os.time()-Power['disc']	-- disconnect devices every 50s
 					if (time>20 and powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
 						-- nothing to disconnect
-						log("nothing to disconnect")
+						log(E_CRITICAL,"nothing to disconnect")
 						powerMeterAlert(1)  -- send alert
 					else
 						powerMeterAlert(0)
@@ -317,10 +315,10 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			end	-- currentPower has a right value
 			-- save variables in Domoticz, in a json variable Power
-			-- log("commandArray['Variable:zPower']="..json.encode(Power))
+			-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
 			commandArray['Variable:zPower']=json.encode(Power)
 			setAvgPower()
-			log("currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
+			log(E_INFO,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
 		end
 	end
 

@@ -7,29 +7,14 @@ VENTILATION_COIL_DEV="VMC_CaldoFreddo"	-- coil to heat/cool air: will be activat
 HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
 VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
-VENTILATION_TIME=300	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME=240	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 
+DEBUG=E_WARNING
+DEBUG_PREFIX="RainCheck: "
 
-function checkVar(varname,vartype,value)
-    -- check if a user variable already exists in Domoticz: if not exist, create a variable with defined type and value
-    -- type=
-    -- 0=Integer
-    -- 1=Float
-    -- 2=String
-    -- 3=Date in format DD/MM/YYYY
-    -- 4=Time in format HH:MM
-    local url
-    if (uservariables[varname] == nil) then
-        print('Created variable ' .. varname..' = ' .. value)
-        url='http://127.0.0.1:8080/json.htm?type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value
-        -- openurl works, but can open only 1 url per time. If I have 10 variables to initialize, it takes 10 minutes to do that!
-        -- print("url="..url)
-        -- commandArray['OpenURL']=url
-        os.execute('curl "'..url..'"')
-        uservariables[varname] = value;
-    end
-end
+dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
 function CMVinit()
 	-- check or initialize the CMV table of variables, that will be saved, coded in JSON, into the zVentilation Domoticz variable
@@ -62,7 +47,7 @@ end
 -- If it's raining more than 8mm/hour, disable the 230V socket in the garden
 dev='Prese_Giardino' -- socket device
 if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
-	print("Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")
+	log(E_WARNING,"Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")
 	commandArray[dev]='Off'
 end
 
@@ -86,7 +71,7 @@ if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	CMV['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
 end
 
-print("Ventilation "..otherdevices[VENTILATION_DEV]..": CMV['auto']="..CMV['auto'].." time="..CMV['time'].."/"..CMV['maxtime'].." windSpeed="..windSpeed.." windDirection="..windDirection)
+log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": CMV['auto']="..CMV['auto'].." time="..CMV['time'].."/"..CMV['maxtime'].." windSpeed="..windSpeed.." windDirection="..windDirection)
 if (otherdevices[VENTILATION_DEV]=='Off') then
 	-- ventilation was OFF
 	if (CMV['auto']==1 or CMV['auto']==3) then
@@ -98,7 +83,7 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 		end
 	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
 -- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
-			print("Ventilation ON: windSpeed="..windSpeed.." windDirection="..windDirection)
+			log(E_INFO,"Ventilation ON: windSpeed="..windSpeed.." windDirection="..windDirection)
 			CMV['auto']=1	-- ON
 			commandArray[VENTILATION_DEV]='On'
 --		end
@@ -117,11 +102,11 @@ else
 		CMV['auto']=1
 	elseif (CMV['auto']==1 or CMV['auto']==3) then
 		if (CMV['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
-			print("Ventilation OFF: reached the stop time. Duration="..CMV['time'].." minutes")
+			log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..CMV['time'].." minutes")
 			CMV['auto']=0
 			commandArray[VENTILATION_DEV]='Off'
 		elseif (CMV['time']>=CMV['maxtime'] or windSpeed==0 or (windDirection>160 and windSpeed<20)) then
-			print("Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
+			log(E_INFO,"Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 			CMV['auto']=0
 			commandArray[VENTILATION_DEV]='Off'
 		end

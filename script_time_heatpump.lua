@@ -7,8 +7,7 @@
 --
 commandArray={}
 
---do return commandArray	end --Return now, skipping everything else
-dofile "/home/pi/domoticz/scripts/lua/heatpump_conf.lua"
+dofile "/home/pi/domoticz/scripts/lua/config_heatpump.lua"
 
 -- Level can be 0 (OFF) or >0 (ON: the higher the level, more power can be used by the heat pump)
 -- Increment the level (available power for the heat pump)
@@ -34,6 +33,7 @@ function HPinit()
 	if (HP['otmax']==nil) then HP['otmax']=10 end	-- outodorTemperatureMin
 	if (HP['Level']==nil) then HP['Level']=0 end
 	if (HP['SPoff']==nil) then HP['SPoff']=0 end
+	if (HP['HPout']==nil) then HP['HPout']=0 end	-- tempHPout temperature
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -166,10 +166,10 @@ for n,v in pairs(zones) do	-- check that temperature setpoint exist
 		log(E_CRITICAL,'Zone '..n..': temperature sensor '..v[ZONE_TEMP_DEV]..' does not exist')
 	end
 	if (v[ZONE_RH_DEV] and v[ZONE_RH_DEV]~='' and otherdevices[v[ZONE_RH_DEV] ]==nil) then
-		log(E_CRITICAL,'Zone '..n..': relative humidity device '..v[ZONE_RH_DEV]..' defined in heatpump_conf.lua but does not exist')
+		log(E_CRITICAL,'Zone '..n..': relative humidity device '..v[ZONE_RH_DEV]..' defined in config_heatpump.lua but does not exist')
 	end
 	if (v[ZONE_VALVE] and v[ZONE_VALVE]~='' and otherdevices[v[ZONE_VALVE] ]==nil) then
-		log(E_CRITICAL,'Zone '..n..': valve device '..v[ZONE_VALVE]..' defined in heatpump_conf.lua but does not exist')
+		log(E_CRITICAL,'Zone '..n..': valve device '..v[ZONE_VALVE]..' defined in config_heatpump.lua but does not exist')
 	end
 end
 
@@ -414,12 +414,32 @@ else
 						-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
 						-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
 						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
+
+						-- check that fluid is not decreasing abnormally
+						if (tonumber(otherdevices[tempHPout])>HP['HPout']) then
+							if (tonumber(otherdevices[tempHPout])>=HP['HPout']+1) then
+								HP['HPout']=tonumber(otherdevices[tempHPout]) 
+								if (HP['HPout']>=TEMP_WINTER_HP_MAX+2) then
+									log(TELEGRAM_LEVEL,"Fluid temperature is too high!! "..HP['HPout'].."°C")
+								end
+							end
+						elseif (tonumber(otherdevices[tempHPout])<HP['HPout']-1) then
+							HP['HPout']=tonumber(otherdevices[tempHPout])
+							if (otherdevices[HPSummer]=='On') then 
+								log(TELEGRAM_LEVEL,HPsummer.." was On => disable it")
+								commandArray[HPSummer]='Off'
+							end
+							if (HP['HPout']<=TEMP_SUMMER_HP_MIN) then
+								--fluid temperature is decreasing below a reasonable value => send alert
+								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is very low!! "..HP['HPout'].."°C")
+							end
+						end
 						if (tonumber(otherdevices[tempHPout])<=(tempFluidLimit-1)) then
 							-- must heat!
 							if (HP['Level']<LEVEL_WINTER_FANCOIL) then 
 								log(E_INFO,"Fluid temperature is low => must heat!")
 								incLevel()
-							elseif (HP['Level']<LEVEL_WINTER_MAX and (timenow.hour>=23 or timenow.hour<7 or prodPower>=prodPower_incLevel or diffMax>=diffMaxHigh)) then
+							elseif (HP['Level']<LEVEL_WINTER_MAX and (((timenow.hour>=23 or timenow.hour<7) and inverterMeter~='' and HP['otmax']<5) or prodPower>=prodPower_incLevel or diffMax>=diffMaxHigh)) then
 								log(E_INFO,"Enable full power!")
 								incLevel()
 							end
@@ -435,6 +455,25 @@ else
 							end
 						end
 					else -- Summer
+						-- check that fluid is not increasing/decreasing abnormally
+						if (tonumber(otherdevices[tempHPout])<HP['HPout']) then
+							if (tonumber(otherdevices[tempHPout])>HP['HPout']+1) then
+								HP['HPout']=tonumber(otherdevices[tempHPout]) 
+								if (HP['HPout']<=TEMP_SUMMER_HP_MIN-2) then
+									log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is too low!! "..HP['HPout'].."°C")
+								end
+							end
+						elseif (tonumber(otherdevices[tempHPout])>HP['HPout']+1) then
+							HP['HPout']=tonumber(otherdevices[tempHPout])
+							if (otherdevices[HPSummer]=='Off') then 
+								log(TELEGRAM_LEVEL,HPsummer.." was Off => enable it")
+								commandArray[HPSummer]='On'
+							end
+							if (HP['HPout']>=30) then
+								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is too high!! "..HP['HPout'].."°C")
+							end
+						end
+
 						-- TODO: reduce power when tempHPout is near the tempFluidLimit !!
 						if ((HP['Level']<=level_max and tonumber(otherdevices[tempHPOut])<tempFluidLimit)) then
 							log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
@@ -458,8 +497,8 @@ else
 			end
 		else
 			-- diffMax<=0 => All zones are in temperature!
-			if (uservariables['HeatPumpWinter']==1 and (tempDerivate*4)<(diffMax-diffMaxHigh/2)) then
-				-- temperature is decreasing: turn ON heat pump at minimum level
+			if (uservariables['HeatPumpWinter']==1 and (inverterMeter~='' and HP['otmax']<8 and (tempDerivate*4)<(diffMax-diffMaxHigh/2))) then
+				-- temperature is decreasing: turn ON heat pump at minimum level, but only in the winter
 				HP['Level']=LEVEL_ON
 			elseif (HP['Level']>LEVEL_OFF)  then 
 				-- temperature and humidity are OK
@@ -525,7 +564,8 @@ if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- s
 for n,v in pairs(DEVlist) do
 	-- n=table index
 	-- v={deviceName, winterLevel, summerLevel}
-	if (v[devLevel]<=level_max) then -- ignore devices configured to have a very high level
+	log(E_DEBUG,"DevName="..v[1].." devLevel="..v[devLevel].." CurrentLevel="..HP['Level'].." level_max="..level_max )
+	if (v[devLevel]<=level_max+1) then -- ignore devices configured to have a very high level
 		if (HP['Level']>=v[devLevel]) then
 			-- this device has a level <= of current level => enable it
 			deviceOn(v[1],n)
@@ -536,7 +576,7 @@ for n,v in pairs(DEVlist) do
 	end
 end
 
-updateValves()	
+updateValves() -- enable/disable the valve for each zone
 
 -- now check heaters and dehumidifiers in DEVauxlist...
 -- devLevel for DEVauxlist is the same as DEVlist -- if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
@@ -602,11 +642,12 @@ end
 
 
 -- save variables
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..otherdevices[GasHeater]..' HPout='..otherdevices[tempHPout]..' HPLimit='..string.format("%.1f", tempFluidLimit)..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor])
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..' HPout='..otherdevices[tempHPout]..' HPLimit='..string.format("%.1f", tempFluidLimit)..' HPin='..otherdevices[tempHPin]..' Outdoor='..otherdevices[tempOutdoor])
 log(E_DEBUG,'zHeatPump='..json.encode(HP))
 log(E_DEBUG,'zHeatPumpZone='..json.encode(HPZ))
 commandArray['Variable:zHeatPump']=json.encode(HP)
 commandArray['Variable:zHeatPumpZone']=json.encode(HPZ)
 
 ::mainEnd::
+
 return commandArray

@@ -1,12 +1,11 @@
+
 -- scripts/lua/alarm_config.lua - Configuration file for alarm scripts
 -- Written by Creasol, https://creasol.it/products
 --
--- Some constants: TO BE MODIFIED WITH YOUR VALUES
-TELEGRAM_DEBUG_CHATID="97654321"	-- Telegram chatid where to send testing notifications (when DEBUG_LEVEL >= 2)
-TELEGRAM_IMPORTANT_CHATID="-1234567890123"
-TELEGRAM_TOKEN="67ddddd46:AAG2vcafe123456789FiuGI1cRdEK7B7fzo"
-DOMOTICZ_URL="http://127.0.0.1:8080"	-- Domoticz URL (used to create variables using JSON URL
+dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
+-- Some constants: TO BE MODIFIED WITH YOUR VALUES
 -- bitmask associated to alarmLevel: don't care
 ALARM_OFF=1
 ALARM_DAY=2
@@ -139,68 +138,3 @@ ALARM_Lights={
 LEDS_ON={'Led_Bedroom1_Red','Led_Bedroom2_Red'}
 -- Leds activated for few seconds when alarm has been disactivated
 LEDS_OFF={'LEd_Bedroom1_Green','Led_Bedroom2_Green'}
---
-
-
--- ------------------ Some common functions ---------------------------
-function log(level, msg)
-	if (alarmLevel~=ALARM_OFF or level>=E_WARNING) then
-		-- alarm active, or in test
-		text=ALARMlist[alarmLevel][1]..'('..alarmStatus..'): '..msg
-		if (level==E_ERROR) then text="*** "..text end
-		-- write to domoticz logfile
-		if (DEBUG_LEVEL>=level) then print(text) end
-		-- send by Telegram
-		telegramLevel=TELEGRAM_LEVEL
-		if (telegramLevel<E_INFO and (alarmLevel==ALARM_TEST or alarmStatus~=STATUS_OK)) then
-			telegramLevel=E_INFO -- increase telegram verbosity in case of alarm or system in TEST
-		end
-		if (telegramLevel>=level) then 
-			chatid=TELEGRAM_IMPORTANT_CHATID
-			if (TELEGRAM_DEBUG_CHATID~='' and (level>E_WARNING and alarmStatus==STATUS_OK))  then
-				chatid=TELEGRAM_DEBUG_CHATID
-			end
-			if (chatid) then 
-				os.execute('curl --data chat_id='..chatid..' --data-urlencode "text='..ALARMlist[alarmLevel][1]..': '..msg..' '..os.date():sub(12,19)..'"  "https://api.telegram.org/bot'..TELEGRAM_TOKEN..'/sendMessage" ')
-			end
-		end
-	end
-end
-
-function min2hours(mins)
-    -- convert minutes in hh:mm format
-    return string.format('%02d:%02d',mins/60,mins%60)
-end
-
-function timedifference (s)
-    year = string.sub(s, 1, 4)
-    month = string.sub(s, 6, 7)
-    day = string.sub(s, 9, 10)
-    hour = string.sub(s, 12, 13)
-    minutes = string.sub(s, 15, 16)
-    seconds = string.sub(s, 18, 19)
-    t1 = os.time()
-    t2 = os.time{year=year, month=month, day=day, hour=hour, min=minutes, sec=seconds}
-    difference = os.difftime (t1, t2)
-    return difference
-end
-
-function checkVar(varname,vartype,value)
-    -- check if a user variable already exists in Domoticz: if not exist, create a variable with defined type and value
-    -- type=
-    -- 0=Integer
-    -- 1=Float
-    -- 2=String
-    -- 3=Date in format DD/MM/YYYY
-    -- 4=Time in format HH:MM
-    local url
-    if (uservariables[varname] == nil) then
-        print('Created variable ' .. varname..' = ' .. value)
-        url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value
-        -- openurl works, but can open only 1 url per time. If I have 10 variables to initialize, it takes 10 minutes to do that!
-        -- commandArray['OpenURL']=url
-        os.execute('curl "'..url..'"')
-        uservariables[varname] = value;
-    end
-end
-

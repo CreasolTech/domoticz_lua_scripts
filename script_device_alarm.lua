@@ -43,7 +43,7 @@ if (uservariables['alarmLevelNew']~=nil and uservariables['alarmLevelNew']==0 an
 end
 
 ------------------------------------- changed device is MCS,PIR,TAMPER,SIREN or ALARM* ---------------------------------
-dofile "scripts/lua/alarm_config.lua"
+dofile "scripts/lua/config_alarm.lua"
 
 -- Function called when alarm is activated in Day mode
 function alarmDayOn()
