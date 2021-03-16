@@ -506,15 +506,17 @@ for devName,devValue in pairs(devicechanged) do
 		-- if PIR on garage toggles, but the two doors to the garage were not opened => take some snapshots from the camera outside garage
 		if (alarmLevel>=ALARM_OFF) then
 			-- get snapshot only every 4 seconds (time to grab media stream and create pictures) if PIR is active but internal doors were closed for more than 5 minutes
-			if (devName=='PIR_Garage' and (timeNow-ZA['PIR_Gs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+			if (devName=='PIR_Garage' and devValue=='On' and (timeNow-ZA['PIR_Gs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
 				if (timeofday['Nighttime']) then
 					if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 124 SECONDS' end
 				end
-				if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Garage_Porta_Pranzo']~='Open' and otherdevices['MCS_Garage_Porta_Magazzino']~='Open' and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])>300 and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])>300) then
-					os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.205 192.168.3.206 PIR_Garage 2>&1 >/tmp/alarm_sendsnapshot_garage.log &")
-					ZA['PIR_Gs']=timeNow
+				if (otherdevices['MCS_Garage_Porta_Pranzo']~='Open' and otherdevices['MCS_Garage_Porta_Magazzino']~='Open' and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])>300 and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])>300) then
+					if (alarmLevel>=ALARM_DAY) then
+						os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.205 192.168.3.206 PIR_Garage 2>&1 >/tmp/alarm_sendsnapshot_garage.log &")
+						ZA['PIR_Gs']=timeNow
+					end
+					if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 				end
-				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 			end
 			if (devName=='PIR_SudEst') then
 				-- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
