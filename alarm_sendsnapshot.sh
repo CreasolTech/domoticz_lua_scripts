@@ -44,7 +44,7 @@ if [ -n "${ipcamera1}" ]; then
 		#IPCam does not support snapshot
 		#Use ffmpeg to extract snapshot from media stream (if camera does not support snapshot)
 		rm /tmp/alarm_snapshot1_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
-		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${MEDIAUSER1}:${MEDIAPASS1}@${MEDIAURL1} -frames 150 /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
+		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${MEDIAUSER1}:${MEDIAPASS1}@${MEDIAURL1} -frames 200 /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
 		### && >/tmp/alarm_snapshot1_$$.done &
 	fi
 fi
@@ -57,7 +57,7 @@ if [ -n ${ipcamera2} ]; then
 		#IPCam does not support snapshot
 		#Use ffmpeg to extract snapshot from media stream (if camera does not support snapshot)
 		rm /tmp/alarm_snapshot2_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
-		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${MEDIAUSER2}:${MEDIAPASS2}@${MEDIAURL2} -frames 150 /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
+		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${MEDIAUSER2}:${MEDIAPASS2}@${MEDIAURL2} -frames 200 /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
 		### && >/tmp/alarm_snapshot2_$$.done &
 	fi
 fi

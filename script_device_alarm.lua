@@ -340,10 +340,10 @@ function lightsCheck() -- check that zAlarmLights exists, if not init it and ini
 end
 
 function ZAinit()
-    if (ZA==nil) then ZA={} end
-    if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=timeNow end		--time when PIR_G has been activated and video recording started
-    if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=timeNow end	--time when PIR_SE has been activated and video recording started
-    if (ZA['PIR_SEn']==nil) then ZA['PIR_SEn']=0 end			--number of video recordings due to PIR_SE activations
+	if (ZA==nil) then ZA={} end
+	if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=timeNow end		--time when PIR_G has been activated and video recording started
+	if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=timeNow end	--time when PIR_SE has been activated and video recording started
+	if (ZA['PIR_SEn']==nil) then ZA['PIR_SEn']=0 end			--number of video recordings due to PIR_SE activations
 	if (ZA['Button1']==nil) then ZA['Button1']=timeNow end	--time the Button1 has been pushed
 	if (ZA['ButtonSU']==nil) then ZA['ButtonSU']=timeNow end	--time the ButtonSU has been pushed
 	if (ZA['ButtonCO']==nil) then ZA['ButtonCO']=timeNow end	--time the ButtonCO has been pushed

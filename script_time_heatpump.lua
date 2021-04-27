@@ -61,9 +61,13 @@ function deviceOff(devName,devIndex)
 	-- if devname is on and was enabled by this script => turn it off
 	-- if devname was enabled manually, for example to force heating/cooling, leave it ON.
 	if (otherdevices[devName]~='Off' and (HP['d'..devIndex]==nil or HP['d'..devIndex]=='a')) then 
-		print("deviceOff("..devName..","..devIndex..")")
+		log(E_DEBUG,"deviceOff("..devName..","..devIndex..")")
 		commandArray[devName]='Off'	-- switch off
 		HP['d'..devIndex]=''	-- store in HP that device was automatically turned ON (and can be turned off)
+	else
+		local v='nil'
+		if (HP['d'..devIndex]~=nil) then v=HP['d'..devIndex] end
+		log(E_DEBUG,"deviceOff("..devName..","..devIndex.."): HP[d"..devIndex.."]="..v)
 	end
 end
 
@@ -584,13 +588,26 @@ if (uservariables['HeatPumpSummer']==1) then devCond=8 else devCond=5 end	-- dev
 
 -- Parse DEVauxlist to check if anything should be enabled or disabled
 -- If heat pump level has changed, don't enable/disable aux devices because the measured prodPower may change 
+availablePower=prodPower	
+	-- compute the available power (disabling all aux devices)
+for n,v in pairs(DEVauxlist) do
+	if (otherdevices[ v[1] ]~='Off') then
+		availablePower=availablePower+v[4]
+	end
+end
+if (prodPower ~= availablePower) then log(E_INFO,"prodPower="..prodPower.." availablePower="..availablePower) end
 for n,v in pairs(DEVauxlist) do
 	if (otherdevices[ v[devCond] ]~=nil) then
+		s=""
+		if (v[12]~=nil and HP['s'..n]~=nil and HP['s'..n]>0) then
+			s=" ["..HP['s'..n].."/"..v[12].."m]"
+		end			
+		log(E_INFO,"Aux "..otherdevices[ v[1] ]..": "..v[1] .." (" .. v[4].."/"..availablePower.."W)"..s)
 		if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
+		log(E_DEBUG,v[1] .. ": is " .. tonumber(otherdevices[ v[devCond] ]) .." < ".. v[devCond+2] .."? " .. cond)
 		-- check timeout, if defined
 		auxTimeout=0
 		auxMaxTimeout=1440
-		log(E_DEBUG,"v="..v[1])
 		if (v[11]~=nil and v[11]>0) then
 			-- max timeout defined => check that device has not reached the working time = max timeout in minutes
 			auxMaxTimeout=v[11]
@@ -610,17 +627,38 @@ for n,v in pairs(DEVauxlist) do
 		-- change state only if previous heatpump level match the current one (during transitions from a power level to another, power consumption changes)
 		if (otherdevices[ v[1] ]~='Off') then
 			-- device is ON
-			if (prodPower<(v[4]-100) or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] --[[ or otherdevices['VMC_Rinnovo']=='On' ]]) then
-				deviceOff(v[1],'a'..n)
-				prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
+			log(E_DEBUG,'Device is not Off: '..v[1]..'='..otherdevices[ v[1] ])
+			availablePower=availablePower-v[4]
+			if (prodPower<-100 or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] ) then
+				if (v[12]~=nil) then
+					if (HP['s'..n]==nil) then HP['s'..n]=0 end
+					HP['s'..n]=HP['s'..n]+1
+					if (HP['s'..n]>=v[12]) then
+						-- stop device because conditions are not satisfied for more than v[12] minutes
+						deviceOff(v[1],'a'..n)
+						prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
+						availablePower=availablePower+v[4]
+						HP['s'..n]=0
+					end
+				else
+					deviceOff(v[1],'a'..n)
+					prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
+					availablePower=availablePower+v[4]
+				end
+			else
+				-- device On, and can remain On
+				if (v[12]~=nil) then
+					HP['s'..n]=0
+				end
 			end
 		else
 			-- device is OFF
 			-- print(prodPower.." "..v[4])
-			log(E_DEBUG,'prodPower='..prodPower.." cond="..v[devCond+1].." auxTimeout="..auxTimeout)
-			if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1]) then
+			log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .."and "..cond.."~="..v[devCond+1])
+			if (auxTimeout<auxMaxTimeout and availablePower>=(v[4]+100) and cond~=v[devCond+1]) then
 				deviceOn(v[1],'a'..n)
 				prodPower=prodPower-v[4] 	-- update prodPower
+				availablePower=availablePower-v[4] 	-- update prodPower
 			end
 		end
 	end

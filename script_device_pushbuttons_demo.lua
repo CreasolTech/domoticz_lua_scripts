@@ -35,32 +35,15 @@
 -- Based on your logic, fill the commandArray with device commands. Device name is case sensitive. 
 --
 
-DOMOTICZ_URL="http://127.0.0.1:8080"    -- Domoticz URL (used to create variables using JSON URL
-debug=0			-- 0 => don't write debug information on log. 1 =>  write some information to the Domoticz log
+dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
+
+DEBUG_LEVEL=E_ERROR         
+DEBUG_PREFIX="Pushbuttons: "
 
 commandArray = {}
 
 timeNow=os.time()	-- current time in seconds
-
-function checkVar(varname,vartype,value)
-    -- check if a user variable already exists in Domoticz: if not exist, create a variable with defined type and value
-    -- type=
-    -- 0=Integer
-    -- 1=Float
-    -- 2=String
-    -- 3=Date in format DD/MM/YYYY
-    -- 4=Time in format HH:MM
-    local url
-    if (uservariables[varname] == nil) then
-        print('Created variable ' .. varname..' = ' .. value)
-        url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value
-        -- openurl works, but can open only 1 url per time. If I have 10 variables to initialize, it takes 10 minutes to do that!
-        -- commandArray['OpenURL']=url
-        os.execute('curl "'..url..'"')
-        uservariables[varname] = value;
-    end
-end
-
 
 function PBinit(name)
 	if (PB==nil) then 
@@ -79,7 +62,7 @@ function PBinit(name)
 end
 
 function timeElapsed(devName) 
- 	print("Pushbutton hold for "..timeNow-PB[devName].." seconds")
+ 	log(E_INFO,"Pushbutton hold for "..timeNow-PB[devName].." seconds")
 	return timeNow-PB[devName]
 end
 
@@ -87,7 +70,7 @@ end
 
 -- loop through all the changed devices
 for devName,devValue in pairs(devicechanged) do
-	if (debug > 0) then print('EVENT: devname="'..devName..'" and value='..devValue) end
+	log(E_DEBUG,'EVENT: devname="'..devName..'" and value='..devValue)
 
 	-- when GARAGE_SENSOR has been activated, enable GARAGE_LIGHT for GARAGE_LIGHT_TIME seconds
 	-- also, use GARAGE_PUSHBUTTON to toggle light ON/OFF
@@ -119,8 +102,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- pushbutton released
 			-- compute pulse length
 			pulseLen=timeElapsed(devName)
-			if (debug>0) then print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s") end
-			print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
+			log(E_DEBUG,"EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
 			if (pulseLen<=1 and otherdevices['LightOut2']=='Off') then
 				-- short pulse, and commanded device is OFF => ON
 				commandArray['LightOut2']='On FOR 15 MINUTES'
@@ -149,7 +131,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- pushbutton released
 			-- compute pulse length
 			pulseLen=timeElapsed(devName)
-			if (debug>0) then print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s") end
+			log(E_DEBUG,"EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
 			if (pulseLen<=1) then
 				-- short pulse, toggle ventilation ON/OFF
 				if (otherdevices['VMC_Rinnovo']=='Off') then		-- VMC_Rinnovo = device name for controlled mechanical ventilation
@@ -185,7 +167,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- pushbutton released
 			-- compute pulse length
 			pulseLen=timeElapsed(devName)
-			if (debug>0) then print("EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s") end
+			log(E_DEBUG,"EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
 			if (pulseLen<=1) then
 				-- short pulse, toggle heater ON/OFF
 				if (otherdevices['VMC_Rinnovo']=='Off') then		-- VMC_Rinnovo = device name for controlled mechanical ventilation
@@ -216,7 +198,7 @@ for devName,devValue in pairs(devicechanged) do
 		if (otherdevices['VMC_Rinnovo']=='On') then ledVMCstatus=ledVMCstatus+10 end			
 		if (otherdevices['VMC_Deumidificazione']=='On') then ledVMCstatus=ledVMCstatus+20 end
 		if (otherdevices_svalues['Led_Cucina_White']~=tostring(ledVMCstatus)) then		-- led device on DomBusTH , configured in Selection mode with levels 0..3
-			print("ledVMCstatus=="..tostring(ledVMCstatus).." otherdevices_svalues[Led_Cucina_White]="..otherdevices_svalues['Led_Cucina_White'])
+			log(E_DEBUG,"ledVMCstatus=="..tostring(ledVMCstatus).." otherdevices_svalues[Led_Cucina_White]="..otherdevices_svalues['Led_Cucina_White'])
 			commandArray['Led_Cucina_White']="Set Level "..tostring(ledVMCstatus)
 		end
 	end

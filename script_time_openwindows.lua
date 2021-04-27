@@ -19,7 +19,7 @@ dofile("/home/pi/domoticz/scripts/lua/globalfunctions.lua") -- some variables co
 
 commandArray={}	-- reset commandArray, an associative array that will contain the list of commands for Domoticz.
 
-DEBUG=E_ERROR
+DEBUG_LEVEL=E_ERROR
 DEBUG_PREFIX="Openwindows: "
 TELEGRAM_DEBUG=E_WARNING
 

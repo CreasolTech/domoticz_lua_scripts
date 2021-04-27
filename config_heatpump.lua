@@ -16,7 +16,7 @@ POWER_MAX=5500						-- Increment heat pump level only if consumed power is less 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only if PDC is not able to keep the temperature
 powerMeter='PowerMeter'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
-inverterMeter='kWh Meter Inverter 1'	-- Inverter output power (photovoltaic). Set to '' if not available
+inverterMeter='PV PowerMeter'	-- Inverter output power (photovoltaic). Set to '' if not available
 tempHPout='Temp_HeatPumpFluidOut' 	-- Temperature of water produced by heat pump (before entering coils or underfloor radiant system)
 tempHPin= 'Temp_HeatPumpFluidIn'	-- Temperature of water that exits from coils and/or underfloor radiant system, and gets into the Heat Pump again
 tempOutdoor='Meteo outdoor'			-- Temperature outdoor, or meteo sensor ("temp;humidity;pression;0")
@@ -62,7 +62,10 @@ DEVlist={
 }
 
 DEVauxlist={
-	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes
+	-- max_work_minutes: used for driers or other devices that can work for maximum N minutes before an action must be taken (empty the water bolt, for example)
+	-- minutes_before_stop: number of minutes to wait before stopping a device due to insufficient power (this is used to avoid continuous start/stop)
+	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes minutes_before_stop
+	{'Kia eNiro - Charge',			1,			1,				2000,	'Kia eNiro - Battery state of charge',		0,	80,		'Kia eNiro - Battery state of charge',        0,  80,		0, 10},	-- EV charge
 --	{'Dehumidifier_Camera',			1,			1,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
 	{'Dehumidifier_Camera_Ospiti',	1,			1,				300,	'RH_Camera_Ospiti',			1,	60,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
 	{'Dehumidifier_Cantina',		1,			1,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		600},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full

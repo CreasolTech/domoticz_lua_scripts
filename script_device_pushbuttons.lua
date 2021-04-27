@@ -36,7 +36,7 @@
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
-DEBUG=E_ERROR			
+DEBUG_LEVEL=E_ERROR			
 DEBUG_PREFIX="Pushbuttons: "
 
 commandArray = {}
@@ -69,89 +69,6 @@ end
 -- loop through all the changed devices
 for devName,devValue in pairs(devicechanged) do
 	log(E_INFO,'EVENT: devname="'..devName..'" and value='..devValue)
-
-	-------------------------------- Start of section that is not useful: ignore or remove it! --------------------------------------
-	if (devName:sub(1,7)=='esplab_' and devName:sub(1,10)~='esplab_Out' and devName:sub(1,11)~='esplab_AnIn') then
-		-- esp lab used to test creDomESP1 boards
-		-- if all inputs are 1, activate relays outputs
-		print("Device "..devName.." = "..devValue)
-		if (otherdevices['esplab_SCL']=='On' and otherdevices['esplab_SDA']=='On' and otherdevices['esplab_1wire']=='On') then
-			print("*** ESPLAB ON ***")
-			commandArray['esplab_Out1']='On'
-			commandArray['esplab_Out2']='On'
-			commandArray['esplab_Out3']='On'
-			commandArray['esplab_Out4']='On'
-			commandArray['esplab_OutSSR']='On'
-		elseif (otherdevices['esplab_SCL']=='Off' and otherdevices['esplab_SDA']=='Off' and otherdevices['esplab_1wire']=='Off') then
-			print("*** ESPLAB OFF ***")
-			commandArray['esplab_Out1']='Off'
-			commandArray['esplab_Out2']='Off'
-			commandArray['esplab_Out3']='Off'
-			commandArray['esplab_Out4']='Off'
-			commandArray['esplab_OutSSR']='Off'
-		end
-	end
-
-	if (devName:sub(1,19)=='dombus - [Hff01] IN') then
-		-- esp lab used to test creDomESP1 boards
-		-- if all inputs are 1, activate relays outputs
-		local bitmask=0
-		if (otherdevices['dombus - [Hff01] IN1']=='Off') then bitmask=bitmask+1; end
-		if (otherdevices['dombus - [Hff01] IN2']=='Off') then bitmask=bitmask+2; end
-		if (otherdevices['dombus - [Hff01] IN3']=='Off') then bitmask=bitmask+4; end
-		if (otherdevices['dombus - [Hff01] IN4']=='Off') then bitmask=bitmask+8; end
-		if (otherdevices['dombus - [Hff01] IN5']=='Off') then bitmask=bitmask+16; end
-		if (otherdevices['dombus - [Hff01] IN6']=='Off') then bitmask=bitmask+32; end
-
-		print(string.format('INPUT MASK=0x%02x',bitmask))
-		if (bitmask==0x3f) then
-			commandArray['dombus - [Hff01] OUT1 Relay']='On AFTER 1'
-			commandArray['dombus - [Hff01] OUT2 Relay']='On AFTER 2'
-			commandArray['dombus - [Hff01] OUT3 Relay/SSR']='On AFTER 3'
---			commandArray['dombus - [Hff01] SSR']='On AFTER 4'
-		elseif (bitmask==0x00) then
-			commandArray['dombus - [Hff01] OUT1 Relay']='Off'
-			commandArray['dombus - [Hff01] OUT2 Relay']='Off'
-			commandArray['dombus - [Hff01] OUT3 Relay/SSR']='Off'
---			commandArray['dombus - [Hff01] SSR']='Off'
-		end
-	end
-
-	if (devName:sub(1,19)=='dombus - [Hff51] IN') then
-		-- esp lab used to test creDomESP1 boards
-		-- if all inputs are 1, activate relays outputs
-		local bitmask=0
-		if (devName:sub(20,21)=='1') then --IN1
-			if (devValue=='Down') then
-				commandArray['dombus - [Hff51] LED Green']='On'
-			elseif (devValue=='Up') then
-				commandArray['dombus - [Hff51] LED Green']='Off'
-			end
-		end
-		if (devName:sub(20,21)=='2') then
-			if (devValue=='Down') then
-				commandArray['dombus - [Hff51] Led White']='On'
-			elseif (devValue=='Up') then
-				commandArray['dombus - [Hff51] Led White']='Off'
-			end
-		end
-		if (devName:sub(20,21)=='3') then --IN3
-			if (devValue=='Down') then
-				commandArray['dombus - [ff51.1] OUT1']='On'
-			elseif (devValue=='Up') then
-				commandArray['dombus - [ff51.1] OUT1']='Off'
-			end
-		end
-		if (devName:sub(20,21)=='4') then --IN4
-			if (devValue=='Down') then
-				commandArray['dombus - [ff51.2] OUT2']='On'
-			elseif (devValue=='Up') then
-				commandArray['dombus - [ff51.2] OUT2']='Off'
-			end
-		end
-	end
-	-------------------------------- End of section that is not useful: ignore or remove it! --------------------------------------
-
 
 	--[[
 	-- remove the previous line to enable this section:

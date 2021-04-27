@@ -12,65 +12,9 @@ commandArray={}
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/config_power.lua"		-- configuration file
 
 timenow = os.date("*t")
-
---[[
--- don't run this script when sun is not producing
-if (timenow.hour<=(timeofday['SunriseInMinutes']/60) or timenow.hour>(timeofday['SunsetInMinutes']/60)) then
-	-- don't need to switch off electric heaters after SunSet, because already photovoltaic stops producing before sunset so all heaters have been automatically disabled
-	do return commandArray end
-end
-]]
-
-DEBUG=E_WARNING
-DEBUG_PREFIX="Power: "
-
-PowerMeter={'PowerMeter'}
-ledsGreen={'Led_Cucina_Green'}	-- green LEDs that show power production
-ledsRed={'Led_Cucina_Red'}		-- red LEDs that show power usage
-ledsWhite={'Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
-ledsWhiteSelector={'Led_Cucina_White'}	-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
-blackoutDevice='Supply_HeatPump'	-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
-
-if (DEBUG>=E_DEBUG) then
-	PowerThreshold={ --DEBUG values
-		2000,  	-- available power (Italy: power+10%)
-		2100,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
-		80,		-- send alert after 4800s (80minutes)
-		60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
-	}
-else
-	PowerThreshold={
-		5400,  	-- available power (Italy: power+10%)
-		6300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
-		4800,	-- send alert after 4800s (80minutes)
-		60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
-	}
-end
-
-PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very high and the script can't disable any load to reduce usage power
-	--buzzer device   OFF_command  ON_command
---	{'Display_Lab_12V','Off','On'},
-	{'Buzzer_Cucina','Off','On'},
-}
-
--- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)
-overloadDisconnect={ -- syntax: device name, command to disable, command to enable
-	{'HeatPump_FullPower','Off','On'},	-- heat pump, full power
-	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
-	{'HeatPump','Off','On'},			-- heat pump (general)
-	{'Irrigazione','Off','On'},			-- garden watering pump
-}
-
-Heaters={	-- from the highest priority to the lowest priority
-	-- device name , power , 1 if should be enabled automatically when renewable sources produce more than secified power or 0 if this is just used to disconnect load preventing power outage, temperature device, max temperature
-	{'Pranzo_Stufetta',950,1,'Temp_Cucina',23},			-- 1000W heater connected to DOMESP1
---	{'Bagno_Scaldasalviette',450,1,'Temp_Bagno',22},	-- 450W heater connected to DOMBUS1
-}
-
-
-
 
 function PowerInit()
 	if (Power==nil) then Power={} end
@@ -81,7 +25,12 @@ function PowerInit()
 	if (Power['disc']==nil) then Power['disc']=0 end
 end	
 
-
+function getPowerValue(devValue)
+	-- extract the power value from string "POWER;ENERGY...."
+	for str in devValue:gmatch("[^;]+") do
+		return tonumber(str)
+	end
+end
 
 function setAvgPower() -- store in the user variable avgPower the building power usage
 	if (uservariables['avgPower']==nil) then
@@ -124,6 +73,7 @@ function powerMeterAlert(on)
 		else
 			-- OFF command
 			if (otherdevices[ pma[1] ]~=pma[2]) then
+				log(E_INFO,"Disable sould alert "..pma[1])
 				commandArray[ pma[1] ]=pma[2]
 			end
 		end
@@ -185,144 +135,24 @@ function powerDisconnect(forced,msg)
 	end
 end
 
+currentPower=10000000 -- dummy value (10MW)
 for devName,devValue in pairs(devicechanged) do
-	if (devName==PowerMeter[1]) then
-		currentPower=999999
-		for str in devValue:gmatch("[^;]+") do
-			currentPower=tonumber(str)
-			break
+	if (PowerMeter~='') then
+		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
+		if (devName==PowerMeter) then
+			currentPower=getPowerValue(devValue)
 		end
-		if (currentPower>-20000 and currentPower<20000) then
-			-- currentPower is good
-			getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
-
-			-- update LED statuses
-			-- red led when power usage >=0 (1=> <1000W, 2=> <2000W, ...)
-			-- green led when power production >0 (1 if <1000W, 2 if <2000W, ...)
-			--
-			if (currentPower<0) then
-				-- green leds
-				l=math.floor(1-currentPower/1000)*10	-- 1=0..999W, 2=1000..1999W, ...
-			else
-				l=0	-- used power >0 => turn off green leds
+	else
+		-- use PowerMeterImport and PowerMeterExport (if available)
+		if ((PowerMeterImport~='' and devName==PowerMeterImport) or (PowerMeterExport~='' and devName==PowerMeterExport)) then
+			currentPower=getPowerValue(otherdevices[PowerMeterImport])
+			log(E_DEBUG,"PowerMeterImport exists => currentPower="..currentPower)
+			if (PowerMeterExport~='') then 
+				currentPower=currentPower-getPowerValue(otherdevices[PowerMeterExport]) 				
+				log(E_DEBUG,"PowerMeterExport exists => currentPower="..currentPower)
 			end
-			for k,led in pairs(ledsGreen) do
-				if (otherdevices_svalues[led]~=tostring(l)) then
-					commandArray[led]="Set Level "..tostring(l)
-				end
-			end
-
-			if (currentPower>0) then
-				-- red leds
-				l=(math.floor(currentPower/1000)+1)*10	-- 1=0..999W, 2=1000..1999, 3=2000..2999W, ...
-			else
-				l=0	-- used power >0 => turn off green leds
-			end
-			for k,led in pairs(ledsRed) do
-				if (otherdevices_svalues[led]~=tostring(l)) then
-					commandArray[led]="Set Level "..tostring(l)
-				end
-			end
-
-			toleratedUsagePower=0
-			if (timenow.month<=3 or timenow.month>=10) then 
-				toleratedUsagePower=300	-- from October to March, activate electric heaters even if the usage power will be >0W but <300W
-			end
-
-			if (currentPower<PowerThreshold[1]) then
-				-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
-				Power['th1Time']=0
-				Power['th2Time']=0
-				--	currentPower=-1200
-				limit=toleratedUsagePower+100
-				if (currentPower>limit) then
-					-- disconnect only if power remains high for more than 5*2s
-					if (Power['above']>5) then 
-						--log(E_INFO, "currentPower > toleratedUsagePower+100 for more than 5 minutes")
-						powerDisconnect(0,"currentPower>"..limit.." for more than 5 minutes") 
-						Power['above']=0
-					else
-						Power['above']=Power['above']+1
-					end
-				else
-					-- currentPower < 300W in Winter, and 0W in Summer
-					Power['above']=0
-					
---					if (timenow.sec>=53 and currentPower>-600) then
---						-- if HeatPump is on, and HP['level']<LEVEL_MAX (heatpump fullpower == Off), disable electric heaters to permit script_time_heatpump.lua to increase heatpump power level
---						if (otherdevices['HeatPump_Fancoil']=='Off'  and Power['usage']-currentPower>800) then
---							powerDisconnect(0)
---						end
---					elseif (timenow.sec<=40 and currentPower<0) then
-					if (timenow.sec<=40 and currentPower<0) then
-						-- renewable sources are producing more than current consumption: activate extra loads
-						-- log(E_INFO, "sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
-						availablePower=0-currentPower
-						if (uservariables['HeatPumpWinter']==1) then
-							-- check electric heaters
-							for k,loadRow in pairs(Heaters) do
-								-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
-								if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<availablePower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
-									-- enable this new load
-									log(E_INFO, 'Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
-									commandArray[loadRow[1]]='On'
-									Power['H'..k]='auto'
-									scanHeaters()
-									Power['usage']=Power['usage']+loadRow[2]
-									break
-								end
-							end --for
-						end	
-						--TODO: if a lower priority device is enabled, maybe it's possible to disable it and enable a higher priority device that needs more power tha lower priority device
-					end
-					powerMeterAlert(0)
-				end 
-				powerMeterAlert(0)
-			elseif (currentPower<PowerThreshold[2]) then
-				-- power consumption a little bit more than available power => long intervention time, before disconnecting
-				time=(os.time()-Power['th1Time'])
-				log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
-				Power['th2Time']=0
-				if (Power['th1Time']==0) then
-					Power['th1Time']=os.time()
-				elseif (time>PowerThreshold[3]) then
-					-- can I disconnect anything?
-					time=os.time()-Power['disc']	-- disconnect devices every 50s
-					if (time>50 and powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
-						-- nothing to disconnect
-						powerMeterAlert(1)	-- send alert
-					else
-						powerMeterAlert(0)
-					end
-				end
-			else
-				time=(os.time()-Power['th2Time'])
-				log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
-				if (Power['th2Time']==0) then
-					Power['th2Time']=os.time()
-				elseif (time>PowerThreshold[4]) then
-					-- can I disconnect anything?
-					-- very high power consumption: short intervention time before power outage
-					time=os.time()-Power['disc']	-- disconnect devices every 50s
-					if (time>20 and powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
-						-- nothing to disconnect
-						log(E_CRITICAL,"nothing to disconnect")
-						powerMeterAlert(1)  -- send alert
-					else
-						powerMeterAlert(0)
-					end
-
-				end
-			end	-- currentPower has a right value
-			-- save variables in Domoticz, in a json variable Power
-			-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
-			commandArray['Variable:zPower']=json.encode(Power)
-			setAvgPower()
-			log(E_INFO,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
 		end
 	end
-
-
 	-- if blackout, turn on white leds in the building!
 	if (devName==blackoutDevice) then
 		print("========== BLACKOUT: "..devName.." is "..devValue.." ==========")
@@ -356,6 +186,137 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 end
--- in case of blackout, turn ON white LEDs on DomBusTH devices
+
+-- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
+if (currentPower>-20000 and currentPower<20000) then
+	-- currentPower is good
+	getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
+
+	-- update LED statuses (on Creasol DomBusTH modules, with red/green leds)
+	-- red led when power usage >=0 (1=> <1000W, 2=> <2000W, ...)
+	-- green led when power production >0 (1 if <1000W, 2 if <2000W, ...)
+	--
+	if (currentPower<0) then
+		-- green leds
+		l=math.floor(1-currentPower/1000)*10	-- 1=0..999W, 2=1000..1999W, ...
+	else
+		l=0	-- used power >0 => turn off green leds
+	end
+	for k,led in pairs(ledsGreen) do
+		if (otherdevices_svalues[led]~=tostring(l)) then
+			commandArray[led]="Set Level "..tostring(l)
+		end
+	end
+
+	if (currentPower>0) then
+		-- red leds
+		l=(math.floor(currentPower/1000)+1)*10	-- 1=0..999W, 2=1000..1999, 3=2000..2999W, ...
+	else
+		l=0	-- used power >0 => turn off green leds
+	end
+	for k,led in pairs(ledsRed) do
+		if (otherdevices_svalues[led]~=tostring(l)) then
+			commandArray[led]="Set Level "..tostring(l)
+		end
+	end
+
+	toleratedUsagePower=0
+	if (timenow.month<=3 or timenow.month>=10) then -- winter
+		toleratedUsagePower=300	-- from October to March, activate electric heaters even if the usage power will be >0W but <300W
+	end
+
+	if (currentPower<PowerThreshold[1]) then
+		log(E_DEBUG,"currentPower="..currentPower.." < PowerThreshold[1]="..PowerThreshold[1])
+		-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
+		Power['th1Time']=0
+		Power['th2Time']=0
+		--	currentPower=-1200
+		limit=toleratedUsagePower+100
+		if (currentPower>limit) then
+			-- disconnect only if power remains high for more than 5*2s
+			if (Power['above']>=5) then 
+				powerDisconnect(0,"currentPower>"..limit.." for more than 10 seconds") 
+				Power['above']=0
+			else
+				Power['above']=Power['above']+1
+				log(E_INFO, "currentPower > toleratedUsagePower+100 for "..(Power['above']*2).."s")
+			end
+		else
+			-- currentPower < 300W in Winter, and 0W in Summer
+			Power['above']=0
+			
+--					if (timenow.sec>=53 and currentPower>-600) then
+--						-- if HeatPump is on, and HP['level']<LEVEL_MAX (heatpump fullpower == Off), disable electric heaters to permit script_time_heatpump.lua to increase heatpump power level
+--						if (otherdevices['HeatPump_Fancoil']=='Off'  and Power['usage']-currentPower>800) then
+--							powerDisconnect(0)
+--						end
+--					elseif (timenow.sec<=40 and currentPower<0) then
+			if (timenow.sec<=40 and currentPower<0) then
+				-- renewable sources are producing more than current consumption: activate extra loads
+				-- log(E_INFO, "sec="..timenow.sec.." currentPower="..currentPower.." => check electric heaters....")
+				availablePower=0-currentPower
+				if (uservariables['HeatPumpWinter']==1) then
+					-- check electric heaters
+					for k,loadRow in pairs(Heaters) do
+						-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
+						if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<availablePower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
+							-- enable this new load
+							log(E_INFO, 'Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
+							commandArray[loadRow[1]]='On'
+							Power['H'..k]='auto'
+							scanHeaters()
+							Power['usage']=Power['usage']+loadRow[2]
+							break
+						end
+					end --for
+				end	
+				--TODO: if a lower priority device is enabled, maybe it's possible to disable it and enable a higher priority device that needs more power tha lower priority device
+			end
+			powerMeterAlert(0)
+		end 
+		powerMeterAlert(0)
+	elseif (currentPower<PowerThreshold[2]) then
+		-- power consumption a little bit more than available power => long intervention time, before disconnecting
+		time=(os.time()-Power['th1Time'])
+		log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
+		Power['th2Time']=0
+		if (Power['th1Time']==0) then
+			Power['th1Time']=os.time()
+		elseif (time>PowerThreshold[3]) then
+			-- can I disconnect anything?
+			time=os.time()-Power['disc']	-- disconnect devices every 50s
+			if (powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
+				-- nothing to disconnect
+				powerMeterAlert(1)	-- send alert
+			else
+				powerMeterAlert(0)
+			end
+		end
+	else -- very high power consumption : short time to disconnect some loads
+		time=(os.time()-Power['th2Time'])
+		log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
+		if (Power['th2Time']==0) then
+			Power['th2Time']=os.time()
+		elseif (time>PowerThreshold[4]) then
+			-- can I disconnect anything?
+			-- very high power consumption: short intervention time before power outage
+			time=os.time()-Power['disc']	-- disconnect devices every 50s
+			if (powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
+				-- nothing to disconnect
+				powerMeterAlert(1)  -- send alert
+				if ((time%20)==0) then log(E_CRITICAL,"Too much power consumption, and nothing to disconnect") end -- send alert by Telegram
+			else
+				powerMeterAlert(0)
+			end
+
+		end
+	end	-- currentPower has a right value
+	-- save variables in Domoticz, in a json variable Power
+	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
+	commandArray['Variable:zPower']=json.encode(Power)
+	setAvgPower()
+	log(E_INFO,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
+end
+
 
 return commandArray
