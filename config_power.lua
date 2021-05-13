@@ -62,7 +62,8 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 	{'HeatPump_FullPower','Off','On'},	-- heat pump, full power
 	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
 	{'HeatPump','Off','On'},			-- heat pump (general)
-	{'Irrigazione','Off','On'},			-- garden watering pump
+	{'IrrigationPump','Off','On'},		-- garden watering pump
+	{'Kia eNiro - Socket','Off','On'},  -- electric car charging socket
 }
 
 Heaters={	-- from the highest priority to the lowest priority

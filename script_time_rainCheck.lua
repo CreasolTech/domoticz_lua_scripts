@@ -45,7 +45,7 @@ for dd, s in otherdevices[WINDDEV]:gmatch("([^;]+);[^;]+;([^;]+);.*") do
 end
 
 -- If it's raining more than 8mm/hour, disable the 230V socket in the garden
-dev='Prese_Giardino' -- socket device
+dev='Garden_Socket' -- socket device
 if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
 	log(E_WARNING,"Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")
 	commandArray[dev]='Off'

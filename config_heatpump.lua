@@ -9,7 +9,7 @@ dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"	-- some functions com
 TEMP_HISTERESIS=0.1
 TEMP_WINTER_HP_MAX=40				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
-OVERHEAT=1.5						-- Increase temperature setpoint in case of available power from solar photovoltaic
+OVERHEAT=1.0						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.5						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than 4500
 
@@ -65,7 +65,7 @@ DEVauxlist={
 	-- max_work_minutes: used for driers or other devices that can work for maximum N minutes before an action must be taken (empty the water bolt, for example)
 	-- minutes_before_stop: number of minutes to wait before stopping a device due to insufficient power (this is used to avoid continuous start/stop)
 	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes minutes_before_stop
-	{'Kia eNiro - Charge',			1,			1,				2000,	'Kia eNiro - Battery state of charge',		0,	80,		'Kia eNiro - Battery state of charge',        0,  80,		0, 10},	-- EV charge
+	{'Kia eNiro - Socket',			1,			1,				2000,	'Kia eNiro - Battery state of charge',		0,	80,		'Kia eNiro - Battery state of charge',        0,  80,		0, 10},	-- EV charge
 --	{'Dehumidifier_Camera',			1,			1,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
 	{'Dehumidifier_Camera_Ospiti',	1,			1,				300,	'RH_Camera_Ospiti',			1,	60,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
 	{'Dehumidifier_Cantina',		1,			1,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		600},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full

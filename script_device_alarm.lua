@@ -37,12 +37,12 @@ if (uservariables['alarmLevelNew']~=nil and uservariables['alarmLevelNew']==0 an
 		end
 	end
 	if (found==0 or (uservariables['alarmLevel']==ALARM_OFF and (foundTamper+foundAlarm)==0)) then 
-		-- return if nothing has been found, or alarm is off and only MCS/PIR/SIREN has been changed
+		-- return if nothing has been found, or alarm is off and only MCS/PIR/SIREN/Light has been changed
 		do return commandArray end
 	end
 end
 
-------------------------------------- changed device is MCS,PIR,TAMPER,SIREN or ALARM* ---------------------------------
+------------------------------------- changed device is MCS,PIR,TAMPER,SIREN/ALARM/Light* ---------------------------------
 dofile "scripts/lua/config_alarm.lua"
 
 -- Function called when alarm is activated in Day mode

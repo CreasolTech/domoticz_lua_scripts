@@ -19,11 +19,11 @@ STATUS_PREDELAY=1
 STATUS_ALARM=2
 
 -- telegram and debug msg level: don't care
-E_NONE=0
-E_ERROR=1
-E_WARNING=2
-E_INFO=3
-E_DEBUG=4
+E_NONE=0		-- log nothing
+E_ERROR=1		-- log only errors
+E_WARNING=2		-- log errors + warnings
+E_INFO=3		-- log errors + warnings + info
+E_DEBUG=4		-- log everything
 
 -- DEBUG LEVEL on LOGS and TELEGRAM notifications
 DEBUG_LEVEL=E_DEBUG			-- 0 => log nothing, 1=> log alarms, 2=> more log, notify to telegram private chat.. 4=>DEBUG
@@ -46,8 +46,8 @@ TELEGRAM_LEVEL=E_WARNING 	-- 1=LOG only errors/activations 2=Log warnings
 -- ALARM Away => All pirs enabled => 0xffffffff or 0x0000001f if only 5 pirs are installed
 -- 
 ALARMlist={
--- AlarmLevel: Name, 			Tampers,	PIRs en.   	MCS1 en.    MCS2 en.  
-	[0x01]={'ALARM OFF',		0xffffffff, 0x00000000, 0x00000000,	0x00000000},	
+-- AlarmLevel: Name, 			Tampers	    PIRs en.   	MCS1 en.    MCS2 en.  
+	[0x01]={'ALARM OFF',		0xffffffff, 0x00000000, 0x00000000, 0x00000000},	
 	[0x02]={'ALARM Day',		0xffffffff, 0x00000003, 0xffffffff, 0xffffffff}, 
 	[0x04]={'ALARM Night',		0xffffffff, 0x00000001,	0xffffffff, 0xffffffff}, 
 	[0x08]={'ALARM Away',  		0xffffffff, 0x00000001, 0xffffffff, 0xffffffff},
@@ -57,16 +57,16 @@ ALARMlist={
 
 -- List of magnetic contact sensors (window + associated shutter)
 -- Magnetic sensors name must start with MCS prefix
-MCSlist={ -- MCS_window/door, MCS_shutter, delay[s]
-    {'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
-    {'MCS_Kitchen_Window2','MCS_Kitchen_Blind2',0,},	--00000002
-    {'MCS_Kitchen_Window3','MCS_Kitchen_Blind3',0,},	--00000004
-    {'MCS_Kitchen_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
+MCSlist={ -- MCS_window/door, 	MCS_shutter, 	delay[s]
+    	{'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
+    	{'MCS_Kitchen_Window2','MCS_Kitchen_Blind2',0,},	--00000002
+    	{'MCS_Kitchen_Window3','MCS_Kitchen_Blind3',0,},	--00000004
+    	{'MCS_Kitchen_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
 	{'MCS_Living_Window1','MCS_Living_Blind1',0},			--00000010	-- finestra1 non collegato
 	{'MCS_Living_Window2','MCS_Living_Blind2',0},			--00000020	-- finestra2 non collegato
-    {'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},			--00000040
-    {'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},			--00000080
-    {'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},			--00000100
+    	{'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},			--00000040
+    	{'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},			--00000080
+    	{'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},			--00000100
 	{'MCS_Sud_Door','',0},									--00000200
 	{'MCS_Lab_Window_Sud','MCS_Lab_Blind_Sud',0},			--00000400
 	{'MCS_Lab_Window_Nord','MCS_Lab_Blind_Nord',0},		--00000800
@@ -110,13 +110,13 @@ TAMPERlist={ -- device_name
 }
 
 
-SIRENlist={ -- output_device, alarmLevel, delayed, duration[min]  -- delayed should be 1 for sirens that should start after 10-15s delay in case of alarm activation by MCS of a door
-	{'SIREN_External',ALARM_AWAY,1,5},
-	{'SIREN_Internal',ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,0,5},
-	{'SIREN_Internal_d',ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,0,5},
-	{'Light_Bedroom',ALARM_NIGHT+ALARM_AWAY,0,5},
-	{'Light_Scale',ALARM_NIGHT+ALARM_AWAY,0,5},
-}  -- REMEMBER TO SET THE LIST of IDX associated to the sirens on alarmSet.sh : this is needed to switch off sirens setting alarmLevel to OFF
+SIRENlist={ -- output_device, 	alarmLevel, 				delayed, duration[min]  -- delayed should be 1 for sirens that should start after 10-15s delay in case of alarm activation by MCS of a door
+	{'SIREN_External',	ALARM_AWAY,				1,	5},
+	{'SIREN_Internal',	ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,	0,	5},
+	{'SIREN_Internal_d',	ALARM_DAY+ALARM_NIGHT+ALARM_AWAY,	0,	5},
+	{'Light_Bedroom',	ALARM_NIGHT+ALARM_AWAY,			0,	5},
+	{'Light_Scale',		ALARM_NIGHT+ALARM_AWAY,			0,	5},
+}  -- REMEMBER TO CONFIGURE THE LIST of IDX associated to the sirens on alarmSet.sh : this is needed to switch off sirens setting alarmLevel to OFF
 
 ALARM_OTHERlist={	
 	-- other devices. Syntax: devicename, alarm_level (255 for any alarmLevel), sensor_value1, notification1, sensor_value2, notification2 
@@ -124,14 +124,14 @@ ALARM_OTHERlist={
 }
 
 ALARM_Lights={
-	-- light that are automatically switched ON/OFF when ALARM_AWAY, in the right sequence
-	-- light dev,   min duration[s], max duration	min/max delay before switching next ON
-	{'Light_Pranzo',20,				2700,			4,7},
-	{'Light_Scale',	12,				25,				-2,2},
-	{'Light_Bedroom',20,				900,			0,0,},
---	{'Light_Pranzo',10,				20,			4,7},
---	{'Light_Scale',	10,				20,				-2,2},
---	{'Light_Bedroom',10,				20,			0,0,},
+	-- light that are automatically switched ON/OFF when ALARM_AWAY, in the right sequence 1-> 2 -> 3 -> 2 -> 1 -> 2 -> 3 ....
+	-- light dev,   	min duration[s],	max duration	min/max delay before switching next ON
+	{'Light_Pranzo',	20,			2700,		4,	7},
+	{'Light_Scale',		12,			25,		-2,	2},
+	{'Light_Bedroom',	20,			900,		0,	0,},
+--	{'Light_Pranzo',	10,			20,		4,	7},
+--	{'Light_Scale',		10,			20,		-2,	2},
+--	{'Light_Bedroom',	10,			20,		0,	0,},
 }
 
 -- Leds activated for few seconds when alarm has been activated
