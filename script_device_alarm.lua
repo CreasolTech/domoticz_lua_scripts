@@ -37,12 +37,12 @@ if (uservariables['alarmLevelNew']~=nil and uservariables['alarmLevelNew']==0 an
 		end
 	end
 	if (found==0 or (uservariables['alarmLevel']==ALARM_OFF and (foundTamper+foundAlarm)==0)) then 
-		-- return if nothing has been found, or alarm is off and only MCS/PIR/SIREN/Light has been changed
+		-- return if nothing has been found, or alarm is off and only MCS/PIR/SIREN has been changed
 		do return commandArray end
 	end
 end
 
-------------------------------------- changed device is MCS,PIR,TAMPER,SIREN/ALARM/Light* ---------------------------------
+------------------------------------- changed device is MCS,PIR,TAMPER,SIREN or ALARM* ---------------------------------
 dofile "scripts/lua/config_alarm.lua"
 
 -- Function called when alarm is activated in Day mode
@@ -110,7 +110,7 @@ function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 					urloff=urloff..DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=Off|'
 				end
 			else
-				log(E_INFO,"Activate "..sirenRow[1])
+				log(E_INFO,"Alarm: Activate "..sirenRow[1])
 				cmd="On"
 				if (sirenRow[3]>0 and sensorDelay>=3) then cmd=cmd.." AFTER "..sensorDelay end
 				if (sirenRow[4]>=1) then cmd=cmd.." FOR "..sirenRow[4] end
@@ -264,9 +264,9 @@ function checkDoorsWindowsBlindsOpen()
 		end
 	end
 	if (MCSopen~='') then
-		log(E_WARNING,"Porte/Finestre/Scuri aperti:\n"..MCSopen)
+		log(E_WARNING,ALARMlist[alarmLevel][1].." enabled: Doors/Windows/Blinds open:\n"..MCSopen)
 	else
-		log(E_WARNING,"Alarm Enabled")
+		log(E_WARNING,ALARMlist[alarmLevel][1].." enabled")
 	end
 end
 
@@ -410,8 +410,30 @@ alarmMCS2=uservariables['alarmMCS2']		-- bitmask with status of each MCR (33..64
 checkVar('alarmSiren',0,0)
 alarmSiren=uservariables['alarmSiren']		-- bitmask with status of each siren
 
--- check for existance of a json encode variables, within a table of variables
 json=require("dkjson")
+-- check that groups AlarmDay, AlarmNight, AlarmAway exist
+if (otherdevices_scenesgroups['AlarmAway']==nil) then
+	-- group AlarmAway does not exist => create and configure AlarmAway, AlarmNight, AlarmDay
+	jsoncmd('type=addscene&name=AlarmAway&scenetype=1') -- create group with name AlarmAway
+	jsoncmd('type=addscene&name=AlarmNight&scenetype=1')
+	jsoncmd('type=addscene&name=AlarmDay&scenetype=1')
+	jsonret=jsoncmd('type=scenes')
+	jr=json.decode(jsonret)
+	for k,v in pairs(jr['result']) do
+		if (v["Name"]=="AlarmAway") then
+			print("aggiorna 1")
+			jsoncmd('type=updatescene&idx='..v["idx"]..'&onaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDg&offaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDE')
+		elseif (v["Name"]=="AlarmNight") then
+			print("aggiorna 2")
+			jsoncmd('type=updatescene&idx='..v["idx"]..'&onaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDQ&offaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDE')
+		elseif	(v["Name"]=="AlarmDay") then
+			print("aggiorna 3")
+			jsoncmd('type=updatescene&idx='..v["idx"]..'&onaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDI&offaction=c2NyaXB0Oi8vbHVhL2FsYXJtU2V0LnNoIDE')
+		end
+	end
+end
+
+-- check for existance of a json encode variables, within a table of variables
 if (uservariables['zAlarm'] == nil) then
     -- initialize variable
     ZAinit()    --init ZA table of variables
@@ -428,6 +450,7 @@ if not ALARMlist[alarmLevel] then
 end
 
 if (uservariables['alarmLevelNew']~=0) then
+	-- alarmLevel was changed by alarmSet.sh script (called by one of the groups AlarmAway, AlarmNight, ...)
 	commandArray['Variable:alarmLevelNew']='0'
 	if (alarmLevel>=ALARM_DAY) then
 		checkDoorsWindowsBlindsOpen()  -- check if any MCS is open
@@ -439,13 +462,21 @@ if (uservariables['alarmLevelNew']~=0) then
 	else
 		-- alarmLevel==LEVEL_OFF or LEVEL_TEST
 		log(E_WARNING,"Alarm Disabled")
+		if (otherdevices_scenesgroups['AlarmDay']~='Off') then
+			commandArray["Scene:AlarmDay"]='Off'
+		end
+		if (otherdevices_scenesgroups['AlarmNight']~='Off') then
+			commandArray["Scene:AlarmNight"]='Off'
+		end
+		if (otherdevices_scenesgroups['AlarmAway']~='Off') then
+			commandArray["Scene:AlarmAway"]='Off'
+		end
 	end
 end
 
 if (alarmStatus~=STATUS_OK and timedifference(uservariables_lastupdate['alarmStatus'])>120) then
 	-- status ~= STATUS_OK for more than 60s
 	-- if all SIRENs are off => call alarmOff to change state to alarmStatus
-	print("alarmStatus~=STATUS_OK")
 	if (sirensAreOff()==1) then alarmOff() end
 end	
 
@@ -459,7 +490,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- mcsRow[1] corresponds  to windows/door
 			-- mcsRow[2], if exists, corresponds with blind associated with windows/door
 			if devName==mcsRow[1] or devName==mcsRow[2] then
-				log(E_INFO,devName.." changes to "..devValue)
+				log(E_INFO,ALARMlist[alarmLevel][1]..": "..devName.." changes to "..devValue)
 				if (devValue=='On' or devValue=='Open') then
 					-- alarm detected: window/door has been opened
 					sensorChanged('mcs',item,0,1,devName)	-- activate alarm immediately, specifyting alarmType, item in the TAMPERlist, delay before activation of 
@@ -477,7 +508,7 @@ for devName,devValue in pairs(devicechanged) do
 						if (otherdevices['Light_Garage']=='On') then
 							commandArray['Light_Garage']='Off'
 						else
-							commandArray['Light_Garage']='On FOR 3 minutes'
+							commandArray['Light_Garage']='On FOR 3 MINUTES'
 						end
 					else
 						-- door has been closed
@@ -491,7 +522,7 @@ for devName,devValue in pairs(devicechanged) do
 	elseif (devName:sub(1,3)=='PIR') then 
 		for item,pirRow in pairs(PIRlist) do
 			if devName==pirRow[1] then
-				log(E_INFO,devName.." changes to "..devValue)
+				log(E_INFO,ALARMlist[alarmLevel][1]..": "..devName.." changes to "..devValue)
 				if (devValue=='On' or devValue=='Open') then
 					-- alarm detected: PIR movement detected
 					sensorChanged('pir',item,0,1,devName)	-- activate alarm immediately, specifyting alarmType, item in the TAMPERlist, delay before activation of 
@@ -551,7 +582,7 @@ for devName,devValue in pairs(devicechanged) do
 	elseif (devName:sub(1,6)=='TAMPER') then 
 		for item,tamperRow in pairs(TAMPERlist) do
 			if tamperRow[1]==devName then
-				log(E_INFO,"ALARM: Tamper "..tamperRow[1].." changes to "..devValue)
+				log(E_INFO,"Alarm: Tamper "..tamperRow[1].." changes to "..devValue)
 				if (devValue=='On' or devValue=='Open') then
 					-- alarm detected: tamper has been opened
 					sensorChanged('tamper',item,0,1,devName)	-- activate alarm immediately, specifyting alarmType, item in the TAMPERlist, delay before activation of 
@@ -564,7 +595,7 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	elseif (devName:sub(1,5)=='SIREN') then 
 		if (devValue=='Off') then
-			log(E_INFO,'Disable '..devName)
+			log(E_INFO,'Alarm: Disable '..devName)
 			if (alarmStatus~=STATUS_OK) then
 				-- if all SIRENs are off => call alarmOff to change state to alarmStatus
 				if (sirensAreOff()==1) then alarmOff() end
@@ -599,7 +630,7 @@ for devName,devValue in pairs(devicechanged) do
 					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
-					commandArray['SIREN_External']='On for 5 minutes'
+					commandArray['SIREN_External']='On FOR 5 MINUTES'
 				end
 			else
 				-- pushbutton just pushed => record the current time
@@ -629,7 +660,7 @@ for devName,devValue in pairs(devicechanged) do
 					alarmNightOff()
 				elseif (pulseLen>=5 and pulseLen<=7) then
 					-- 5-7s pulse => activate external siren
-					commandArray['SIREN_External']='On for 5 minutes'
+					commandArray['SIREN_External']='On FOR 5 MINUTES'
 				end
 			else
 				-- pushbutton just pushed => record the current time

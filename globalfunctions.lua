@@ -39,6 +39,14 @@ function timedifference (s)
     return difference
 end
 
+function jsoncmd(cmd) 
+	-- use curl to send a json cmd to domoticz
+	local fd=io.popen('curl "'..DOMOTICZ_URL..'/json.htm?'..cmd..'"','r')
+	local res=fd:read("*a")
+	fd:close()
+	return res	-- return result in json format (string)
+end
+	
 function checkVar(varname,vartype,value)
     -- check if create, if not exist, a variable with defined type and value
     -- type=
@@ -50,11 +58,10 @@ function checkVar(varname,vartype,value)
     local url
     if (uservariables[varname] == nil) then
         telegramNotify('Created variable ' .. varname..' = ' .. value)
-        url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value
-        -- openurl works, but can open only 1 url per time. If I have 10 variables to initialize, it takes 10 minutes to do that!
-        -- commandArray['OpenURL']=url
-        os.execute('curl "'..url..'"')
+        jsoncmd('type=command&param=adduservariable&vname=' .. varname .. '&vtype=' .. vartype .. '&vvalue=' .. value)
         uservariables[varname] = value;
     end
 end
+
+
 
