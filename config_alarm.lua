@@ -5,7 +5,7 @@
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
--- Some constants: TO BE MODIFIED WITH YOUR VALUES
+-- Some constants: DON'T MODIFY
 -- bitmask associated to alarmLevel: don't care
 ALARM_OFF=1
 ALARM_DAY=2
@@ -30,7 +30,7 @@ DEBUG_LEVEL=E_DEBUG			-- 0 => log nothing, 1=> log alarms, 2=> more log, notify 
 TELEGRAM_LEVEL=E_WARNING 	-- 1=LOG only errors/activations 2=Log warnings 
 DEBUG_PREFIX=''
 
--- =================== Next table of variables MUST BE MODIFIED WITH YOUR VALUES ==============================
+-- =================== Next table of variables MUST BE MODIFIED TO MATCH YOUR CONFIGURATION AND PREFERENCES ==============================
 --
 -- ALARMlist is a bit difficult to configure: for any type of alarm (Day, Night, Away, ...) set which PIRs and MCS sensors should be enabled  
 -- For example:
@@ -56,7 +56,7 @@ ALARMlist={
 }
 
 
--- List of magnetic contact sensors (window + associated shutter)
+-- List of magnetic contact sensors (window/door + associated shutter/blind)
 -- Magnetic sensors name must start with MCS prefix
 MCSlist={ -- MCS_window/door, 	MCS_shutter, 	delay[s]
     	{'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
@@ -130,9 +130,6 @@ ALARM_Lights={
 	{'Light_Pranzo',	20,			2700,		4,	7},
 	{'Light_Scale',		12,			25,		-2,	2},
 	{'Light_Bedroom',	20,			900,		0,	0,},
---	{'Light_Pranzo',	10,			20,		4,	7},
---	{'Light_Scale',		10,			20,		-2,	2},
---	{'Light_Bedroom',	10,			20,		0,	0,},
 }
 
 -- Leds activated for few seconds when alarm has been activated

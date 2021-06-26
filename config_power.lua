@@ -72,4 +72,8 @@ Heaters={	-- from the highest priority to the lowest priority
 --	{'Bathroom_Heater',	450,	1,'Temp_Bathroom',22},	-- 450W heater connected to DOMBUS1
 }
 
-
+-- list of electric vehicles
+eVehicles={ -- on/off device,   power   battery level %                         Min battery level           Max battery level
+--	'Kia eNiro - Socket',       1900,   'Kia eNiro - Battery state of charge',  'Kia eNiro - Battery min', 'Kia eNiro - Battery max'
+}
+     

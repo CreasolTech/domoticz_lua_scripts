@@ -326,7 +326,7 @@ end
 function lightsCheck() -- check that zAlarmLights exists, if not init it and init lights[] dict
 	timenow=os.date("*t")
 	secondsnow = timenow.sec + timenow.min*60 + timenow.hour*3600
-	json=require("json")
+	json=require("dkjson")
 	if (uservariables['zAlarmLights']==nil) then
 		lightsInit()	-- init lights table
 		checkVar('zAlarmLights',2,json.encode(lights))
@@ -414,6 +414,7 @@ json=require("dkjson")
 -- check that groups AlarmDay, AlarmNight, AlarmAway exist
 if (otherdevices_scenesgroups['AlarmAway']==nil) then
 	-- group AlarmAway does not exist => create and configure AlarmAway, AlarmNight, AlarmDay
+	log(E_WARNING,"Creating groups AlarmAway, AlarmNight, AlarmDay...")
 	jsoncmd('type=addscene&name=AlarmAway&scenetype=1') -- create group with name AlarmAway
 	jsoncmd('type=addscene&name=AlarmNight&scenetype=1')
 	jsoncmd('type=addscene&name=AlarmDay&scenetype=1')
@@ -469,6 +470,7 @@ if (uservariables['alarmLevelNew']~=0) then
 			commandArray["Scene:AlarmNight"]='Off'
 		end
 		if (otherdevices_scenesgroups['AlarmAway']~='Off') then
+			log(E_INFO,"Disabling group AlarmWay")
 			commandArray["Scene:AlarmAway"]='Off'
 		end
 	end
@@ -735,6 +737,9 @@ if (timeofday["Nighttime"]==true and alarmLevel==ALARM_AWAY) then
 	end
 else
 	-- check that no light are left ON, after disabling ALARM_AWAY
+	if (uservariables['zAlarmLightOn1']==nil) then
+		lightsCheck() -- initialize variables used to turn on/off lights while ALARM_AWAY is ON, in the night
+	end
 	if (uservariables['zAlarmLightOn1']~='') then
 		-- light remained on => turn off
 		commandArray[uservariables['zAlarmLightOn1']]='Off'

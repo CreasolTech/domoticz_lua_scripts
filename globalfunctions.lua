@@ -64,4 +64,28 @@ function checkVar(varname,vartype,value)
 end
 
 
+function deviceOn(devName,table,index)
+    -- if devname is off => turn it on
+    if (otherdevices[devName]~='On') then
+        log(E_DEBUG,"deviceOn("..devName..")")
+        commandArray[devName]='On'  -- switch on
+        table[index]='a'    -- store in HP that device was automatically turned ON (and can be turned off)
+    end
+end
+
+function deviceOff(devName,table,index)
+    -- if devname is on and was enabled by this script => turn it off
+    -- if devname was enabled manually, for example to force heating/cooling, leave it ON.
+    if (otherdevices[devName]~='Off') then
+        v='a'
+        if (table[index]~=nil) then v=table[index] end
+        if (v=='a') then
+            log(E_DEBUG,"deviceOff("..devName..")")
+            commandArray[devName]='Off' -- switch off
+            table[index]='' -- store in HP that device was automatically turned ON (and can be turned off)
+        else
+            log(E_DEBUG,"deviceOff("..devName..") but table["..index.."]="..v.." => OFF command refused")
+        end
+    end
+end
 

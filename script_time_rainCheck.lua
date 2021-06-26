@@ -4,6 +4,7 @@ WINDDEV='Wind'		-- name of device that shows the wind speed/gust
 VENTILATION_DEV='VMC_Rinnovo'
 -- VENTILATION_COIL_DEV=""	-- not defined: coil to heat/cool air is not available
 VENTILATION_COIL_DEV="VMC_CaldoFreddo"	-- coil to heat/cool air: will be activated only if Heat Pump is ON
+VENTILATION_DEHUMIDIFY_DEV='VMC_Deumidificazione'	-- dehumification command for the ventilation system
 HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
 VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
@@ -85,7 +86,8 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 -- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed="..windSpeed.." windDirection="..windDirection)
 			CMV['auto']=1	-- ON
-			commandArray[VENTILATION_DEV]='On'
+			--commandArray[VENTILATION_DEV]='On'
+			deviceOn(VENTILATION_DEV,CMV,'d1')
 --		end
 	end
 else
@@ -104,11 +106,13 @@ else
 		if (CMV['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..CMV['time'].." minutes")
 			CMV['auto']=0
-			commandArray[VENTILATION_DEV]='Off'
-		elseif (CMV['time']>=CMV['maxtime'] or windSpeed==0 or (windDirection>160 and windSpeed<20)) then
+			-- commandArray[VENTILATION_DEV]='Off'
+			deviceOff(VENTILATION_DEV,CMV,'d1')
+		elseif (CMV['time']>=CMV['maxtime'] or (uservariables['HeatPumpWinter']==1 and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
 			log(E_INFO,"Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 			CMV['auto']=0
-			commandArray[VENTILATION_DEV]='Off'
+			-- commandArray[VENTILATION_DEV]='Off'
+			deviceOff(VENTILATION_DEV,CMV,'d1')
 		end
 	end
 end
@@ -117,7 +121,7 @@ if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
 	-- ventilation coil exists: 
 	-- if ventilation is ON and heatpump ON => ventilation coil must be ON
 	-- else must be OFF
-	if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On'))) then
+	if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On') or (otherdevices[VENTILATION_DEHUMIDIFY_DEV]~=nil and otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On'))) then
 		if (otherdevices[VENTILATION_COIL_DEV]~='On') then
 			commandArray[VENTILATION_COIL_DEV]='On'
 		end
