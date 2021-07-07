@@ -119,7 +119,6 @@ else
 end
 
 if (timenow.min==0) then
-	log(E_INFO,"Shift")
 	-- shift temperatures in HPZ['tn'] and compute new tempDerivate
 	HPZ['t4']=HPZ['t3']
 	HPZ['t3']=HPZ['t2']
@@ -235,8 +234,10 @@ else
 		prodPower_incLevel2=1200	--minimum production power to increment level by 2 steps
 		spOffset=OVERCOOL
 	end
+	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
 	rhMax=0		-- max value of relative humidity
+
 	-- rhMax=70    -- DEBUG: force RH to a high value to force dehumidification
 
 	zonesOn=0	-- number of zones that are ON
@@ -282,15 +283,18 @@ else
 		else
 			temp=tonumber(otherdevices[ v[ZONE_TEMP_DEV] ])
 		end
-		diff=(uservariables['TempSet_'..n]+temperatureOffset+HP['SPoff'])-temp;
+		realdiff=uservariables['TempSet_'..n]+temperatureOffset-temp;
+		diff=realdiff+HP['SPoff']
 		if (uservariables['HeatPumpWinter']==0) then
 			-- summer => invert diff
-			diff=0-diff
+			realdiff=0-realdiff	-- TempSet+offset(nighttime)-Temp
+			diff=0-diff			-- TempSet+offset(nighttime)+offset(power)-Temp	increased when there is extra power from PV
 		end
 		if (diff>0) then
 			-- must heat/cool!
 			valveState='On'
 			diff=diff*v[zone_weight]	-- compute the weighted difference between room temperature and setpoint
+			realdiff=realdiff*v[zone_weight]
 			zonesOn=zonesOn+1
 		else
 			-- temperature <= (setpoint+offset) => diff<=0
@@ -298,6 +302,9 @@ else
 		end
 		if (diff>diffMax) then
 			diffMax=diff	-- store in diffMax the maximum value of room difference between setpoint and temperature 
+		end
+		if (realdiff>realdiffMax) then
+			realdiffMax=realdiff	-- store in diffMax the maximum value of room difference between setpoint and temperature 
 		end
 		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='') then
 			valveStateTemp[v[ZONE_VALVE] ]=valveState
@@ -470,13 +477,14 @@ else
 							if (prodPower>=prodPower_incLevel and HP['Level']<level_max) then
 								-- enough power from photovoltaic to increase level
 								incLevel()
-							elseif (usagePower>diffMaxHigh_power) then
-								-- not enough power from photovoltaic -> reduce heat pump level
-								decLevel()
+--							elseif (usagePower>diffMaxHigh_power) then
+--								-- not enough power from photovoltaic -> reduce heat pump level
+--								log(E_INFO,"Not enough power from PV")
+--								decLevel()
 							end
 						else
 							log(E_INFO,"Fluid temperature to radiant/coil < "..tempFluidLimit.." => switch to radiant temperature")
-							while (HP['Level']>=3) do decLevel() end
+							while (HP['Level']>1) do decLevel() end
 						end
 					end
 				end -- if (HP['Level']>0
@@ -588,77 +596,10 @@ for n,v in pairs(DEVauxlist) do
 	end
 end
 if (prodPower ~= availablePower) then log(E_INFO,"prodPower="..prodPower.." availablePower="..availablePower) end
-for n,v in pairs(DEVauxlist) do
-	if (otherdevices[ v[devCond] ]~=nil) then
-		s=""
-		if (v[12]~=nil and HP['s'..n]~=nil and HP['s'..n]>0) then
-			s=" ["..HP['s'..n].."/"..v[12].."m]"
-		end			
-		log(E_INFO,"Aux "..otherdevices[ v[1] ]..": "..v[1] .." (" .. v[4].."/"..availablePower.."W)"..s)
-		if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
-		log(E_DEBUG,v[1] .. ": is " .. tonumber(otherdevices[ v[devCond] ]) .." < ".. v[devCond+2] .."? " .. cond)
-		-- check timeout, if defined
-		auxTimeout=0
-		auxMaxTimeout=1440
-		if (v[11]~=nil and v[11]>0) then
-			-- max timeout defined => check that device has not reached the working time = max timeout in minutes
-			auxMaxTimeout=v[11]
-			checkVar('Timeout_'..v[1],0,0) -- check that uservariable at1 exists, else create it with type 0 (integer) and value 0
-			auxTimeout=uservariables['Timeout_'..v[1]]
-			if (otherdevices[ v[1] ]~='Off') then
-				-- device is actually on => increment timeout
-				auxTimeout=auxTimeout+1
-				commandArray['Variable:Timeout_'..v[1]]=tostring(auxTimeout)
-				if (auxTimeout>=v[11]) then
-					-- timeout reached -> send notification and stop device
-					deviceOff(v[1],HP,'a'..n)
-					log(TELEGRAM_LEVEL,"Timeout reached for "..v[1]..": device was stopped")
-				end
-			end
-		end
-		-- change state only if previous heatpump level match the current one (during transitions from a power level to another, power consumption changes)
-		if (otherdevices[ v[1] ]~='Off') then
-			-- device is ON
-			log(E_DEBUG,'Device is not Off: '..v[1]..'='..otherdevices[ v[1] ])
-			availablePower=availablePower-v[4]
-			if (prodPower<-100 or (HP['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] ) then
-				if (v[12]~=nil) then
-					if (HP['s'..n]==nil) then HP['s'..n]=0 end
-					HP['s'..n]=HP['s'..n]+1
-					if (HP['s'..n]>=v[12]) then
-						-- stop device because conditions are not satisfied for more than v[12] minutes
-						deviceOff(v[1],HP,'a'..n)
-						prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
-						availablePower=availablePower+v[4]
-						HP['s'..n]=0
-					end
-				else
-					deviceOff(v[1],HP,'a'..n)
-					prodPower=prodPower+v[4]	-- update prodPower, adding the power consumed by this device that now we're going to switch off
-					availablePower=availablePower+v[4]
-				end
-			else
-				-- device On, and can remain On
-				if (v[12]~=nil) then
-					HP['s'..n]=0
-				end
-			end
-		else
-			-- device is OFF
-			-- print(prodPower.." "..v[4])
-			log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .."and "..cond.."~="..v[devCond+1])
-			if (auxTimeout<auxMaxTimeout and availablePower>=(v[4]+100) and cond~=v[devCond+1]) then
-				deviceOn(v[1],HP,'a'..n)
-				prodPower=prodPower-v[4] 	-- update prodPower
-				availablePower=availablePower-v[4] 	-- update prodPower
-			end
-		end
-	end
-end
 
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
-if (outdoorTemperature<=4 or ((uservariables['HeatPumpWinter']==1 and (HP['Level']>LEVEL_OFF or GasHeaterOn==1)))) then
+if (outdoorTemperature<=4 or HP['Level']>LEVEL_OFF or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
 	end

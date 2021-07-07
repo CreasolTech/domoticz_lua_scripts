@@ -24,8 +24,6 @@ function PowerInit()
 	if (Power['usage']==nil) then Power['usage']=0 end
 	if (Power['disc']==nil) then Power['disc']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
-
-	if (PowerAux==nil) then PowerAux={} end
 end	
 
 function getPowerValue(devValue)
@@ -70,7 +68,7 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 		json=require("dkjson")
 		if (uservariables['zPowerAux']==nil) then
 			-- create a Domoticz variable, coded in json, within all variables used in this module
-			PowerInit()	-- initialize Power dictionary
+			PowerAux={}	-- initialize PowerAux dictionary
 			url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=zPowerAux&vtype=2&vvalue='
 			os.execute('curl "'..url..'"')
 			-- initialize variable
@@ -78,6 +76,11 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			PowerAux=json.decode(uservariables['zPowerAux'])
 		end
 		PowerInit()
+		if (uservariables['zHeatPump']~=nil) then
+			HP=json.decode(uservariables['zHeatPump'])  -- get HP[] with info from HeatPump
+		else
+			HP['Level']=1  -- HP dictionary does not exist: set HP['Level'] to the default value (1 to simulate that heat pump is ON)
+		end
 	end
 end
 
@@ -98,25 +101,25 @@ function powerMeterAlert(on)
 	end
 end
 
-function scanHeaters()
+function scanDEVauxlist()
 	devOn=''	-- used to find a ON-device that can be turned off if forced==1
 	devPower=0
 	Power['usage']=0	--recompute currently used power
 	-- extract the name of the last device in Heaters that is ON
-	for k,loadRow in pairs(Heaters) do
+	for k,loadRow in pairs(DEVauxlist) do
 		if (otherdevices[loadRow[1]]=='On') then
 			devAuto=0
-			devKey='H'..k
-			if (Power[devKey]~=nil and Power[devKey]=='auto') then
+			devKey='a'..k
+			if (PowerAux[devKey]~=nil and PowerAux[devKey]=='auto') then
 				devAuto=1
 				devOn=loadRow[1]
-				devPower=loadRow[2]
+				devPower=loadRow[4]
 				log(E_INFO,"devOn="..devOn.." devPower="..devPower.." devAuto="..devAuto)
 			else
 				-- current device was enabled manually, not enabled from script_device_power.lua
 				if (devOn=='') then
 					devOn=loadRow[1]
-					devPower=loadRow[2]
+					devPower=loadRow[4]
 				end
 			end
 			Power['usage']=Power['usage']+devPower
@@ -126,7 +129,7 @@ end
 
 function powerDisconnect(forced,msg) 
 	-- disconnect the last device in Heater table, that is ON. Return 0 in case that no devices have been disconnected
-	scanHeaters()
+	scanDEVauxlist()
 	if (devOn=='') then
 		if (forced~=0) then
 			-- TODO: try to disable overloadDisconnect devices
@@ -143,7 +146,7 @@ function powerDisconnect(forced,msg)
 	elseif (devAuto~=0 or forced~=0) then
 		log(E_WARNING, msg..': disconnect '..devOn..' to save '..devPower..'W')
 		commandArray[devOn]='Off'
-		Power[devKey]='off/man'
+		PowerAux[devKey]='off/man'
 		Power['usage']=Power['usage']-devPower
 		if (Power['usage']<0) then 
 			Power['usage']=0
@@ -207,7 +210,7 @@ end
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
 	-- currentPower is good
-	availablePower=0-currentPower
+	prodPower=0-currentPower
 	getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
 	setAvgPower()
 	incMinute=0	-- zero if script was executed not at the start of the current minute
@@ -292,7 +295,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							if (batteryLevel<batteryMin or (avgPower+evPower)<toleratedUsagePowerEV) then
 								-- if battery level > min level => charge only if power is available from renewable sources
 								log(E_INFO,"EV: start charging - batteryLevel="..batteryLevel.."<"..batteryMin.." or ("..avgPower.."+"..evPower.."<0)")
-								commandArray[ evRow[1] ]='On'	-- start charging
+								deviceOn(evRow[1],Power,'de'..k)
 								Power['ev'..k]=0	-- counter
 							end
 						end
@@ -302,7 +305,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							if (batteryLevel>=batteryMax) then
 								-- reached the max battery level
 								log(E_INFO,"EV: stop charging: reach the max battery level")
-								commandArray[ evRow[1] ]='Off'
+								deviceOff(evRow[1],Power,'de'..k)
 							else
 								-- still charging: check available power
 								toleratedUsagePowerEV=evPower/2*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
@@ -313,7 +316,7 @@ if (currentPower>-20000 and currentPower<20000) then
 									log(E_INFO,"EV: no enough energy from renewables since "..Power['ev'..k].." minutes")
 									if (Power['ev'..k]>5) then
 										log(E_INFO,"EV: stop charging")
-										commandArray[ evRow[1] ]='Off'
+										deviceOff(evRow[1],Power,'de'..k)
 									end
 								else
 									log(E_DEBUG,"EV: enough energy to charge! ")
@@ -331,14 +334,23 @@ if (currentPower>-20000 and currentPower<20000) then
 
 			------------------------------------ check DEVauxlist to enable/disable aux devices (when we have/haven't got enough power from photovoltaic -----------------------------
 			if (DEVauxlist~=nil) then
+				log(E_DEBUG,"Parsing DEVauxlist...")
+				if (uservariables['HeatPumpWinter']=="1") then 
+					devCond=5 
+					devLevel=2
+				else 
+					devCond=8 
+					devLevel=3
+				end
 				for n,v in pairs(DEVauxlist) do
 					if (otherdevices[ v[devCond] ]~=nil) then
-						-- check if state for the current device was saved
+						-- check timeout for this device (useful for dehumidifiers)
 						s=""
 						if (v[12]~=nil and PowerAux['s'..n]~=nil and PowerAux['s'..n]>0) then
 							s=" ["..PowerAux['s'..n].."/"..v[12].."m]"
 						end
-						log(E_INFO,"Aux "..otherdevices[ v[1] ]..": "..v[1] .." (" .. v[4].."/"..availablePower.."W)"..s)
+
+						log(E_INFO,"Aux "..otherdevices[ v[1] ]..": "..v[1] .." (" .. v[4].."/"..prodPower.."W)"..s)
 						if (tonumber(otherdevices[ v[devCond] ])<v[devCond+2]) then cond=1 else cond=0 end
 						log(E_DEBUG,v[1] .. ": is " .. tonumber(otherdevices[ v[devCond] ]) .." < ".. v[devCond+2] .."? " .. cond)
 						-- check timeout, if defined
@@ -355,7 +367,7 @@ if (currentPower>-20000 and currentPower<20000) then
 								commandArray['Variable:Timeout_'..v[1]]=tostring(auxTimeout)
 								if (auxTimeout>=v[11]) then
 									-- timeout reached -> send notification and stop device
-									deviceOff(v[1],'a'..n)
+									deviceOff(v[1],PowerAux,'a'..n)
 									log(TELEGRAM_LEVEL,"Timeout reached for "..v[1]..": device was stopped")
 								end
 							end
@@ -364,22 +376,24 @@ if (currentPower>-20000 and currentPower<20000) then
 						if (otherdevices[ v[1] ]~='Off') then
 							-- device is ON
 							log(E_DEBUG,'Device is not Off: '..v[1]..'='..otherdevices[ v[1] ])
-							availablePower=availablePower-v[4]
-							if (prodPower<-100 or (PowerAux['Level']<v[devLevel] and diffMax>0) or cond==v[devCond+1] ) then
+							prodPower=prodPower-v[4]
+							log(E_DEBUG,prodPower.."<-100 or "..
+							HP['Level'].."<"..v[devLevel].." or "..cond.."=="..v[devCond+1] )
+							if (prodPower<-100 or HP['Level']<v[devLevel] or cond==v[devCond+1] ) then
 								if (v[12]~=nil) then
 									if (PowerAux['s'..n]==nil) then PowerAux['s'..n]=0 end
 									PowerAux['s'..n]=PowerAux['s'..n]+1
 									if (PowerAux['s'..n]>=v[12]) then
 										-- stop device because conditions are not satisfied for more than v[12] minutes
-										deviceOff(v[1],'a'..n)
+										deviceOff(v[1],PowerAux,'a'..n)
 										prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-										availablePower=availablePower+v[4]
+										prodPower=prodPower+v[4]
 										PowerAux['s'..n]=0
 									end
 								else
-									deviceOff(v[1],'a'..n)
+									deviceOff(v[1],PowerAux,'a'..n)
 									prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-									availablePower=availablePower+v[4]
+									prodPower=prodPower+v[4]
 								end
 							else
 								-- device On, and can remain On
@@ -390,11 +404,11 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							-- device is OFF
 							-- print(prodPower.." "..v[4])
-							log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .."and "..cond.."~="..v[devCond+1])
-							if (auxTimeout<auxMaxTimeout and availablePower>=(v[4]+100) and cond~=v[devCond+1]) then
-								deviceOn(v[1],'a'..n)
+							log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .."and "..cond.."~="..v[devCond+1].." and "..HP['Level']..">="..v[devLevel])
+							if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and HP['Level']>=v[devLevel]) then
+								deviceOn(v[1],PowerAux,'a'..n)
 								prodPower=prodPower-v[4]    -- update prodPower
-								availablePower=availablePower-v[4]  -- update prodPower
+								prodPower=prodPower-v[4]  -- update prodPower
 							end
 						end
 					end
@@ -422,12 +436,12 @@ if (currentPower>-20000 and currentPower<20000) then
 					-- winter: check electric heaters
 					for k,loadRow in pairs(Heaters) do
 						-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
-						if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<availablePower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
+						if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<prodPower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
 							-- enable this new load
 							log(E_INFO, 'Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
 							commandArray[loadRow[1]]='On'
 							Power['H'..k]='auto'
-							scanHeaters()
+							scanDEVauxlist()
 							Power['usage']=Power['usage']+loadRow[2]
 							break
 						end
@@ -477,6 +491,7 @@ if (currentPower>-20000 and currentPower<20000) then
 	-- save variables in Domoticz, in a json variable Power
 	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
 	commandArray['Variable:zPower']=json.encode(Power)
+	commandArray['Variable:zPowerAux']=json.encode(PowerAux)
 	log(E_DEBUG,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
 end
 

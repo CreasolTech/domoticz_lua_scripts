@@ -11,8 +11,6 @@ VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=240	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 
-DEBUG=E_WARNING
-DEBUG_PREFIX="RainCheck: "
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
@@ -25,12 +23,15 @@ function CMVinit()
 	if (CMV['auto']==nil) then CMV['auto']=0 end	-- 1 of CMV has been started automatically by this script
 end
 
+DEBUG_LEVEL=E_INFO
+--DEBUG_LEVEL=E_DEBUG
+DEBUG_PREFIX="RainCheck: "
 commandArray={}
 
 timeNow = os.date("*t")
 minutesNow = timeNow.min + timeNow.hour * 60  -- number of minutes since midnight
 json=require("dkjson")
-
+log(E_DEBUG,"====================== RainCheck ============================")
 -- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
 for str in otherdevices[RAINDEV]:gmatch("[^;]+") do
 	rainRate=tonumber(str)/40;
@@ -72,7 +73,7 @@ if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	CMV['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
 end
 
-log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": CMV['auto']="..CMV['auto'].." time="..CMV['time'].."/"..CMV['maxtime'].." windSpeed="..windSpeed.." windDirection="..windDirection)
+log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": CMV['auto']="..CMV['auto'].." time="..CMV['time'].."/"..CMV['maxtime'].." windSpeed=".. (windSpeed/10) .."m/s windDirection="..windDirection.."°")
 if (otherdevices[VENTILATION_DEV]=='Off') then
 	-- ventilation was OFF
 	if (CMV['auto']==1 or CMV['auto']==3) then
@@ -84,7 +85,7 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 		end
 	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
 -- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
-			log(E_INFO,"Ventilation ON: windSpeed="..windSpeed.." windDirection="..windDirection)
+			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			CMV['auto']=1	-- ON
 			--commandArray[VENTILATION_DEV]='On'
 			deviceOn(VENTILATION_DEV,CMV,'d1')
@@ -92,15 +93,18 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 	end
 else
 	-- ventilation is ON
+	log(E_DEBUG,"Ventilation is ON")
 	CMV['time']=CMV['time']+1
 	if (CMV['auto']==0) then
 		-- ventilation ON manually: add another 30 minutes (VENTILATION_TIME_ADD) to the working time ?
+		CMV['d1']='a'	-- set device so it can be disabled automatically by deviceOff
 		CMV['auto']=3
 		if (CMV['time']>=CMV['maxtime']) then
 			CMV['maxtime']=CMV['maxtime']+VENTILATION_TIME_ADD
 		end
 	elseif (CMV['auto']==2) then
 		-- was forced OFF, now have been restarted => go for automatic
+		CMV['d1']='a'	-- set device so it can be disabled automatically by deviceOff
 		CMV['auto']=1
 	elseif (CMV['auto']==1 or CMV['auto']==3) then
 		if (CMV['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
@@ -117,17 +121,20 @@ else
 	end
 end
 
-if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
-	-- ventilation coil exists: 
-	-- if ventilation is ON and heatpump ON => ventilation coil must be ON
-	-- else must be OFF
-	if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On') or (otherdevices[VENTILATION_DEHUMIDIFY_DEV]~=nil and otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On'))) then
-		if (otherdevices[VENTILATION_COIL_DEV]~='On') then
-			commandArray[VENTILATION_COIL_DEV]='On'
-		end
-	else
-		if (otherdevices[VENTILATION_COIL_DEV]~='Off') then
-			commandArray[VENTILATION_COIL_DEV]='Off'
+if (uservariables['HeatPumpWinter']=='1') then 
+	-- in Winter, activate the ventilation water coil when heat pump and ventilation are ON (to heat the air from ventilation)
+	if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
+		-- ventilation coil exists: 
+		-- if ventilation is ON and heatpump ON => ventilation coil must be ON
+		-- else must be OFF
+		if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On') or (otherdevices[VENTILATION_DEHUMIDIFY_DEV]~=nil and otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On'))) then
+			if (otherdevices[VENTILATION_COIL_DEV]~='On') then
+				commandArray[VENTILATION_COIL_DEV]='On'
+			end
+		else
+			if (otherdevices[VENTILATION_COIL_DEV]~='Off') then
+				commandArray[VENTILATION_COIL_DEV]='Off'
+			end
 		end
 	end
 end

@@ -10,7 +10,7 @@ TEMP_HISTERESIS=0.1
 TEMP_WINTER_HP_MAX=40				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
 OVERHEAT=1.0						-- Increase temperature setpoint in case of available power from solar photovoltaic
-OVERCOOL=-0.5						-- Decrease temperature setpoint in case of available power from solar photovoltaic
+OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than 4500
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
@@ -43,7 +43,7 @@ LEVEL_WINTER_FANCOIL=2				-- fancoil=on => higher temperature in heating mode, l
 LEVEL_WINTER_FULLPOWER=3			-- full power
 LEVEL_WINTER_MAX=3
 
-LEVEL_SUMMER_MAX=4
+LEVEL_SUMMER_MAX=3
 
 DEVlist={
 	-- deviceName=name of each device involved in heating/cooling
@@ -54,12 +54,12 @@ DEVlist={
 	-- *Level>LEVEL_*_MAX+1 => ignore
 	--'deviceName',				winterLevel,		summerLevel
 	{'HeatPump',				1,					1	},	-- HeatPump input ON/OFF (thermostat input)
-	{'HeatPump_FullPower',		3,					4	},	-- HeatPump input FullPower (if Off, works at 50% of nominal power)
-	{'HeatPump_Fancoil',		2,					3	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
+	{'HeatPump_FullPower',		3,					3	},	-- HeatPump input FullPower (if Off, works at 50% of nominal power)
+	{'HeatPump_Fancoil',		2,					2	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
 	{'HeatPump_Summer',			LEVEL_WINTER_MAX+1,	1	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid) -- LEVEL_WINTER_MAX+1 => Always OFF
-	{'Valve_Radiant_Coil',		100,				2	},	-- Valve to switch between Radiant (On) or Coil (Off) circuit
-	{'VMC_CaldoFreddo',			100,				1	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
-	{'VMC_Deumidificazione',	LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
+--	{'Valve_Radiant_Coil',		100,				100	},	-- Valve to switch between Radiant (On) or Coil (Off) circuit - Managed by script-time-headpump
+	{'VMC_CaldoFreddo',			LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
+--	{'VMC_Deumidificazione',	LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
 DEVauxlist={
