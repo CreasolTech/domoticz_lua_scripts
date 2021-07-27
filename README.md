@@ -68,4 +68,17 @@ Silly script that check the raining rate, and if above 8mm/h disable external so
 Also, checks wind speed and direction and disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using
 wood stoves generating bad smoke smell.
 
+## DomBus modules for Domoticz and Home Assistant
+DomBus are modules that can be connected by RS485 wire bus to form a complete domotic system using Home Assistant or Domoticz.
+
+They offer inputs, outputs and sensors (temperature, relative humidity, distance)
+
+More info at https://www.creasol.it/domotics
+
+![alt DomBus23 image](https://images.creasol.it/creDomBus23_400.png)
+![alt DomBus31 image](https://images.creasol.it/creDomBus31_400.png)
+
+![alt DomBusTH image](https://images.creasol.it/creDomBusTH1_200.jpg)
+![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg)
+![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png)
 

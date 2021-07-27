@@ -9,7 +9,7 @@
 --      green LED flashes 1..M times if photovoltaic produces up to 1..M kWatt
 --
 
-DEBUG_LEVEL=E_WARNING
+DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="Power: "
 
@@ -59,7 +59,7 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 -- list of electric vehicles
 -- 3rd field is the battery level device name or variable name containing the battery charge level%: if not available, set to '' (will be set to 50%)
 eVehicles={ -- on/off device, 	power	battery level % 						Min battery level			Max battery level
-	{'Kia eNiro - Socket', 		1900,	'Kia eNiro - Battery state of charge', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max'},
+	{'Kia eNiro - Socket', 		1900,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max'},
 }
 
 DEVauxlist={

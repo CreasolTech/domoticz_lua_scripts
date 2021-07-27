@@ -599,6 +599,7 @@ if (prodPower ~= availablePower) then log(E_INFO,"prodPower="..prodPower.." avai
 
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
+
 if (outdoorTemperature<=4 or HP['Level']>LEVEL_OFF or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
