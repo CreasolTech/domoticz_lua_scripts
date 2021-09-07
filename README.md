@@ -91,6 +91,16 @@ Modules and components are developed by Creasol, https://www.creasol.it/domotics
 ![alt Domotic system using DomBus modules](https://images.creasol.it/AN_domoticz_example2.png "Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...")
 
 
+## Pictures of DomBus modules
+
+[![alt DomBus23 image](https://images.creasol.it/creDomBus23_400.png "DomBus23: 2 N.O. relay outputs, 1 mosfet output for 12-24V LED dimming or other DC loads, 2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs 5-40V, 1 230Vac opto input")](https://www.creasol.it/CreasolDomBus23)
+[![alt DomBus31 image](https://images.creasol.it/creDomBus31_400.png "DomBus31: low power module with 6 N.O. relay outputs + 2 N.O./N.C. relay outputs")](https://www.creasol.it/CreasolDomBus31)
+
+[![alt DomBusTH image](https://images.creasol.it/creDomBusTH1_200.jpg "DomBusTH rear view: module with temp+humidity sensors, 3 LEDs, 4 I/O, 2 outputs, 1 analog input")](https://www.creasol.it/CreasolDomBusTH)
+[![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg "DomBusTH front view with white led, red/green led, temperature + humidity sensor")](https://www.creasol.it/CreasolDomBusTH)
+[![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png "DomBus12: 7 I/Os + 2 open-drain outputs that can be connected to 2 external relays")](https://www.creasol.it/CreasolDomBus12)
+
+
 ## Custom icons for Domoticz
 * domoticz_custom_icon_batteryMin.zip : battery level min (used for EVehicles)
 * domoticz_custom_icon_batteryMax.zip : battery level max (used for EVehicles)
