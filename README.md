@@ -69,18 +69,26 @@ Also, checks wind speed and direction and disable ventilation when wind speed is
 wood stoves generating bad smoke smell.
 
 ## DomBus modules for Domoticz and Home Assistant
-DomBus are modules that can be connected by RS485 wire bus to form a complete domotic system using Home Assistant or Domoticz.
+Domotic modules, optimized for very low power consumption and high reliability, with inputs, outputs and sensors (temperature, relative humidity, distance).
 
-They offer inputs, outputs and sensors (temperature, relative humidity, distance)
+DomBus modules can be connected together by wired bus, using a common alarm shielded cable within 4 wires:
+* 2x0.22mm² wires for data
+* 2x0.5mm² wires for 12-14Vdc power supply
 
-More info at https://www.creasol.it/domotics
+Using a 13.6V power supply with a lead acid backup battery permits to get domotic system working even in case of power outage: this is perfect even for alarm systems.
 
-![alt DomBus23 image](https://images.creasol.it/creDomBus23_400.png)
-![alt DomBus31 image](https://images.creasol.it/creDomBus31_400.png)
+Actually the following modules are supported:
+* [DomBus1](https://www.creasol.it/CreasolDomBus1): 2-3 N.O. relay outputs, 6 digital inputs, 1 230Vac opto-input
+* [DomBus12](https://www.creasol.it/CreasolDomBus12): 7 GPIO, 2 open-drain outputs
+* [DomBus23](https://www.creasol.it/CreasolDomBus23): 2 N.O. relay outputs, 1 mosfet output (for 12-24V LED dimming or other DC loads), 2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs (5-40V), 1 230Vac opto input
+* [DomBus31](https://www.creasol.it/CreasolDomBus31): low power module with 6 N.O. relay outputs + 2 N.O./N.C. relay outputs
+* [DomBusTH](https://www.creasol.it/CreasolDomBusTH): Temperature + Relative Humidity sensors, red + green + white LEDs, 4 GPIO, 2 open-drain outputs, 1 analog input
 
-![alt DomBusTH image](https://images.creasol.it/creDomBusTH1_200.jpg)
-![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg)
-![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png)
+Modules and components are developed by Creasol, https://www.creasol.it/domotics
+
+## Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...
+
+![alt Domotic system using DomBus modules](https://images.creasol.it/AN_domoticz_example2.png "Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...")
 
 
 ## Custom icons for Domoticz
