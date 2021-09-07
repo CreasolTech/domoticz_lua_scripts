@@ -82,3 +82,7 @@ More info at https://www.creasol.it/domotics
 ![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg)
 ![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png)
 
+
+## Custom icons for Domoticz
+* domoticz_custom_icon_batteryMin.zip : battery level min (used for EVehicles)
+* domoticz_custom_icon_batteryMax.zip : battery level max (used for EVehicles)

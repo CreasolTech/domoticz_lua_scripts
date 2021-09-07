@@ -50,7 +50,7 @@ end
 
 function heatPumpOn()
 	if (otherdevices['HeatPump']=='Off') then
-		if (uservariables['HeatPumpWinter']==1) then
+		if (HPmode=='Winter') then
 			deviceOff('HeatPump_Summer',HP,'D4')
 		else
 			deviceOn('HeatPump_Summer',HP,'D4')
@@ -85,7 +85,7 @@ function updateValves()
 			valveStateTemp[v[ZONE_VALVE] ]='Off'	
 		end
 		-- update commandArray only when valve status have changed
-		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and otherdevices[v[ZONE_VALVE] ]~=valveStateTemp[v[ZONE_VALVE] ]) then
+		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and valveStateTemp[v[ZONE_VALVE] ]~=nil and otherdevices[v[ZONE_VALVE] ]~=valveStateTemp[v[ZONE_VALVE] ]) then
 			commandArray[v[ZONE_VALVE] ]=valveStateTemp[v[ZONE_VALVE] ]
 			log(E_INFO,'**** Valve for zone '..n..' changed to '..valveStateTemp[ v[ZONE_VALVE] ])
 		end
@@ -98,6 +98,18 @@ minutesnow = timenow.min + timenow.hour * 60
 
 -- check variables
 json=require("dkjson")
+HPmode='Off'	-- Default: don't heat/cool
+if (otherdevices[HPMode] == nil) then
+	log(E_WARNING,"A device must be created by hand!\n***************** ERROR *****************\nSelector switch Off/Winter/Summer does not exist => must be created!\nGo to Setup -> Hardware, create a Dummy hardware (if not exists) and then Create virtual sensor, name '".. HPMode .. "' type Selector switch\nGo to Switches panel, edit the new device " .. HPMode .. " and rename level1 to 'Winter', level2 to 'Summer' and delete level 30")
+else
+	if (otherdevices[HPMode] == 'Winter') then
+		HPmode='Winter'
+	elseif (otherdevices[HPMode] == 'Summer') then
+		HPmode='Summer'
+	elseif (otherdevices[HPMode] ~= 'Off') then
+		log(E_WARNING,"Device "..HPmode.." must have the following level names:\n0 => 'Off', 10 => 'Winter' and 20 => 'Summer'")
+	end
+end
 if (uservariables['zHeatPump'] == nil) then
 	-- initialize variable
 	HPinit()	--init HP table
@@ -135,8 +147,6 @@ tempDerivate=HPZ['gr']
 
 levelOld=HP['Level']	-- save previous level
 diffMax=0
-checkVar('HeatPumpSummer',0,0)
-checkVar('HeatPumpWinter',0,0)
 
 for n,v in pairs(zones) do	-- check that temperature setpoint exist
 	-- n=zone name, v=CSV separated by | containing tempsensor and electrovalve device name
@@ -190,7 +200,7 @@ else
 end
 prodPower=0-usagePower
 
-if (uservariables['HeatPumpWinter']==0 and uservariables['HeatPumpSummer']==0) then
+if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	-- Both heating and cooling are disabled
 	HP['Level']=LEVEL_OFF
 	heatingCoolingEnabled=0
@@ -198,10 +208,10 @@ if (uservariables['HeatPumpWinter']==0 and uservariables['HeatPumpSummer']==0) t
 else
 	heatingCoolingEnabled=1
 	-- Heating or cooling is enabled
-	-- initialize some variables, depending by the HeatPumpWinter variable (1 => heating, 0 => cooling because HeatPumpSummer is 1 )
-	if (uservariables['HeatPumpWinter']==1) then
+	-- initialize some variables, depending by the HPmode variable)
+	if (HPmode == 'Winter') then
 		-- Heating enabled
-		log(E_INFO,'================================= HeatPumpWinter ================================')
+		log(E_INFO,'================================= Winter ================================')
 		zone_start=ZONE_WINTER_START	-- offset on zones[] structure
 		zone_stop=ZONE_WINTER_STOP
 		zone_offset=ZONE_WINTER_OFFSET
@@ -221,7 +231,7 @@ else
 		spOffset=OVERHEAT
 	else
 		-- Cooling enabled
-		log(E_INFO,'================================= HeatPumpSummer ================================')
+		log(E_INFO,'================================= Summer ================================')
 		zone_start=ZONE_SUMMER_START	-- offset on zones[] structure
 		zone_stop=ZONE_SUMMER_STOP
 		zone_offset=ZONE_SUMMER_OFFSET
@@ -243,12 +253,12 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if ((prodPower>1200 or (uservariables['HeatPumpWinter']==1 and prodPower>800))) then	-- more than 800W fed to the electrical grid
+		if ((prodPower>1200 or (HPmode == 'Winter' and prodPower>800))) then	-- more than 800W fed to the electrical grid
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
 	else
-		if ((uservariables['HeatPumpSummer']==1 and prodPower<0) or (uservariables['HeatPumpWinter']==1 and usagePower>200 and instPower>200)) then
+		if ((HPmode == 'Summer' and prodPower<0) or (HPmode == 'Winter' and usagePower>200 and instPower>200)) then
 			HP['SPoff']=0
 			log(E_INFO,"Disable OverHeating/Cooling")
 		end
@@ -285,7 +295,7 @@ else
 		end
 		realdiff=uservariables['TempSet_'..n]+temperatureOffset-temp;
 		diff=realdiff+HP['SPoff']
-		if (uservariables['HeatPumpWinter']==0) then
+		if (HPmode ~= 'Winter') then
 			-- summer => invert diff
 			realdiff=0-realdiff	-- TempSet+offset(nighttime)-Temp
 			diff=0-diff			-- TempSet+offset(nighttime)+offset(power)-Temp	increased when there is extra power from PV
@@ -350,7 +360,7 @@ else
 		-- Level 4 => + HeatPump Fancoil temperature (use with care with radiant system!!) Disabled by defaul
 		
 		-- TODO: dehumidification during winter: how? My stupid CMV needs cold water to do that!
-		if (uservariables['HeatPumpWinter']==0 and rhMax>60 and HP['Level']==LEVEL_OFF and prodPower>1000) then
+		if (HPmode ~= 'Winter' and rhMax>60 and HP['Level']==LEVEL_OFF and prodPower>1000) then
 			-- high humidity: activate heatpump + ventilation + chiller (Level 1)
 			incLevel()
 		end
@@ -363,7 +373,7 @@ else
 			if (usagePower<POWER_MAX-1700) then
 				-- must heat/cool!
 				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
-				if (uservariables['HeatPumpWinter']==1) then
+				if (HPmode == 'Winter') then
 					-- make tempFluidLimit higher if rooms are cold
 					tempFluidLimit=30
 					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
@@ -392,7 +402,7 @@ else
 					-- more available power => increment level
 					if (HP['Level']>=level_max) then
 						-- already at full power => increase fluid temperature in Winter, or decrease in the Summer
-						if (uservariables['HeatPumpWinter']==1) then
+						if (HPmode == 'Winter') then
 							tempFluidLimit=tempFluidLimit+2
 						else
 							tempFluidLimit=tempFluidLimit-1
@@ -401,14 +411,14 @@ else
 						-- start heat pump
 						incLevel()
 					end
-				elseif (usagePower>diffMaxHigh_power and (diffMax<diffMaxHigh or uservariables['HeatPumpWinter']==0)) then
+				elseif (usagePower>diffMaxHigh_power and (diffMax<diffMaxHigh or HPmode ~= 'Winter')) then
 					-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
 					decLevel()
 				end
 	
 				if (HP['Level']>0) then
 				-- regulate fluid tempeature in case of max Level 
-					if (uservariables['HeatPumpWinter']==1) then
+					if (HPmode == 'Winter') then
 						-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
 						-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
 						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
@@ -504,7 +514,7 @@ else
 			end
 		else
 			-- diffMax<=0 => All zones are in temperature!
-			if (uservariables['HeatPumpWinter']==1 and (inverterMeter~='' and HP['otmax']<8 and (tempDerivate*4)<(diffMax-diffMaxHigh/2))) then
+			if (HPmode == 'Winter' and (inverterMeter~='' and HP['otmax']<8 and (tempDerivate*4)<(diffMax-diffMaxHigh/2))) then
 				-- temperature is decreasing: turn ON heat pump at minimum level, but only in the winter
 				HP['Level']=LEVEL_ON
 			elseif (HP['Level']>LEVEL_OFF)  then 
@@ -517,7 +527,7 @@ else
 		log(E_DEBUG,'No power meter installed')
 	end
 
-	if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and uservariables['HeatPumpWinter']==1) then
+	if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and HPmode == 'Winter') then
 		-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMax>=GHdiffMax
 		if (otherdevices[GasHeater]=='On') then
 			-- add some histeresys to prevent gas heater switching ON/OFF continuously
@@ -564,12 +574,12 @@ else
 end -- heatingCoolingEnabled=1
 
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
-if (uservariables['HeatPumpWinter']==1) then devLevel=2 else devLevel=3 end	-- summer: use next field for device level
+if (HPmode == 'Winter') then devLevel=2 else devLevel=3 end	-- summer: use next field for device level
 for n,v in pairs(DEVlist) do
 	-- n=table index
 	-- v={deviceName, winterLevel, summerLevel}
 	log(E_DEBUG,"DevName="..v[1].." devLevel="..v[devLevel].." CurrentLevel="..HP['Level'].." level_max="..level_max )
-	if (v[devLevel]<=level_max+1) then -- ignore devices configured to have a very high level
+	if (v[devLevel]<255) then -- ignore devices configured to have a very high level
 		if (HP['Level']>=v[devLevel]) then
 			-- this device has a level <= of current level => enable it
 			deviceOn(v[1],HP,'d'..n)
@@ -583,8 +593,8 @@ end
 updateValves() -- enable/disable the valve for each zone
 
 -- now check heaters and dehumidifiers in DEVauxlist...
--- devLevel for DEVauxlist is the same as DEVlist -- if (uservariables['HeatPumpSummer']==1) then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
-if (uservariables['HeatPumpWinter']==1) then devCond=5 else devCond=8 end	-- devCond = field that contains the device name for condition used to switch ON/OFF device
+-- devLevel for DEVauxlist is the same as DEVlist -- if (HPmode == 'Summer') then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
+if (HPmode == 'Winter') then devCond=5 else devCond=8 end	-- devCond = field that contains the device name for condition used to switch ON/OFF device
 
 -- Parse DEVauxlist to check if anything should be enabled or disabled
 -- If heat pump level has changed, don't enable/disable aux devices because the measured prodPower may change 

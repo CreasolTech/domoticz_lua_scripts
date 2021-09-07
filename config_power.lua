@@ -10,7 +10,7 @@
 --
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="Power: "
 
 PowerMeter='PowerMeter'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
@@ -58,6 +58,9 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 
 -- list of electric vehicles
 -- 3rd field is the battery level device name or variable name containing the battery charge level%: if not available, set to '' (will be set to 50%)
+-- 4th and 5th fields refers to virtual selector switches (to be added manually) configured with some battery levels, e.g. Off, 25, 50, 80, 90, 100 (%)
+--   These selector switches will be used to set the min battery level (if battery state is below, charge EV anyway) and max battery level 
+--   (if battery state of charge between min and max level, charge only using energy from photovoltaic)
 eVehicles={ -- on/off device, 	power	battery level % 						Min battery level			Max battery level
 	{'Kia eNiro - Socket', 		1900,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max'},
 }

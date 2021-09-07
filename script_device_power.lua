@@ -274,8 +274,30 @@ if (currentPower>-20000 and currentPower<20000) then
 						Power['ev'..k]=0  --initialize counter, incremented every minute when there is not enough power from renewables to charge the vehicle
 					end
 					evPower=evRow[2]
-					batteryMin=tonumber(otherdevices[ evRow[4] ])
-					batteryMax=tonumber(otherdevices[ evRow[5] ])
+					if (otherdevices[ evRow[4] ] == nil) then
+						-- user must create the selector switch used to set the minimum level of battery
+						log(E_WARNING,"EV: please create a virtual sensor, selector switch, named '"..evRow[4].."' with levels 0,10,20,..100")
+						batteryMin=50
+					else
+						if (otherdevices[ evRow[4] ]=='Off') then
+							batteryMin=0
+						else
+							batteryMin=tonumber(otherdevices[ evRow[4] ])
+						end
+						log(E_INFO,"EV: batteryMin="..batteryMin)
+					end
+					if (otherdevices[ evRow[5] ] == nil) then
+						-- user must create the selector switch used to set the maximum level of battery
+						log(E_WARNING,"EV: please create a virtual sensor, selector switch, named '"..evRow[4].."' with levels 0,10,20,..100")
+						batteryMax=80
+					else
+						if (otherdevices[ evRow[5] ]=='Off') then
+							batteryMax=0
+						else
+							batteryMax=tonumber(otherdevices[ evRow[5] ])
+						end
+						log(E_DEBUG,"EV: batteryMax="..batteryMax)
+					end
 					if (evRow[3]~='' and otherdevices[ evRow[3] ]~=nil) then
 						-- battery state of charge is a device
 						batteryLevel=tonumber(otherdevices[ evRow[3] ])	-- battery level device exists
@@ -284,7 +306,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						batteryLevel=tonumber(uservariables[ evRow[3] ])
 					else
 						-- battery state of charge not available
-						batteryLevel=50	-- battery level device does not exist => set to 50%
+						batteryLevel=batteryMin	-- battery level device does not exist => set to 50%
 					end
 					if (otherdevices[ evRow[1] ]=='Off') then
 						-- not charging
@@ -294,7 +316,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							log(E_DEBUG,"EV: not charging, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
 							if (batteryLevel<batteryMin or (avgPower+evPower)<toleratedUsagePowerEV) then
 								-- if battery level > min level => charge only if power is available from renewable sources
-								log(E_INFO,"EV: start charging - batteryLevel="..batteryLevel.."<"..batteryMin.." or ("..avgPower.."+"..evPower.."<0)")
+								log(E_INFO,"EV: start charging - batteryLevel="..batteryLevel.."<"..batteryMin.." or ("..avgPower.."+"..evPower.."<"..toleratedUsagePowerEV)
 								deviceOn(evRow[1],Power,'de'..k)
 								Power['ev'..k]=0	-- counter
 							end
