@@ -24,7 +24,7 @@ function CMVinit()
 end
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainCheck: "
 commandArray={}
 
@@ -83,7 +83,8 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 			-- already worked for a sufficient time: disable it
 			CMV['maxtime']=CMV['time']
 		end
-	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+	-- elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=0 and (windDirection<160 or windSpeed>20)) then
 -- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			CMV['auto']=1	-- ON
@@ -112,7 +113,8 @@ else
 			CMV['auto']=0
 			-- commandArray[VENTILATION_DEV]='Off'
 			deviceOff(VENTILATION_DEV,CMV,'d1')
-		elseif (CMV['time']>=CMV['maxtime'] or (uservariables['HeatPumpWinter']==1 and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
+		-- elseif (CMV['time']>=CMV['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
+		elseif (CMV['time']>=CMV['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then
 			log(E_INFO,"Ventilation OFF: duration="..CMV['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 			CMV['auto']=0
 			-- commandArray[VENTILATION_DEV]='Off'
@@ -121,7 +123,7 @@ else
 	end
 end
 
-if (uservariables['HeatPumpWinter']=='1') then 
+if (otherdevices['HeatPump_Mode']=='Winter') then 
 	-- in Winter, activate the ventilation water coil when heat pump and ventilation are ON (to heat the air from ventilation)
 	if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
 		-- ventilation coil exists: 

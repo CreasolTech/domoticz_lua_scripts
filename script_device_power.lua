@@ -24,6 +24,7 @@ function PowerInit()
 	if (Power['usage']==nil) then Power['usage']=0 end
 	if (Power['disc']==nil) then Power['disc']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
+	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
 end	
 
 function getPowerValue(devValue)
@@ -157,6 +158,7 @@ function powerDisconnect(forced,msg)
 end
 
 currentPower=10000000 -- dummy value (10MW)
+EVChargingPower=0
 for devName,devValue in pairs(devicechanged) do
 	if (PowerMeter~='') then
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
@@ -167,10 +169,80 @@ for devName,devValue in pairs(devicechanged) do
 		-- use PowerMeterImport and PowerMeterExport (if available)
 		if ((PowerMeterImport~='' and devName==PowerMeterImport) or (PowerMeterExport~='' and devName==PowerMeterExport)) then
 			currentPower=getPowerValue(otherdevices[PowerMeterImport])
-			log(E_DEBUG,"PowerMeterImport exists => currentPower="..currentPower)
 			if (PowerMeterExport~='') then 
 				currentPower=currentPower-getPowerValue(otherdevices[PowerMeterExport]) 				
-				log(E_DEBUG,"PowerMeterExport exists => currentPower="..currentPower)
+			end
+		end
+	end
+	if (EVPowerMeter ~= '') then
+		-- get actual EV charging power
+		if (devName==EVPowerMeter) then
+			-- new value from the electric vehicle charging power meter
+			EVChargingPower=getPowerValue(devValue)
+			-- output current value to led status
+			if (EVLedStatus ~= '') then
+				l=(math.floor(EVChargingPower/1000))*10	-- 0=0..999W, 1=1000..1999, 2=2000..2999W, ...
+				for k,led in pairs(EVLedStatus) do
+					if (otherdevices_svalues[led]~=tostring(l)) then
+						commandArray[led]="Set Level "..tostring(l)
+						log(E_INFO,"EV: ChargingPower >= " .. l/10 .. "kW => Set leds")
+					end
+				end
+			end
+		end
+	end
+	-- EV: check EVChargingButton
+	for k,evRow in pairs(eVehicles) do
+		if (evRow[9]~='') then
+			levelChanged=0
+			if (devName==evRow[8]) then
+				-- Charging button used to select between Off, Min0%, Min50%, Max100%, On modes
+				-- find the current level
+				levelItem=1
+				levelName=EVChargingModeNames[1]
+				levelMax=0
+				for li,ln in pairs(EVChargingModeNames) do
+					levelMax=levelMax+1
+					if (otherdevices[ evRow[9] ]==ln) then 
+						levelName=ln
+						levelItem=li
+					end
+				end
+				if (devValue=='Enable' and levelItem<levelMax) then
+					levelItem=levelItem+1
+					levelChanged=1
+				elseif (devValue=='Disable' and levelItem>1) then
+					levelItem=levelItem-1
+					levelChanged=1
+				end
+				if (levelChanged==1) then
+					-- evRow[4] is the battery min selector, and evRow[5] the battery max selector
+					log(E_DEBUG,"EV: button pressed => set charging mode to "..EVChargingModeNames[ levelItem ] .. ", set battery min to "..EVChargingModeConf[ levelItem ][2].."% and battery max to "..EVChargingModeConf[ levelItem ][4].."%")
+					commandArray[ evRow[9] ]='Set Level: '.. (levelItem-1)*10				-- set new charging mode
+				end
+			elseif (devName==evRow[9]) then
+				-- changed selector switch
+				log(E_DEBUG, "EV: Charging mode selector switch has been changed")
+				levelItem=1
+				levelName=EVChargingModeNames[1]
+				for li,ln in pairs(EVChargingModeNames) do
+					if (otherdevices[ evRow[9] ]==ln) then 
+						levelName=ln
+						levelItem=li
+						break
+					end
+				end
+				levelChanged=1
+			end
+			if (levelChanged==1) then
+				-- update min and max battery level according to selector switch Charging Mode
+				commandArray[ evRow[4] ]='Set Level: '..tostring(EVChargingModeConf[ levelItem ][1])	-- set min battery level
+				commandArray[ evRow[5] ]='Set Level: '..tostring(EVChargingModeConf[ levelItem ][3])	-- set max battery level
+				otherdevices[ evRow[4] ]=tostring(EVChargingModeConf[ levelItem ][2])
+				otherdevices[ evRow[5] ]=tostring(EVChargingModeConf[ levelItem ][4])
+				getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
+				Power['ev']=1 -- force updating contactor output
+				commandArray['Variable:zPower']=json.encode(Power)
 			end
 		end
 	end
@@ -206,6 +278,7 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 end
+
 
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
@@ -260,7 +333,8 @@ if (currentPower>-20000 and currentPower<20000) then
 		Power['th1Time']=0
 		Power['th2Time']=0
 		-- check electric vehicles
-		if (incMinute==1) then 
+		if (incMinute==1 or Power['ev']==1) then --Power['ev'] used to force EV management now
+			Power['ev']=0
 			for k,evRow in pairs(eVehicles) do
 				-- evRow[1]=ON/OFF device
 				-- evRow[2]=charging power
@@ -284,7 +358,6 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							batteryMin=tonumber(otherdevices[ evRow[4] ])
 						end
-						log(E_INFO,"EV: batteryMin="..batteryMin)
 					end
 					if (otherdevices[ evRow[5] ] == nil) then
 						-- user must create the selector switch used to set the maximum level of battery
@@ -296,7 +369,6 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							batteryMax=tonumber(otherdevices[ evRow[5] ])
 						end
-						log(E_DEBUG,"EV: batteryMax="..batteryMax)
 					end
 					if (evRow[3]~='' and otherdevices[ evRow[3] ]~=nil) then
 						-- battery state of charge is a device
@@ -308,12 +380,27 @@ if (currentPower>-20000 and currentPower<20000) then
 						-- battery state of charge not available
 						batteryLevel=batteryMin	-- battery level device does not exist => set to 50%
 					end
+					evDistance=0
+					if (evRow[6]~='') then
+						-- car distance sensor exists
+						for name,value in pairs(otherdevices) do
+							if (name:sub(1,evRow[6]:len()) == evRow[6]) then
+								evDistance=tonumber(value)
+							end
+						end
+					end
+					evSpeed=0
+					if (evRow[7]~='') then
+						-- car speed sensor exists
+						evSpeed=tonumber(otherdevices[ evRow[7] ])
+					end
+					log(E_DEBUG,"EV: Battery level="..batteryLevel.." Min="..batteryMin.." Max="..batteryMax)
 					if (otherdevices[ evRow[1] ]=='Off') then
 						-- not charging
-						if (avgPower+evPower<PowerThreshold[1] and batteryLevel<batteryMax) then
+						if (avgPower+evPower<PowerThreshold[1] and batteryLevel<batteryMax and ((evDistance<5 and evSpeed==0) or batteryMin==100)) then
 							-- it's possible to charge without exceeding electricity meter threshold, and current battery level < battery max
-							toleratedUsagePowerEV=evPower/4*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
-							log(E_DEBUG,"EV: not charging, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
+							toleratedUsagePowerEV=evPower/3*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
+							log(E_INFO,"EV: not charging, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
 							if (batteryLevel<batteryMin or (avgPower+evPower)<toleratedUsagePowerEV) then
 								-- if battery level > min level => charge only if power is available from renewable sources
 								log(E_INFO,"EV: start charging - batteryLevel="..batteryLevel.."<"..batteryMin.." or ("..avgPower.."+"..evPower.."<"..toleratedUsagePowerEV)
@@ -323,7 +410,10 @@ if (currentPower>-20000 and currentPower<20000) then
 						end
 					else
 						-- charging
-						if (batteryLevel>=batteryMin) then
+						if ((evDistance>5 or evSpeed>0) and batteryMin<100) then
+							log(E_INFO,"EV: car is moving or is not near home => stop charging")
+							deviceOff(evRow[1],Power,'de'..k)
+						elseif (batteryLevel>=batteryMin) then
 							if (batteryLevel>=batteryMax) then
 								-- reached the max battery level
 								log(E_INFO,"EV: stop charging: reach the max battery level")
@@ -357,7 +447,9 @@ if (currentPower>-20000 and currentPower<20000) then
 			------------------------------------ check DEVauxlist to enable/disable aux devices (when we have/haven't got enough power from photovoltaic -----------------------------
 			if (DEVauxlist~=nil) then
 				log(E_DEBUG,"Parsing DEVauxlist...")
-				if (uservariables['HeatPumpWinter']=="1") then 
+				HPmode=otherdevices[HPMode]
+				if (HPmode==nil) then HPmode='Off' end
+				if (HPmode=='Winter') then
 					devCond=5 
 					devLevel=2
 				else 
@@ -368,8 +460,8 @@ if (currentPower>-20000 and currentPower<20000) then
 					if (otherdevices[ v[devCond] ]~=nil) then
 						-- check timeout for this device (useful for dehumidifiers)
 						s=""
-						if (v[12]~=nil and PowerAux['s'..n]~=nil and PowerAux['s'..n]>0) then
-							s=" ["..PowerAux['s'..n].."/"..v[12].."m]"
+						if (v[11]~=nil and PowerAux['s'..n]~=nil and PowerAux['s'..n]>0) then
+							s=" ["..PowerAux['s'..n].."/"..v[11].."m]"
 						end
 
 						log(E_INFO,"Aux "..otherdevices[ v[1] ]..": "..v[1] .." (" .. v[4].."/"..prodPower.."W)"..s)
@@ -401,22 +493,25 @@ if (currentPower>-20000 and currentPower<20000) then
 							prodPower=prodPower-v[4]
 							log(E_DEBUG,prodPower.."<-100 or "..
 							HP['Level'].."<"..v[devLevel].." or "..cond.."=="..v[devCond+1] )
-							if (prodPower<-100 or HP['Level']<v[devLevel] or cond==v[devCond+1] ) then
-								if (v[12]~=nil) then
+							if (v[13]~='') then
+								coff=load("return "..v[13])	-- expression that needs to turn off device
+							else
+								coff=load("return FALSE")
+							end
+							if (prodPower<-100 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
+								-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE
+								if (v[11]~=nil) then
+									-- timeout for this device is set
 									if (PowerAux['s'..n]==nil) then PowerAux['s'..n]=0 end
-									PowerAux['s'..n]=PowerAux['s'..n]+1
-									if (PowerAux['s'..n]>=v[12]) then
-										-- stop device because conditions are not satisfied for more than v[12] minutes
-										deviceOff(v[1],PowerAux,'a'..n)
-										prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-										prodPower=prodPower+v[4]
+									PowerAux['s'..n]=PowerAux['s'..n]+1 -- increment the timeout counter
+									if (PowerAux['s'..n]>=v[11]) then
 										PowerAux['s'..n]=0
 									end
-								else
-									deviceOff(v[1],PowerAux,'a'..n)
-									prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-									prodPower=prodPower+v[4]
 								end
+								-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
+								deviceOff(v[1],PowerAux,'a'..n)
+								prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
+								prodPower=prodPower+v[4]
 							else
 								-- device On, and can remain On
 								if (v[12]~=nil) then
@@ -425,9 +520,13 @@ if (currentPower>-20000 and currentPower<20000) then
 							end
 						else
 							-- device is OFF
-							-- print(prodPower.." "..v[4])
-							log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .."and "..cond.."~="..v[devCond+1].." and "..HP['Level']..">="..v[devLevel])
-							if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and HP['Level']>=v[devLevel]) then
+							log(E_DEBUG,auxTimeout.."<"..auxMaxTimeout.." and "..prodPower..">="..v[4]+100 .." and "..cond.."~="..v[devCond+1].." and "..HP['Level']..">="..v[devLevel])
+							if (v[12]~='') then
+								con=load("return "..v[12])	-- expression that needs to turn off device
+							else
+								con=load("return 1")
+							end
+							if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 								deviceOn(v[1],PowerAux,'a'..n)
 								prodPower=prodPower-v[4]    -- update prodPower
 								prodPower=prodPower-v[4]  -- update prodPower
@@ -454,14 +553,15 @@ if (currentPower>-20000 and currentPower<20000) then
 			Power['above']=0
 			if (timenow.sec<=40 and currentPower<0) then
 				-- exported power  => activate any load?
+				--[[
 				if (timenow.month>=10 or timenow.month<=4) then
 					-- winter: check electric heaters
-					for k,loadRow in pairs(Heaters) do
-						-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[loadRow[4]].." < "..loadRow[5].."??")
-						if (otherdevices[loadRow[1]]=='Off' and (loadRow[2]-toleratedUsagePower)<prodPower and tonumber(otherdevices[loadRow[4]])<loadRow[5]) then
+					for k,loadRow in pairs(DEVauxlist) do
+						-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[ loadRow[4] ].." < "..loadRow[5].."??")
+						if (otherdevices[ loadRow[1] ]=='Off' and (loadRow[2]-toleratedUsagePower)<prodPower and tonumber(otherdevices[ loadRow[4] ])<loadRow[5]) then
 							-- enable this new load
 							log(E_INFO, 'Enable load '..loadRow[1]..' that needs '..loadRow[2]..'W')
-							commandArray[loadRow[1]]='On'
+							commandArray[ loadRow[1] ]='On'
 							Power['H'..k]='auto'
 							scanDEVauxlist()
 							Power['usage']=Power['usage']+loadRow[2]
@@ -469,6 +569,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						end
 					end --for
 				end	
+				]]
 				--TODO: if a lower priority device is enabled, maybe it's possible to disable it and enable a higher priority device that needs more power tha lower priority device
 			end
 			powerMeterAlert(0)
