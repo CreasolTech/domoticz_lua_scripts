@@ -10,6 +10,7 @@ while [ 1 ]; do
 		count=$(( $count + 1 ))
 		if [ $count -ge $TIME_DOMOTICZ_UNAVAILABLE ]; then
 			#echo "Restart domoticz after 5 minutes it is off"
+			echo "`date` : Restart domoticz because not active since ${TIME_DOMOTICZ_UNAVAILABLE} minutes" >>/tmp/domoticzCheck.log
 			service domoticz restart
 		fi
 	else

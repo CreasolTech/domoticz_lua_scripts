@@ -159,6 +159,9 @@ end
 
 currentPower=10000000 -- dummy value (10MW)
 EVChargingPower=0
+HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
+if (HPmode==nil) then HPmode='Off' end
+
 for devName,devValue in pairs(devicechanged) do
 	if (PowerMeter~='') then
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
@@ -339,6 +342,7 @@ if (currentPower>-20000 and currentPower<20000) then
 				-- evRow[1]=ON/OFF device
 				-- evRow[2]=charging power
 				-- evRow[3]=current battery level
+				-- evRow[10]=current range (used to avoid problem with Kia battery level that often is not updated)
 				-- evRow[4]=min battery level (charge to that level using imported energy!)
 				-- evRow[5]=max battery level (stop when battery reached that level)
 				if (otherdevices[ evRow[1] ]==nil or otherdevices[ evRow[4] ]==nil or otherdevices[ evRow[5] ]==nil) then
@@ -373,6 +377,14 @@ if (currentPower>-20000 and currentPower<20000) then
 					if (evRow[3]~='' and otherdevices[ evRow[3] ]~=nil) then
 						-- battery state of charge is a device
 						batteryLevel=tonumber(otherdevices[ evRow[3] ])	-- battery level device exists
+						-- compare batteryLevel with battery range, because KIA UVO has a trouble with battery range not updating
+						if (evRow[10]~='' and otherdevices[ evRow[10] ]~=nil) then
+							batteryRange=tonumber(otherdevices[ evRow[10] ])
+							if (batteryLevel<batteryRange/5.2) then
+								log(E_WARNING,"EV: batteryLevel too low if compared with range")
+								batteryLevel=batteryRange/5 	-- 400km = 80%
+							end
+						end
 					elseif (uservariables[ evRow[3] ]~=nil) then
 						-- battery state of charge is a variable
 						batteryLevel=tonumber(uservariables[ evRow[3] ])
@@ -400,6 +412,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						if (avgPower+evPower<PowerThreshold[1] and batteryLevel<batteryMax and ((evDistance<5 and evSpeed==0) or batteryMin==100)) then
 							-- it's possible to charge without exceeding electricity meter threshold, and current battery level < battery max
 							toleratedUsagePowerEV=evPower/3*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
+							if (HPmode=='Winter') then toleratedUsagePowerEV=toleratedUsagePowerEV*2 end	-- in Winter, don't care if the car is partially charged by grid
 							log(E_INFO,"EV: not charging, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
 							if (batteryLevel<batteryMin or (avgPower+evPower)<toleratedUsagePowerEV) then
 								-- if battery level > min level => charge only if power is available from renewable sources
@@ -421,6 +434,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							else
 								-- still charging: check available power
 								toleratedUsagePowerEV=evPower/2*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
+								if (HPmode=='Winter') then toleratedUsagePowerEV=toleratedUsagePowerEV*2 end	-- in Winter, don't care if the car is partially charged by grid
 								log(E_DEBUG,"EV: charging with batteryLevel>batteryMin, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
 								if (avgPower>toleratedUsagePowerEV) then
 									-- too much power consumption -> increment counter and stop when counter is high
@@ -447,8 +461,6 @@ if (currentPower>-20000 and currentPower<20000) then
 			------------------------------------ check DEVauxlist to enable/disable aux devices (when we have/haven't got enough power from photovoltaic -----------------------------
 			if (DEVauxlist~=nil) then
 				log(E_DEBUG,"Parsing DEVauxlist...")
-				HPmode=otherdevices[HPMode]
-				if (HPmode==nil) then HPmode='Off' end
 				if (HPmode=='Winter') then
 					devCond=5 
 					devLevel=2
@@ -488,9 +500,9 @@ if (currentPower>-20000 and currentPower<20000) then
 						end
 						-- change state only if previous heatpump level match the current one (during transitions from a power level to another, power consumption changes)
 						if (otherdevices[ v[1] ]~='Off') then
-							-- device is ON
+							-- device was ON
 							log(E_DEBUG,'Device is not Off: '..v[1]..'='..otherdevices[ v[1] ])
-							prodPower=prodPower-v[4]
+							-- prodPower=prodPower-v[4]
 							log(E_DEBUG,prodPower.."<-100 or "..
 							HP['Level'].."<"..v[devLevel].." or "..cond.."=="..v[devCond+1] )
 							if (v[13]~='') then
@@ -511,7 +523,6 @@ if (currentPower>-20000 and currentPower<20000) then
 								-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
 								deviceOff(v[1],PowerAux,'a'..n)
 								prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-								prodPower=prodPower+v[4]
 							else
 								-- device On, and can remain On
 								if (v[12]~=nil) then
@@ -528,7 +539,6 @@ if (currentPower>-20000 and currentPower<20000) then
 							end
 							if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 								deviceOn(v[1],PowerAux,'a'..n)
-								prodPower=prodPower-v[4]    -- update prodPower
 								prodPower=prodPower-v[4]  -- update prodPower
 							end
 						end

@@ -10,7 +10,7 @@
 --
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="Power: "
 
 PowerMeter='PowerMeter'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
@@ -52,11 +52,11 @@ PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very hi
 
 -- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)
 overloadDisconnect={ -- syntax: device name, command to disable, command to enable
-	{'HeatPump_FullPower','Off','On'},	-- heat pump, full power
+	{'HeatPump_HalfPower','On','Off'},	-- heat pump: Off => full power, On => half power
 	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
 	{'HeatPump','Off','On'},			-- heat pump (general)
 	{'Irrigazione','Off','On'},			-- garden watering pump
-	{'Kia eNiro - Socket','Off','On'},	-- electric car charging socket
+	{'Kia eNiro - Contactor','Off','On'},	-- electric car charging socket
 }
 
 -- list of electric vehicles
@@ -64,9 +64,11 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 -- 4th and 5th fields refers to virtual selector switches (to be added manually) configured with some battery levels, e.g. Off, 25, 50, 80, 90, 100 (%)
 --   These selector switches will be used to set the min battery level (if battery state is below, charge EV anyway) and max battery level 
 --   (if battery state of charge between min and max level, charge only using energy from photovoltaic)
-eVehicles={ -- on/off device, 	power	battery level % 						Min battery level			Max battery level	DistanceDev		SpeedDev 
-	{'Kia eNiro - Contactor', 		1800,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - Button charge', 'Kia eNiro - Charging mode'},
+eVehicles={ -- on/off device, 	power	battery level % 		Min battery level			Max battery level			DistanceDev				SpeedDev			Charge mode pushbutton		Charging mode 				Range
+	{'Kia eNiro - Contactor', 	2500,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - Button charge', 'Kia eNiro - Charging mode', 'Kia eNiro - Range'},
 }
+
+
 EVChargingModeNames={'Off', 'Min0', 'Min50', 'Min50_Max100', 'On'}
 EVChargingModeConf={
 	-- MinLevel, value,	MaxLevel, value
@@ -88,7 +90,7 @@ DEVauxlist={
     {'Dehumidifier_Camera_Ospiti',  1,          1,              300,    'RH_Camera_Ospiti',         1,  65,     'RH_Camera_Ospiti',         1,  65,     0, '', ''}, -- Dehumidifier (disabled)
     {'Dehumidifier_Cantina',        1,          1,              500,    'RH_Cantina',               1,  65,     'RH_Cantina',               1,  65,     720, 'tonumber(uservariables["alarmLevel"])<=1', 'tonumber(uservariables["alarmLevel"])>1'},   -- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
     {'Bagno_Scaldasalviette',       1,          100,            450,    'Temp_Bagno',               0,  22,     'Temp_Bagno',               0,  20,     0, '', ''}, -- Electric heater in bathroom
-    {'Pranzo_Stufetta',       		1,          100,            950,    'Temp_Cucina',              0,  22,     'Temp_Cucina',              0,  18,     0, '', ''} -- Electric heater in the kitchen
+    {'Pranzo_Stufetta',       		1,          100,            950,    'Temp_Cucina',              0,  23,     'Temp_Cucina',              0,  18,     0, '', ''} -- Electric heater in the kitchen
 }
 
 

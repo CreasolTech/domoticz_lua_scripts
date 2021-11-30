@@ -48,27 +48,6 @@ function HPZinit()
 	if (HPZ['gr']==nil) then HPZ['gr']=0 end -- tempDerivate for a zone always ON
 end
 
-function heatPumpOn()
-	if (otherdevices['HeatPump']=='Off') then
-		if (HPmode=='Winter') then
-			deviceOff('HeatPump_Summer',HP,'D4')
-		else
-			deviceOn('HeatPump_Summer',HP,'D4')
-		end
-		deviceOff('HeatPump_Fancoil',HP,'D3')
-		deviceOff('HeatPump_FullPower',HP,'D2')
-		deviceOn('HeatPump',HP,'D1')
-	end
-end
-
-function heatPumpOff(timeOff)
-	deviceOff('HeatPump',HP,'D1')
-	deviceOff('HeatPump_Fancoil',HP,'D3')
-	deviceOff('HeatPump_FullPower',HP,'D2')
-	deviceOff('HeatPump_Summer',HP,'D4')
-	HP['Level']=LEVEL_OFF
-end
-
 -- switch ON/OFF valves to enable/disable zones
 function updateValves()
 	-- check valveStateTemp and update valve status
@@ -86,13 +65,18 @@ function updateValves()
 		end
 		-- update commandArray only when valve status have changed
 		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and valveStateTemp[v[ZONE_VALVE] ]~=nil and otherdevices[v[ZONE_VALVE] ]~=valveStateTemp[v[ZONE_VALVE] ]) then
-			commandArray[v[ZONE_VALVE] ]=valveStateTemp[v[ZONE_VALVE] ]
+			if (valveStateTemp[v[ZONE_VALVE] ] == 'On') then
+				deviceOn(v[ZONE_VALVE],HP,'v'..n)
+			else
+				deviceOff(v[ZONE_VALVE],HP,'v'..n)
+			end
 			log(E_INFO,'**** Valve for zone '..n..' changed to '..valveStateTemp[ v[ZONE_VALVE] ])
 		end
 
 	end 
 end
 
+monthnow = tonumber(os.date("%m"))
 timenow = os.date("*t")
 minutesnow = timenow.min + timenow.hour * 60
 
@@ -140,7 +124,7 @@ if (timenow.min==0) then
 	HPZ['t0']=HPZ['temp']
 	HPZ['gr']=math.floor((HPZ['t0']-HPZ['t1'])/0.01+(HPZ['t1']-HPZ['t2'])/0.0125+(HPZ['t2']-HPZ['t3'])/0.015+(HPZ['t3']-HPZ['t4'])/0.02)/200
 else
-	HPZ['temp']=math.floor((HPZ['temp']*15+otherdevices[TempZoneAlwaysOn])/0.16)/100
+	HPZ['temp']=math.floor((HPZ['temp']*3+otherdevices[TempZoneAlwaysOn])/0.04)/100
 end
 tempDerivate=HPZ['gr']
 
@@ -370,7 +354,7 @@ else
 			diffMaxHigh_power=0 
 		end
 		if (diffMax>0) then
-			if (usagePower<POWER_MAX-1700) then
+			if (usagePower<POWER_MAX-500) then
 				-- must heat/cool!
 				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
 				if (HPmode == 'Winter') then
@@ -411,17 +395,46 @@ else
 						-- start heat pump
 						incLevel()
 					end
-				elseif (usagePower>diffMaxHigh_power and (diffMax<diffMaxHigh or HPmode ~= 'Winter')) then
-					-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
-					decLevel()
+				else
+					-- no extra power from photovoltaic
+					log(E_DEBUG,"No enough power from PV")
+					if (HPmode == 'Winter') then
+						-- winter
+						if (diffMax>diffMaxHigh) then
+							-- too much difference from set point => start heating even in case there is not enough power from PV
+							log(E_DEBUG,"Too far from setpoint")
+							if (HP['Level']==0) then incLevel() end
+						else
+							-- diffMax<diffMaxHigh: rooms almost in temperature
+							if (monthnow>=4 and monthnow<=10) then
+								if (HP['Level']>0) then 
+									log(E_INFO,"From Apr to Oct, no enough power from PV and rooms almost in temperature => decLevel")
+									decLevel() 
+								end	-- From Apr to Oct, turn off Heat Pump if no available power from PV 
+							else
+								-- from November to March, keep heat pump ON, but at low power (rooms are almost in temperature)
+								if (HP['Level']>1) then
+									log(E_INFO,"From Nov to Mar, no enough power from PV and rooms almost in temperature => Level=1")
+								end
+								HP['Level']=1
+							end
+						end
+					else
+						-- summer
+						if (usagePower>diffMaxHigh_power) then
+							-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
+							log(E_DEBUG,"Decrease heatpump power")
+							decLevel()
+						end
+					end
 				end
 	
 				if (HP['Level']>0) then
-				-- regulate fluid tempeature in case of max Level 
+					-- regulate fluid tempeature in case of max Level 
 					if (HPmode == 'Winter') then
-						-- tempHPout < tempFluidLimit => FANCOIL + FULLPOWER
-						-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FANCOIL
-						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => FANCOIL-1
+						-- tempHPout < tempFluidLimit => FANCOIL
+						-- tempFluidLimit < tempHPout < tempFluidLimit+2 => FULLPOWER
+						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => HALFPOWER
 
 						-- check that fluid is not decreasing abnormally
 						if (tonumber(otherdevices[tempHPout])>HP['HPout']) then
@@ -447,7 +460,7 @@ else
 							if (HP['Level']<LEVEL_WINTER_FANCOIL) then 
 								log(E_INFO,"Fluid temperature is low => must heat!")
 								incLevel()
-							elseif (HP['Level']<LEVEL_WINTER_MAX and (((timenow.hour>=23 or timenow.hour<7) and inverterMeter~='' and HP['otmax']<5) or prodPower>=prodPower_incLevel or diffMax>=diffMaxHigh)) then
+							elseif (HP['Level']<LEVEL_WINTER_MAX and ( --[[ ((timenow.hour>=23 or timenow.hour<7) and inverterMeter~='' and HP['otmax']<5) or ]] prodPower>=prodPower_incLevel or diffMax>=diffMaxHigh)) then
 								log(E_INFO,"Enable full power!")
 								incLevel()
 							end
@@ -509,7 +522,8 @@ else
 					log(E_INFO,"Almost in temperature => reduce power usage")
 					decLevel()
 				end
-			elseif (usagePower>=POWER_MAX-500) then --usagePower>=POWER_MAX: decrement level
+			else	--usagePower>=POWER_MAX: decrement level
+				log(E_INFO,"Too much power consumption => decrease Heat Pump level")
 				decLevel()
 			end
 		else
@@ -574,18 +588,20 @@ else
 end -- heatingCoolingEnabled=1
 
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
-if (HPmode == 'Winter') then devLevel=2 else devLevel=3 end	-- summer: use next field for device level
+if (HPmode == 'Winter') then devLevel=2 else devLevel=4 end	-- summer: use next field for device level
 for n,v in pairs(DEVlist) do
 	-- n=table index
 	-- v={deviceName, winterLevel, summerLevel}
 	log(E_DEBUG,"DevName="..v[1].." devLevel="..v[devLevel].." CurrentLevel="..HP['Level'].." level_max="..level_max )
-	if (v[devLevel]<255) then -- ignore devices configured to have a very high level
-		if (HP['Level']>=v[devLevel]) then
-			-- this device has a level <= of current level => enable it
-			deviceOn(v[1],HP,'d'..n)
-		else
+	if (v[devLevel]<255) then -- if devLevel is set to 255, device should be ignored
+		-- v[devLevel]=START level
+		-- v[devLevel+1]=STOP level   e.g. HeatPump_HalfPower: start level=1, stop level=2, so this device should be activated only when HP['level']==1
+		if (HP['Level']>=v[devLevel+1] or HP['Level']<v[devLevel]) then
 			-- this device has a level > of current level => disable it
 			deviceOff(v[1],HP,'d'..n)
+		else
+			-- this device has a level <= of current level => enable it
+			deviceOn(v[1],HP,'d'..n)
 		end
 	end
 end

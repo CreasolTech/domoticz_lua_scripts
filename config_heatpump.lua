@@ -40,8 +40,8 @@ ZONE_SUMMER_WEIGHT=11
 -- heat pump working level
 LEVEL_OFF=0					-- heat pump is completely OFF
 LEVEL_ON=1					-- On, half power
-LEVEL_WINTER_FANCOIL=2				-- fancoil=on => higher temperature in heating mode, lower temperature in cooling mode
-LEVEL_WINTER_FULLPOWER=3			-- full power
+LEVEL_WINTER_FULLPOWER=2			-- full power
+LEVEL_WINTER_FANCOIL=3				-- fancoil=on => higher temperature in heating mode, lower temperature in cooling mode
 LEVEL_WINTER_MAX=3
 
 LEVEL_SUMMER_MAX=3
@@ -51,15 +51,16 @@ DEVlist={
 	-- winterLevel=heating level (0=OFF, 1=LOW, 2=MEDIUM, 3=HIGH)
 	-- summerLevel=cooling level (0=OFF, 1=LOW, 2=MEDIUM, 3=HIGH, 4=VERY HIGH)
 	-- First device MUST be the heat pump ON/OFF
-	-- *Level=LEVEL_*_MAX+1 => always set OFF
+	-- *Level=10 or any value >=LEVEL_*_MAX+1 => always set OFF
 	-- *Level=255 => ignore
 	--'deviceName',				winterLevel,		summerLevel
-	{'HeatPump',				1,					1	},	-- HeatPump input ON/OFF (thermostat input)
-	{'HeatPump_FullPower',		3,					3	},	-- HeatPump input FullPower (if Off, works at 50% of nominal power)
-	{'HeatPump_Fancoil',		2,					2	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
-	{'HeatPump_Summer',			LEVEL_WINTER_MAX+1,	1	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid) -- LEVEL_WINTER_MAX+1 => Always OFF
+	--							start stop			start	stop
+	{'HeatPump',				1, 	10,				1, 10	},	-- HeatPump input ON/OFF (thermostat input)
+	{'HeatPump_HalfPower',		1,	2,				1, 2	},	-- HeatPump input HalfPower (if On, works at 50% of nominal power)
+	{'HeatPump_Fancoil',		3,	10,				3, 10	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
+	{'HeatPump_Summer',			10,	10,				1,	10	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid) -- LEVEL_WINTER_MAX+1 => Always OFF
 --	{'Valve_Radiant_Coil',		255,				255	},	-- Valve to switch between Radiant (On) or Coil (Off) circuit - Managed by script-time-headpump
-	{'VMC_CaldoFreddo',			LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
+	{'VMC_CaldoFreddo',			10,	10,				1,	10	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
 --	{'VMC_Deumidificazione',	LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
@@ -76,7 +77,6 @@ DEVauxlist={
 
 
 HP_ON='HeatPump'				-- device corresponding to heatpump on/off
-HP_FULLPOWER='HeatPump_FullPower'
 
 zones={ 
 	-- start and stop indicates the comport period (hour of the day) when temperature must be equal to the setpoint
