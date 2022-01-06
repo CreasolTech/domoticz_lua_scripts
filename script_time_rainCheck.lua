@@ -84,7 +84,7 @@ if (otherdevices[VENTILATION_DEV]=='Off') then
 			CMV['maxtime']=CMV['time']
 		end
 	-- elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
-	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=0 and (windDirection<160 or windSpeed>20)) then
+	elseif (CMV['auto']==0 and CMV['time']<CMV['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
 -- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			CMV['auto']=1	-- ON

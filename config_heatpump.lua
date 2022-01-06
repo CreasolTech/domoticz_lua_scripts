@@ -11,7 +11,9 @@ TEMP_WINTER_HP_MAX=40				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
 OVERHEAT=1.0						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power from solar photovoltaic
-POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than 4500
+POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than POWER_MAX
+EVPOWER_DEV='Kia eNiro - Charging Power'
+
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only if PDC is not able to keep the temperature
@@ -24,18 +26,22 @@ HPOn='HeatPump'						-- Device that enable/disable the heat pump (thermostat inp
 HPSummer='HeatPump_Summer'			-- Device to set if HP must cooling instead of heating
 HPMode='HeatPump_Mode'				-- Selector switch for Off, Winter, Summer
 
+HPNightStart=1260					-- Reduce power and noise in the night, starting from 21:00 (21*60 minutes): set to 1440 to disable
+HPNightEnd=450						-- Reduce power and noise in the night, until 7.30 (7*60+30 minutes): set to 0 to disable
+
 -- fields for the following table
-ZONE_TEMP_DEV=1
-ZONE_RH_DEV=2
-ZONE_VALVE=3
-ZONE_WINTER_START=4
-ZONE_WINTER_STOP=5
-ZONE_WINTER_OFFSET=6
-ZONE_WINTER_WEIGHT=7
-ZONE_SUMMER_START=8
-ZONE_SUMMER_STOP=9
-ZONE_SUMMER_OFFSET=10
-ZONE_SUMMER_WEIGHT=11
+ZONE_NAME=1
+ZONE_TEMP_DEV=2
+ZONE_RH_DEV=3
+ZONE_VALVE=4
+ZONE_WINTER_START=5
+ZONE_WINTER_STOP=6
+ZONE_WINTER_OFFSET=7
+ZONE_WINTER_WEIGHT=8
+ZONE_SUMMER_START=9
+ZONE_SUMMER_STOP=10
+ZONE_SUMMER_OFFSET=11
+ZONE_SUMMER_WEIGHT=12
 
 -- heat pump working level
 LEVEL_OFF=0					-- heat pump is completely OFF
@@ -43,8 +49,10 @@ LEVEL_ON=1					-- On, half power
 LEVEL_WINTER_FULLPOWER=2			-- full power
 LEVEL_WINTER_FANCOIL=3				-- fancoil=on => higher temperature in heating mode, lower temperature in cooling mode
 LEVEL_WINTER_MAX=3
+LEVEL_WINTER_MAX_NIGHT=1
 
 LEVEL_SUMMER_MAX=3
+LEVEL_SUMMER_MAX_NIGHT=0
 
 DEVlist={
 	-- deviceName=name of each device involved in heating/cooling
@@ -95,13 +103,13 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	['Cucina']={		'Temp_Cucina',		'RH_Cucina',		'',						4,		21,		-0.2,	1,		7,		23,		0.2,	1},	
-	['Studio']={		'Temp_Studio',		'',                 '',						8,		19,		-2,		0.8,	8,		19,		0.5,	0.8},
-	['Bagno']={			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.5,	16,		19,		1,		0.5},
-	['Camera']={		'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
-    ['Camera_Valentina']={'Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,	24,		-0.5,	0.5,	13,		23,		0.5,	0.8},	
-    ['Camera_Ospiti']={'Temp_Camera_Ospiti','',                 'Valve_Camera_Ospiti',	13,		24,		-0.5,	0.5,	13,		23,		0.5,	0.3},
-    ['Stireria']={'Temp_Stireria',			'',                 'Valve_Stireria',		13,		20,		-1,		0.5,	8,		20,		1,		0.3},
+	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						4,		21,		0,		1,		7,		23,		0.2,	1},	
+	{'Studio',			'Temp_Studio',		'',                 '',						8,		19,		-2,		0.3,	8,		19,		0.5,	0.8},
+	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
+	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
+	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,	24,		-0.5,	0.3,	13,		23,		0.5,	0.8},	
+	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	13,		24,		-0.5,	0.3,	13,		23,		0.5,	0.3},
+	{'Stireria',		'Temp_Stireria',	'',                 'Valve_Stireria',		13,		20,		-1,		0.3,	8,		20,		1,		0.3},
 }
 
 

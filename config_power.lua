@@ -27,7 +27,7 @@ blackoutDevice='Supply_HeatPump'			-- device used to monitor the 230V voltage. O
 HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heating), Summer (cooling) 
 
 EVPowerMeter='Kia eNiro - Charging Power'	-- Device measuring EV charging power, if available
-EVLedStatus={'Led_EV_White'}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}
+EVLedStatus={'EVSE_LedPower'}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}
 if (DEBUG_LEVEL>=E_DEBUG) then
 	PowerThreshold={ --DEBUG values
 		4000,  	-- available power (Italy: power+10%)
@@ -39,8 +39,8 @@ else
 	PowerThreshold={
 		5400,  	-- available power (Italy: power+10%)
 		6300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
-		4800,	-- send alert after 4800s (80minutes)
-		60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
+		4800,	-- send alert after 4800s (80minutes) . Imported power can stay at TH[2] for 90min, then must be below TH[1] for at least 90 minutes
+		60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s)
 	}
 end
 
@@ -65,7 +65,7 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 --   These selector switches will be used to set the min battery level (if battery state is below, charge EV anyway) and max battery level 
 --   (if battery state of charge between min and max level, charge only using energy from photovoltaic)
 eVehicles={ -- on/off device, 	power	battery level % 		Min battery level			Max battery level			DistanceDev				SpeedDev			Charge mode pushbutton		Charging mode 				Range
-	{'Kia eNiro - Contactor', 	2500,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - Button charge', 'Kia eNiro - Charging mode', 'Kia eNiro - Range'},
+	-- {'Kia eNiro - Contactor', 	2500,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - Button charge', 'Kia eNiro - Charging mode', 'Kia eNiro - Range'},
 }
 
 
@@ -80,6 +80,15 @@ EVChargingModeConf={
 	{	10,	50, 	50, 100	},
 	{	50,	100,	50, 100	},
 }
+
+EVSE_CURRENT_DEV='EVSE_current'		-- device used to set the charging current. Set to '' to disable EVSE management
+EVSE_STATE_DEV='EVSE_state'			-- EVSE status: Disconnected, Connected, Charging, ....
+EVSE_MAXCURRENT=35
+EVSE_SOC_DEV='Kia eNiro - Battery'	-- device that show the battery state of charge (e.g. 65%). Set to '' to disable this checking
+EVSE_SOC_MIN='EVSE_batteryMin'		-- virtual device (dimmer) that set the min battery level
+EVSE_SOC_MAX='EVSE_batteryMax'		-- virtual device (dimmer) that set the max battery level
+EVSE_NIGHT_START=23					-- hour when low-cost tariff for energy starts (or when energy consumption decreases, in the night)
+EVSE_NIGHT_STOP=7					-- hour when low-cost tariff for energy stops (or when energy consumption increase in the morning)
 
 
 DEVauxlist={

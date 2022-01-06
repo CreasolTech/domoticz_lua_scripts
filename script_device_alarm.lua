@@ -2,7 +2,7 @@
 -- Written by Creasol, https://creasol.it/ linux@creasol.it
 --
 --
-
+--startTime=os.clock() --DEBUG
 commandArray = {}
 
 
@@ -758,5 +758,5 @@ if (alarmMCS1~=uservariables['alarmMCS1'])	   then commandArray['Variable:alarmM
 if (alarmMCS2~=uservariables['alarmMCS2'])	   then commandArray['Variable:alarmMCS2']=tostring(alarmMCS2) end
 if (alarmSiren~=uservariables['alarmSiren']) then commandArray['Variable:alarmSiren']=tostring(alarmSiren) end
 commandArray['Variable:zAlarm']=json.encode(ZA)
-
+--print("alarm end: "..os.clock()-startTime) --DEBUG
 return commandArray

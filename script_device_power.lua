@@ -9,12 +9,18 @@
 --
 
 commandArray={}
-
+--[[
+startTime=os.clock() --DEBUG
+dc=""
+for k,v in pairs(devicechanged) do
+	dc=dc..k..","
+end
+print("power: devicechanged="..dc)
+]]
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/config_power.lua"		-- configuration file
-
-timenow = os.date("*t")
+timeNow = os.date("*t")
 
 function PowerInit()
 	if (Power==nil) then Power={} end
@@ -25,6 +31,8 @@ function PowerInit()
 	if (Power['disc']==nil) then Power['disc']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
+	if (Power['EVT']==nil) then Power['EVT']=0 end	-- EV: time the EVSE is staying over Threshold1 and below Threshold2 (27% over the contractual power)
+	if (Power['EVt']==nil) then Power['EVt']=0 end	-- EV: time the EVSE is over Threshold2 
 end	
 
 function getPowerValue(devValue)
@@ -290,9 +298,9 @@ if (currentPower>-20000 and currentPower<20000) then
 	getPower() -- get Power variable from zPower domoticz variable (coded in JSON format)
 	setAvgPower()
 	incMinute=0	-- zero if script was executed not at the start of the current minute
-	if (Power['min']~=timenow.min) then
+	if (Power['min']~=timeNow.min) then
 		-- minute was incremented
-		Power['min']=timenow.min
+		Power['min']=timeNow.min
 		incMinute=1 -- minute incremented => set this variable to exec some checking and functions
 	end
 
@@ -326,7 +334,7 @@ if (currentPower>-20000 and currentPower<20000) then
 	end
 
 	toleratedUsagePower=0
-	if (timenow.month<=3 or timenow.month>=10) then -- winter
+	if (timeNow.month<=3 or timeNow.month>=10) then -- winter
 		toleratedUsagePower=300	-- from October to March, activate electric heaters even if the usage power will be >0W but <300W
 	end
 
@@ -335,7 +343,6 @@ if (currentPower>-20000 and currentPower<20000) then
 		-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
 		Power['th1Time']=0
 		Power['th2Time']=0
-		-- check electric vehicles
 		if (incMinute==1 or Power['ev']==1) then --Power['ev'] used to force EV management now
 			Power['ev']=0
 			for k,evRow in pairs(eVehicles) do
@@ -561,10 +568,10 @@ if (currentPower>-20000 and currentPower<20000) then
 		else
 			-- usage power < than first threshold
 			Power['above']=0
-			if (timenow.sec<=40 and currentPower<0) then
+			if (timeNow.sec<=40 and currentPower<0) then
 				-- exported power  => activate any load?
 				--[[
-				if (timenow.month>=10 or timenow.month<=4) then
+				if (timeNow.month>=10 or timeNow.month<=4) then
 					-- winter: check electric heaters
 					for k,loadRow in pairs(DEVauxlist) do
 						-- log(E_INFO, "Temperature "..loadRow[4].."="..otherdevices[ loadRow[4] ].." < "..loadRow[5].."??")
@@ -585,40 +592,143 @@ if (currentPower>-20000 and currentPower<20000) then
 			powerMeterAlert(0)
 		end 
 		powerMeterAlert(0)
-	elseif (currentPower<PowerThreshold[2]) then
-		-- power consumption a little bit more than available power => long intervention time, before disconnecting
-		time=(os.time()-Power['th1Time'])
-		log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
-		Power['th2Time']=0
-		if (Power['th1Time']==0) then
-			Power['th1Time']=os.time()
-		elseif (time>PowerThreshold[3]) then
-			-- can I disconnect anything?
-			time=os.time()-Power['disc']	-- disconnect devices every 50s
-			if (powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
-				-- nothing to disconnect
-				powerMeterAlert(1)	-- send alert
-			else
-				powerMeterAlert(0)
-			end
-		end
-	else -- very high power consumption : short time to disconnect some loads
-		time=(os.time()-Power['th2Time'])
-		log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
-		if (Power['th2Time']==0) then
-			Power['th2Time']=os.time()
-		elseif (time>PowerThreshold[4]) then
-			-- can I disconnect anything?
-			-- very high power consumption: short intervention time before power outage
-			time=os.time()-Power['disc']	-- disconnect devices every 50s
-			if (powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
-				-- nothing to disconnect
-				powerMeterAlert(1)  -- send alert
-				if ((time%20)==0) then log(E_CRITICAL,"Too much power consumption, and nothing to disconnect") end -- send alert by Telegram
-			else
-				powerMeterAlert(0)
-			end
+	end
 
+	----------------------------------  EVSE: check electric vehicle  --------------------------------------------------------------------
+	if (EVSE_CURRENT_DEV~=nil and EVSE_CURRENT_DEV~='' and otherdevices[EVSE_CURRENT_DEV]~=nil) then
+		-- EVSE device exists
+		-- EVSE_CURRENT_DEV = device used to set the charging current
+		-- EVSE_STATE_DEV = device with the current charging state
+		-- Power['EVT']=time when charging has been started. Used to charge 80min at highest power (+27%) and 80m at high power (+10%) ^^^^^^^^^^__________^^^^^^^^_______
+		if (EVSE_SOC_DEV~='') then
+			batteryLevel=tonumber(otherdevices[EVSE_SOC_DEV])
+		else
+			batteryLevel=0	-- don't know battery level => set to zero to charge anyway
+		end
+		if (batteryLevel>=tonumber(otherdevices_svalues[EVSE_SOC_MAX])) then
+			-- battery charged => stop charging
+			commandArray[EVSE_CURRENT_DEV]="Off"
+		else
+			if (otherdevices[EVSE_STATE_DEV]=='Con' and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX]) and (PowerThreshold[1]-currentPower)>1800 and (currentPower<-800 or (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN]) and (timeNow.hour>=EVSE_NIGHT_START or timeNow.hour<EVSE_NIGHT_STOP or otherdevices[EVSE_SOC_MIN]=='On')))) then
+				-- Connected, batteryLevel<EVSE_SOC_MAX, enough power from energy meter, and
+				-- * extra power available from renewables, or
+				-- * in the night, or
+				-- * EVSE_SOC_MIN slide is active (On) => charge everytime
+				--
+				-- To charge only in the night, Disable the EVSE_SOC_MIN slider
+				-- To enable charge now, just enable EVSE_SOC_MIN slider
+				log(E_INFO,"timeNow.hour="..timeNow.hour..">="..EVSE_NIGHT_START.." <"..EVSE_NIGHT_STOP.."; EVSE_SOC_MIN_DEV="..otherdevices[EVSE_SOC_MIN])
+				setCurrent=10   -- start charging
+				log(E_INFO,"EV: Start EV charging")
+				commandArray[EVSE_CURRENT_DEV]="On"
+				commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
+			elseif (otherdevices[EVSE_STATE_DEV]=='Ch') then
+				-- Cable connected and device is charging
+				-- charging!
+				evtime=os.difftime(os.time(), Power['EVT'])
+				if (evtime>PowerThreshold[3]*2) then
+					Power['EVT']=os.time()
+					evtime=0
+				end
+				if (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN])) then
+					-- use any power source, reneable and grid
+					if (evtime<PowerThreshold[3]-60) then
+						-- First 90 minutes => higest power (Power+27%)
+						maxPower=PowerThreshold[2]
+					else
+						-- Remaining 90 minutes at high power (Power+10%) 
+						maxPower=PowerThreshold[1]
+					end
+				else
+					-- SOC_MIN <= SOC < SOC_MAX => use only renewable energy
+					maxPower=0	-- currentPower should be negative (exported)
+				end
+				-- Regulate the charging current
+				availablePower=maxPower-currentPower
+				setCurrent=0 -- default: do not change anything
+				currentNow=tonumber(otherdevices_svalues[EVSE_CURRENT_DEV])
+
+				-- Charge at the maximum power
+				availableCurrent=math.floor(availablePower/230)
+				if (availableCurrent>6) then
+					availableCurrent=2	-- increase only 2 Amperes
+				elseif (availableCurrent>1) then
+					availableCurrent=1  -- increase only 1 Ampere
+				elseif (availableCurrent<-6) then
+					availableCurrent=-2
+				elseif (availableCurrent<-1) then
+					availableCurrent=-1
+				else
+					availableCurrent=0
+				end
+
+				setCurrent=currentNow+availableCurrent
+				if (setCurrent<6) then
+					-- charge current should be reduced
+					Power['EVt']=Power['EVt']+1
+					log(E_INFO,"EV: Overload for "..Power['EVt'].."/"..PowerThreshold[4].."s")
+					if (Power['EVt']>=PowerThreshold[4]-1) then
+						log(E_INFO,"EV: disable charging because Power[EVt]>=PowerThreshold[4]-1")
+						setCurrent=0
+					else
+						log(E_INFO,"EV: overload => set current=6A")
+						setCurrent=6
+					end
+				else
+					-- charge current ok
+					if (Power['EVt']>=2) then Power['EVt']=Power['EVt']-2 end	-- decrease overload timeout
+					if (setCurrent>EVSE_MAXCURRENT) then
+						setCurrent=EVSE_MAXCURRENT
+					end
+				end
+				if (setCurrent~=currentNow) then
+					log(E_INFO,"EV: availablePower="..availablePower..", setCurrent="..setCurrent..", EVSE_current="..currentNow..", batteryLevel="..batteryLevel..", min="..otherdevices_svalues[EVSE_SOC_MIN]..", max="..otherdevices_svalues[EVSE_SOC_MAX])
+					if (setCurrent>=6 and
+						otherdevices[EVSE_CURRENT_DEV]=='Off') then
+						commandArray[EVSE_CURRENT_DEV]="On"
+					end
+					commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
+				end
+			end -- while charging
+		end
+	end
+
+	if (currentPower>PowerThreshold[1]) then
+		if (currentPower<PowerThreshold[2]) then
+			-- power consumption a little bit more than available power => long intervention time, before disconnecting
+			time=(os.time()-Power['th1Time'])
+			log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
+			Power['th2Time']=0
+			if (Power['th1Time']==0) then
+				Power['th1Time']=os.time()
+			elseif (time>PowerThreshold[3]) then
+				-- can I disconnect anything?
+				time=os.time()-Power['disc']	-- disconnect devices every 50s
+				if (powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
+					-- nothing to disconnect
+					powerMeterAlert(1)	-- send alert
+				else
+					powerMeterAlert(0)
+				end
+			end
+		else -- very high power consumption : short time to disconnect some loads
+			time=(os.time()-Power['th2Time'])
+			log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
+			if (Power['th2Time']==0) then
+				Power['th2Time']=os.time()
+			elseif (time>PowerThreshold[4]) then
+				-- can I disconnect anything?
+				-- very high power consumption: short intervention time before power outage
+				time=os.time()-Power['disc']	-- disconnect devices every 50s
+				if (powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
+					-- nothing to disconnect
+					powerMeterAlert(1)  -- send alert
+					if ((time%20)==0) then log(E_CRITICAL,"Too much power consumption, and nothing to disconnect") end -- send alert by Telegram
+				else
+					powerMeterAlert(0)
+				end
+
+			end
 		end
 	end	-- currentPower has a right value
 	-- save variables in Domoticz, in a json variable Power
@@ -627,6 +737,6 @@ if (currentPower>-20000 and currentPower<20000) then
 	commandArray['Variable:zPowerAux']=json.encode(PowerAux)
 	log(E_DEBUG,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
 end
-
+--print("power end: "..os.clock()-startTime) --DEBUG
 
 return commandArray
