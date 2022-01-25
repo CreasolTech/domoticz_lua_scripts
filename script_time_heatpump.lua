@@ -178,11 +178,11 @@ if (otherdevices[powerMeter]~=nil) then
 		instPower=tonumber(str)
 		break
 	end
-	usagePower=uservariables['avgPower']	-- use the average power instead of instant power!
+	avgPower=uservariables['avgPower']	-- use the average power instead of instant power!
 else 
-	usagePower=500 -- power meter does not exist: set usagePower to 500W by default
+	avgPower=500 -- power meter does not exist: set avgPower to 500W by default
 end
-prodPower=0-usagePower
+prodPower=0-avgPower
 
 if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	-- Both heating and cooling are disabled
@@ -237,12 +237,12 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if ((prodPower>1200 or (HPmode == 'Winter' and prodPower>800))) then	-- more than 800W fed to the electrical grid
+		if ((prodPower>1200 or (HPmode == 'Winter' and (prodPower>800 or avgPower<-1000)))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
 	else
-		if ((HPmode == 'Summer' and prodPower<0) or (HPmode == 'Winter' and usagePower>200 and instPower>200)) then
+		if ((HPmode == 'Summer' and prodPower<0) or (HPmode == 'Winter' and avgPower>200 and instPower>200)) then
 			HP['SPoff']=0
 			log(E_INFO,"Disable OverHeating/Cooling")
 		end
@@ -363,7 +363,7 @@ else
 					break
 				end
 			end
-			if (usagePower<POWER_MAX) then
+			if (avgPower<POWER_MAX) then
 				-- must heat/cool!
 				-- check that fluid is not too high (Winter) or too low (Summer), else disactivate HeatPump_Fancoil output (to switch heatpump to radiant fluid, not coil fluid temperature
 				if (HPmode == 'Winter') then
@@ -430,7 +430,7 @@ else
 						end
 					else
 						-- summer
-						if (usagePower>diffMaxHigh_power) then
+						if (avgPower>diffMaxHigh_power) then
 							-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
 							log(E_DEBUG,"Decrease heatpump power")
 							decLevel()
@@ -509,7 +509,7 @@ else
 							if (prodPower>=prodPower_incLevel and HP['Level']<level_max) then
 								-- enough power from photovoltaic to increase level
 								incLevel()
---							elseif (usagePower>diffMaxHigh_power) then
+--							elseif (avgPower>diffMaxHigh_power) then
 --								-- not enough power from photovoltaic -> reduce heat pump level
 --								log(E_INFO,"Not enough power from PV")
 --								decLevel()
@@ -520,7 +520,7 @@ else
 						end
 					end
 				end -- if (HP['Level']>0
-			else	--usagePower>=POWER_MAX: decrement level
+			else	--avgPower>=POWER_MAX: decrement level
 				log(E_INFO,"Too much power consumption => decrease Heat Pump level")
 				decLevel()
 			end
@@ -626,20 +626,6 @@ end
 
 updateValves() -- enable/disable the valve for each zone
 
--- now check heaters and dehumidifiers in DEVauxlist...
--- devLevel for DEVauxlist is the same as DEVlist -- if (HPmode == 'Summer') then devLevel=3 else devLevel=2 end	-- summer: use next field for device level
-if (HPmode == 'Winter') then devCond=5 else devCond=8 end	-- devCond = field that contains the device name for condition used to switch ON/OFF device
-
--- Parse DEVauxlist to check if anything should be enabled or disabled
--- If heat pump level has changed, don't enable/disable aux devices because the measured prodPower may change 
-availablePower=prodPower	
-	-- compute the available power (disabling all aux devices)
-for n,v in pairs(DEVauxlist) do
-	if (otherdevices[ v[1] ]~='Off') then
-		availablePower=availablePower+v[4]
-	end
-end
-if (prodPower ~= availablePower) then log(E_INFO,"prodPower="..prodPower.." availablePower="..availablePower) end
 
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures

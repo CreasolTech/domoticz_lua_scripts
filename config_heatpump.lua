@@ -72,18 +72,6 @@ DEVlist={
 --	{'VMC_Deumidificazione',	LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
-DEVauxlist={
-	-- max_work_minutes: used for driers or other devices that can work for maximum N minutes before an action must be taken (empty the water bolt, for example)
-	-- minutes_before_stop: number of minutes to wait before stopping a device due to insufficient power (this is used to avoid continuous start/stop)
-	-- device					minwinterlevel	minsummerlevel	power	temphumdev winter	gt=1, lt=0	value	temphumdev summer   gt=1, lt=0  value	max_work_minutes minutes_before_stop
---	{'Kia eNiro - Socket',			1,			1,				2000,	'Kia eNiro - Battery state of charge',		0,	80,		'Kia eNiro - Battery state of charge',        0,  80,		0, 10},	-- EV charge
---	{'Dehumidifier_Camera',			1,			1,				300,	'RH_Camera',				1,	60,		'RH_Camera',         		1,  60,		0},	-- Dehumidifier
-	{'Dehumidifier_Camera_Ospiti',	1,			1,				300,	'RH_Camera_Ospiti',			1,	65,		'RH_Camera_Ospiti',         1,  60,		0},	-- Dehumidifier (disabled)
-	{'Dehumidifier_Cantina',		1,			1,				500,	'RH_Cantina',				1,	60,		'RH_Cantina',         		1,  60,		720},	-- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
-	{'Bagno_Scaldasalviette',		1,			100,			450,	'Temp_Bagno',				0,	22,		'Temp_Bagno',				0,	20,		0},	-- Electric heater in bathroom
-}
-
-
 HP_ON='HeatPump'				-- device corresponding to heatpump on/off
 
 zones={ 
@@ -103,7 +91,7 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						4,		21,		0,		1,		7,		23,		0.2,	1},	
+	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						4,		21,		-0.1,		1,		7,		23,		0.2,	1},	
 	{'Studio',			'Temp_Studio',		'',                 '',						8,		19,		-2,		0.3,	8,		19,		0.5,	0.8},
 	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
 	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
