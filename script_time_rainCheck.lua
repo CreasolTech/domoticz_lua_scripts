@@ -39,7 +39,7 @@ for str in otherdevices[RAINDEV]:gmatch("[^;]+") do
 end
 
 -- extract wind direction and speed
--- Wind: 315;NW;9;12;6.1;6.1   315=direction; NW=direction, 9=speed 0.9ms/s, 12=gust 1.2ms/s
+-- Wind: 315;NW;9;12;6.1;6.1   315=direction; NW=direction, 9=speed 0.9m/s, 12=gust 1.2m/s
 for dd, s in otherdevices[WINDDEV]:gmatch("([^;]+);[^;]+;([^;]+);.*") do
 	windDirection=tonumber(dd)
 	windSpeed=tonumber(s)

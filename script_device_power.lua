@@ -31,6 +31,8 @@ function PowerInit()
 	if (Power['disc']==nil) then Power['disc']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
+
+	if (PowerAux==nil) then PowerAux={} end
 end	
 
 function EVSEInit()
@@ -108,12 +110,16 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			PowerAux=json.decode(uservariables['zPowerAux'])
 		end
 		PowerInit()
-		if (uservariables['zHeatPump']~=nil) then
-			HP=json.decode(uservariables['zHeatPump'])  -- get HP[] with info from HeatPump
-		else
-			HP['Level']=1  -- HP dictionary does not exist: set HP['Level'] to the default value (1 to simulate that heat pump is ON)
-		end
 	end
+
+	if (uservariables['zHeatPump']~=nil) then
+		HP=json.decode(uservariables['zHeatPump'])  -- get HP[] with info from HeatPump
+	end
+	if (HP==nil or HP['Level']==nil) then
+		HP={}
+		HP['Level']=1
+	end
+
 	if (EVSE==nil) then
 		-- check variable zPower
 		json=require("dkjson")
@@ -222,7 +228,10 @@ end
 currentPower=10000000 -- dummy value (10MW)
 EVChargingPower=0
 HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
-if (HPmode==nil) then HPmode='Off' end
+if (HPmode==nil) then 
+	HPmode='Off' 
+	log(E_INFO,"You should create a selector switch named "..HPMode.." with 3 levels: Off, Winter, Summer")
+end
 
 for devName,devValue in pairs(devicechanged) do
 	if (PowerMeter~='') then
@@ -643,7 +652,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							coff=load("return FALSE")
 						end
-						if (timeNow.sec>=50 or prodPower<-200 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
+						if (prodPower<-200 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
 							-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE
 							-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
 							deviceOff(v[1],PowerAux,'f'..n)
@@ -651,7 +660,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							Power['usage']=Power['usage']-v[4]
 						-- else device On, and can remain On
 						end
-					elseif (timeNow.sec>=10 and timeNow.sec<=40) then	-- 10 seconds from minute, to let loads start consuming. Avoid
+					else
 						-- device is OFF
 						log(E_DEBUG,prodPower..">="..v[4]+100 .." and "..cond.."~="..v[devCond+1].." and "..HP['Level']..">="..v[devLevel])
 						if (v[12]~='') then
@@ -659,7 +668,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							con=load("return 1")
 						end
-						log(E_INFO,prodPower..">=".. (v[4]) .." and "..cond.."~="..v[devCond+1] .." and (".. HP['Level'] ..">=".. v[devLevel] .." or "..HPmode.."=='Off') and "..con())
+						log(E_DEBUG,prodPower..">=".. (v[4]) .." and "..cond.."~="..v[devCond+1] .." and (".. HP['Level'] ..">=".. v[devLevel] .." or "..HPmode.."=='Off') and "..con())
 						if (prodPower>=(v[4]) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 							deviceOn(v[1],PowerAux,'f'..n)
 							prodPower=prodPower-v[4]  -- update prodPower

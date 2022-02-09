@@ -48,7 +48,8 @@ LEVEL_OFF=0					-- heat pump is completely OFF
 LEVEL_ON=1					-- On, half power
 LEVEL_WINTER_FULLPOWER=2			-- full power
 LEVEL_WINTER_FANCOIL=3				-- fancoil=on => higher temperature in heating mode, lower temperature in cooling mode
-LEVEL_WINTER_MAX=3
+--LEVEL_WINTER_MAX=2	-- DON'T ENABLE FANCOIL MODE!
+LEVEL_WINTER_MAX=3	-- DON'T ENABLE FANCOIL MODE!
 LEVEL_WINTER_MAX_NIGHT=1
 
 LEVEL_SUMMER_MAX=3

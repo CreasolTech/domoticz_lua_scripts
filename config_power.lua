@@ -108,7 +108,7 @@ DEVauxlist={
 DEVauxfastlist={
 	-- fast loads, that can be activated/disactivated quickly, e.g. electric heaters during the winter
     -- device                   minwinterlevel  minsummerlevel  power   temphumdev winter   gt=1, lt=0  value   temphumdev summer   gt=1, lt=0  value   0 condition_on condition_off
-    {'Pranzo_Stufetta',       		1,          100,            950,    'Temp_Cucina',              0,  24,     'Temp_Cucina',              0,  18,     0, '', ''} -- Electric heater in the kitchen
+    {'Pranzo_Stufetta',       		0,          100,            950,    'Temp_Cucina',              0,  24,     'Temp_Cucina',              0,  18,     0, '', ''} -- Electric heater in the kitchen
 }
 
 
