@@ -10,10 +10,23 @@ local PVPowerIDX=660		-- IDX of the inverte virtual sensor, to be created manual
 local PVVacIDX=PVPowerIDX+1	-- IDX of the AC Voltage virtual sensor, to be created manually, type 
 local PVVdcIDX=PVVacIDX+1	-- IDX of the AC Voltage virtual sensor, to be created manually, type 
 local PVFreqIDX=PVVdcIDX+1	-- IDX of the Frequency virtual sensor, to be created manually, type Custom Sensor, with "Hz" as Axis label
-local DEBUG=1			-- 0 => do NOT print anything to log. 1 => print debugging info
+local PVDisabledAtNight=1	-- 0 => always get telemetry.  1 => disable fetching telemetry in the night
+local DEBUG=2			-- 0 => do NOT print anything to log. 1 => print debugging info. 2 => print more debugging info
 
 commandArray = {}
-if (DEBUG==1) then startTime=os.clock() end
+if (DEBUG>=1) then startTime=os.clock() end
+
+if (PVDisabledAtNight==1) then
+	-- Inverter is OFF during the night, so it does not answer to the LAN interface. Does not try to contact inverter, saving a lot of time (curl timeout)
+	timeNow = os.date("*t")
+	minutesNow = timeNow.min + timeNow.hour * 60  -- number of minutes since midnight
+	if (minutesNow<timeofday['SunriseInMinutes']-60 or minutesNow>timeofday['SunsetInMinutes']+60) then 
+		if (DEBUG>=2) then print("fronius: night time!") end
+		if (DEBUG>=2) then print("fronius script took ".. (os.clock()-startTime) .."s") end
+		return commandArray
+	end
+end
+
 
 JSON = (loadfile "/home/pi/domoticz/scripts/lua/JSON.lua")()   -- For Linux
 
@@ -24,7 +37,7 @@ froniusdevice = jsondata:read('*all')
 local retcode={jsondata:close()}
 if (retcode[3]~=28) then	-- curl returns 28 in case of timeout => inverter not operational (during the night?)
 	-- Inverter connection not in timeout
-	if (DEBUG==1) then print("fronius: json data="..froniusdevice) end	-- print data from Inverter
+	if (DEBUG>=2) then print("fronius: json data="..froniusdevice) end	-- print data from Inverter
 	froniusdata = JSON:decode(froniusdevice)
 
 	if (froniusdata ~= nil) then
@@ -47,5 +60,7 @@ if (retcode[3]~=28) then	-- curl returns 28 in case of timeout => inverter not o
 		commandArray[4] = {['UpdateDevice'] = PVFreqIDX .. "|"..Freq.."|"..Freq}
 	end
 end
-if (DEBUG==1) then print("fronius script took ".. (os.clock()-startTime) .."s") end
+
+::exit::
+if (DEBUG>=1) then print("fronius script took ".. (os.clock()-startTime) .."s") end
 return commandArray
