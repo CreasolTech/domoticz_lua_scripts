@@ -8,7 +8,7 @@ VENTILATION_DEHUMIDIFY_DEV='VMC_Deumidificazione'	-- dehumification command for 
 HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
 VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
-VENTILATION_TIME=240	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME=180	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 
 

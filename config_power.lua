@@ -92,6 +92,7 @@ EVSE_NIGHT_STOP=7					-- hour when low-cost tariff for energy stops (or when ene
 EVSE_POWERMETER='Kia eNiro - Charging Power'	-- Device measuring EV charging power, if available
 EVSE_POWERIMPORT='PowerMeter Import'			-- Device measuring import power from GRID
 EVSE_RENEWABLE='EVSE_greenPower'	-- virtual device (electricity meter, return, from device) measuring the power/energy used to charge car that come from renewable source
+EVSE_RENEWABLE_PERCENTAGE='EVSE_green/total'	-- virtual device (percentage) measuring the renewable/charging power percentage
 
 
 DEVauxlist={

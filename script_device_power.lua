@@ -44,9 +44,14 @@ end
 
 function evseSetGreenPower(Er, Et)	-- Er=green energy used to charge the vehicle in the last Et seconds
 	local Eo=getEnergyValue(otherdevices_svalues[EVSE_RENEWABLE])	-- old renewable energy value
-	local idx=otherdevices_idx[EVSE_RENEWABLE]
-	commandArray['UpdateDevice']=idx.."|0|"..tostring(Er*3600/Et)..';'..tostring(Eo+Er)	-- Update EVSE_greenPower
-	log(E_INFO,"EVSE: set greenPower meter to "..commandArray['UpdateDevice'])
+	local Pr=Er*3600/Et			-- current renewable power
+	local Pc=getPowerValue(otherdevices[EVSE_POWERMETER])
+	local Prperc=0
+	if (Pc>0) then Prperc=math.floor(Pr*100/Pc) end
+	if (Prperc>100) then Prperc=100 end
+	table.insert(commandArray,	{['UpdateDevice'] = otherdevices_idx[EVSE_RENEWABLE].."|0|"..Pr..';'..tostring(Eo+Er)})	-- Update EVSE_greenPower
+	table.insert(commandArray,{['UpdateDevice'] = otherdevices_idx[EVSE_RENEWABLE_PERCENTAGE].."|0|"..Prperc})			-- Update EVSE_green/total percentage
+	log(E_INFO,"EVSE: greenPower="..Pr.." "..Prperc.."%")
 end
 
 function getPowerValue(devValue)
@@ -688,7 +693,7 @@ if (currentPower>-20000 and currentPower<20000) then
 		-- EVSE_CURRENT_DEV = device used to set the charging current
 		-- EVSE_STATE_DEV = device with the current charging state
 		-- EVSE['T']=time when charging has been started. Used to charge 80min at highest power (+27%) and 80m at high power (+10%) ^^^^^^^^^^__________^^^^^^^^_______
-		if (EVSE_SOC_DEV~='') then
+		if (EVSE_SOC_DEV~='' and otherdevices[EVSE_SOC_DEV]~=nil) then
 			batteryLevel=tonumber(otherdevices[EVSE_SOC_DEV])
 		else
 			batteryLevel=0	-- don't know battery level => set to zero to charge anyway
