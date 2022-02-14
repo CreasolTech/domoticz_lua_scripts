@@ -43,9 +43,9 @@ if (retcode[3]~=28) then        -- curl returns 28 in case of timeout => inverte
 
         if (froniusdata ~= nil) then
                 -- Inverter returned json data with telemetry
-                local StatusCode = froniusdata['Body']['Data']['DeviceStatus']['StatusCode']
+                local statusCode = froniusdata['Body']['Data']['DeviceStatus']['StatusCode']
                 local dayEnergy = froniusdata['Body']['Data']['TOTAL_ENERGY']['Value']
-                if( StatusCode == 7) then --Fronius converter is Running
+                if( statusCode~=nil and statusCode == 7) then --Fronius converter is Running
                         Pac = froniusdata['Body']['Data']['PAC']['Value']
                 end
                 local Vac=froniusdata['Body']['Data']['UAC']['Value']
