@@ -37,25 +37,25 @@ froniusdevice = jsondata:read('*all')
 local retcode={jsondata:close()}
 local Pac=0
 if (retcode[3]~=28) then        -- curl returns 28 in case of timeout => inverter not operational (during the night?)
-        -- Inverter connection not in timeout
-        if (DEBUG>=2) then print("fronius: json data="..froniusdevice) end      -- print data from Inverter
-        froniusdata = JSON:decode(froniusdevice)
+	-- Inverter connection not in timeout
+	if (DEBUG>=2) then print("fronius: json data="..froniusdevice) end      -- print data from Inverter
+	froniusdata = JSON:decode(froniusdevice)
 
-        if (froniusdata ~= nil) then
-                -- Inverter returned json data with telemetry
-                local statusCode = froniusdata['Body']['Data']['DeviceStatus']['StatusCode']
-                local dayEnergy = froniusdata['Body']['Data']['TOTAL_ENERGY']['Value']
-                if( statusCode~=nil and statusCode == 7) then --Fronius converter is Running
-                        Pac = froniusdata['Body']['Data']['PAC']['Value']
-                end
-                local Vac=froniusdata['Body']['Data']['UAC']['Value']
-                local Vdc=froniusdata['Body']['Data']['UDC']['Value']
-                local Freq=froniusdata['Body']['Data']['FAC']['Value']
-				if (Pac~=nil and dayEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. dayEnergy} end
-                if (Vac~=nil) then commandArray[2] = {['UpdateDevice'] = PVVacIDX .. "|"..Vac.."|"..Vac} end
-                if (Vdc~=nil) then commandArray[3] = {['UpdateDevice'] = PVVdcIDX .. "|"..Vdc.."|"..Vdc} end
-                if (Freq~=nil) then commandArray[4] = {['UpdateDevice'] = PVFreqIDX .. "|"..Freq.."|"..Freq} end
-        end
+	if (froniusdata ~= nil) then
+		-- Inverter returned json data with telemetry
+		local statusCode = froniusdata['Body']['Data']['DeviceStatus']['StatusCode']
+		local totalEnergy = froniusdata['Body']['Data']['TOTAL_ENERGY']['Value']
+		if (statusCode~=nil and statusCode==7) then --Fronius converter is Running
+			Pac = froniusdata['Body']['Data']['PAC']['Value']
+		end
+		local Vac=froniusdata['Body']['Data']['UAC']['Value']
+		local Vdc=froniusdata['Body']['Data']['UDC']['Value']
+		local Freq=froniusdata['Body']['Data']['FAC']['Value']
+		if (Pac~=nil and dayEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. totalEnergy} end
+		if (Vac~=nil) then commandArray[2] = {['UpdateDevice'] = PVVacIDX .. "|"..Vac.."|"..Vac} end
+		if (Vdc~=nil) then commandArray[3] = {['UpdateDevice'] = PVVdcIDX .. "|"..Vdc.."|"..Vdc} end
+		if (Freq~=nil) then commandArray[4] = {['UpdateDevice'] = PVFreqIDX .. "|"..Freq.."|"..Freq} end
+	end
 end
 
 ::exit::
