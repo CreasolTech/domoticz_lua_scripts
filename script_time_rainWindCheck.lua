@@ -1,11 +1,4 @@
 -- control rain, wind, ....
-RAINDEV='Rain'		-- name of device that shows the rain rate/level
-WINDDEV='Wind'		-- name of device that shows the wind speed/gust
-VENTILATION_DEV='VMC_Rinnovo'
--- VENTILATION_COIL_DEV=""	-- not defined: coil to heat/cool air is not available
-VENTILATION_COIL_DEV="VMC_CaldoFreddo"	-- coil to heat/cool air: will be activated only if Heat Pump is ON
-VENTILATION_DEHUMIDIFY_DEV='VMC_Deumidificazione'	-- dehumification command for the ventilation system
-HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
 VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=180	-- ventilation ON for max 6 hours a day
@@ -21,6 +14,7 @@ function RWCinit()
 	if (RWC['time']==nil) then RWC['time']=0 end	-- minutes the RWC was ON, today
 	if (RWC['maxtime']==nil) then RWC['maxtime']=VENTILATION_TIME end	-- minutes the CMV was ON, today
 	if (RWC['auto']==nil) then RWC['auto']=0 end	-- 1 of CMV has been started automatically by this script
+	if (RWC['wind']==nil) then RWC['wind']='' end
 end
 
 DEBUG_LEVEL=E_INFO
@@ -76,52 +70,54 @@ if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	RWC['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
 end
 
-log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": RWC['auto']="..RWC['auto'].." time="..RWC['time'].."/"..RWC['maxtime'].." windSpeed=".. (windSpeed/10) .."m/s windDirection="..windDirection.."°")
-if (otherdevices[VENTILATION_DEV]=='Off') then
-	-- ventilation was OFF
-	if (RWC['auto']==1 or RWC['auto']==3) then
-		-- ventilation was ON by this script, but was forced OFF manually
-		RWC['auto']=2
-		if (RWC['time']>=VENTILATION_TIME or minutesNow>(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
-			-- already worked for a sufficient time: disable it
-			RWC['maxtime']=RWC['time']
-		end
-	-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
-	elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
--- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+if (otherdevices[VENTILATION_DEV]~=nil) then
+	log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": RWC['auto']="..RWC['auto'].." time="..RWC['time'].."/"..RWC['maxtime'].." windSpeed=".. (windSpeed/10) .."m/s windDirection="..windDirection.."°")
+	if (otherdevices[VENTILATION_DEV]=='Off') then
+		-- ventilation was OFF
+		if (RWC['auto']==1 or RWC['auto']==3) then
+			-- ventilation was ON by this script, but was forced OFF manually
+			RWC['auto']=2
+			if (RWC['time']>=VENTILATION_TIME or minutesNow>(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+				-- already worked for a sufficient time: disable it
+				RWC['maxtime']=RWC['time']
+			end
+			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+			-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			RWC['auto']=1	-- ON
 			--commandArray[VENTILATION_DEV]='On'
 			deviceOn(VENTILATION_DEV,RWC,'d1')
---		end
-	end
-else
-	-- ventilation is ON
-	log(E_DEBUG,"Ventilation is ON")
-	RWC['time']=RWC['time']+1
-	if (RWC['auto']==0) then
-		-- ventilation ON manually: add another 30 minutes (VENTILATION_TIME_ADD) to the working time ?
-		RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
-		RWC['auto']=3
-		if (RWC['time']>=RWC['maxtime']) then
-			RWC['maxtime']=RWC['maxtime']+VENTILATION_TIME_ADD
+			--		end
 		end
-	elseif (RWC['auto']==2) then
-		-- was forced OFF, now have been restarted => go for automatic
-		RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
-		RWC['auto']=1
-	elseif (RWC['auto']==1 or RWC['auto']==3) then
-		if (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
-			log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..RWC['time'].." minutes")
-			RWC['auto']=0
-			-- commandArray[VENTILATION_DEV]='Off'
-			deviceOff(VENTILATION_DEV,RWC,'d1')
-		-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
-		elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then
-			log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
-			RWC['auto']=0
-			-- commandArray[VENTILATION_DEV]='Off'
-			deviceOff(VENTILATION_DEV,RWC,'d1')
+	else
+		-- ventilation is ON
+		log(E_DEBUG,"Ventilation is ON")
+		RWC['time']=RWC['time']+1
+		if (RWC['auto']==0) then
+			-- ventilation ON manually: add another 30 minutes (VENTILATION_TIME_ADD) to the working time ?
+			RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
+			RWC['auto']=3
+			if (RWC['time']>=RWC['maxtime']) then
+				RWC['maxtime']=RWC['maxtime']+VENTILATION_TIME_ADD
+			end
+		elseif (RWC['auto']==2) then
+			-- was forced OFF, now have been restarted => go for automatic
+			RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
+			RWC['auto']=1
+		elseif (RWC['auto']==1 or RWC['auto']==3) then
+			if (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+				log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..RWC['time'].." minutes")
+				RWC['auto']=0
+				-- commandArray[VENTILATION_DEV]='Off'
+				deviceOff(VENTILATION_DEV,RWC,'d1')
+				-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
+			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then
+				log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
+				RWC['auto']=0
+				-- commandArray[VENTILATION_DEV]='Off'
+				deviceOff(VENTILATION_DEV,RWC,'d1')
+			end
 		end
 	end
 end
