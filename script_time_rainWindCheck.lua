@@ -1,4 +1,17 @@
--- control rain, wind, ....
+-- script_time_rainWindCheck.lua for Domoticz 
+-- Author: CreasolTech https://www.creasol.it
+
+-- This LUA script checks rain and wind data, and controls
+-- * outdoor power outlet (in the garden), that can be disabled when raining
+-- * mechanical ventilation: activates it only when there is enough wind and not from certain directions (to prevent stove smoke from the neighboor to enter into the house).
+-- * if both heat pump and ventilation are active, also activates the hydronic coil inside the ventilation machine (to pre-heat/cool the air)
+-- * if WindGuru station id and password are available, export wind/temperature/humidity data to WindGuru website
+
+-- This script needs also to access two configuration files:
+--   globalvariables.lua
+--   globalfunctions.lua
+-- Put this script and the 2 configuration files on DOMOTICZDIR/scripts/lua
+
 VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=180	-- ventilation ON for max 6 hours a day
