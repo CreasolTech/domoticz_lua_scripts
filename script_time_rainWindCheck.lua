@@ -1,0 +1,180 @@
+-- control rain, wind, ....
+RAINDEV='Rain'		-- name of device that shows the rain rate/level
+WINDDEV='Wind'		-- name of device that shows the wind speed/gust
+VENTILATION_DEV='VMC_Rinnovo'
+-- VENTILATION_COIL_DEV=""	-- not defined: coil to heat/cool air is not available
+VENTILATION_COIL_DEV="VMC_CaldoFreddo"	-- coil to heat/cool air: will be activated only if Heat Pump is ON
+VENTILATION_DEHUMIDIFY_DEV='VMC_Deumidificazione'	-- dehumification command for the ventilation system
+HEATPUMP_DEV="HeatPump"		-- heat pump device On/Off state
+VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
+VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
+VENTILATION_TIME=180	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
+
+
+dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
+
+function RWCinit()
+	-- check or initialize the RWC table of variables, that will be saved, coded in JSON, into the zRainWindCheck Domoticz variable
+	if (RWC==nil) then RWC={} end
+	if (RWC['time']==nil) then RWC['time']=0 end	-- minutes the RWC was ON, today
+	if (RWC['maxtime']==nil) then RWC['maxtime']=VENTILATION_TIME end	-- minutes the CMV was ON, today
+	if (RWC['auto']==nil) then RWC['auto']=0 end	-- 1 of CMV has been started automatically by this script
+end
+
+DEBUG_LEVEL=E_INFO
+--DEBUG_LEVEL=E_DEBUG
+DEBUG_PREFIX="RainWindCheck: "
+commandArray={}
+
+timeNow = os.date("*t")
+minutesNow = timeNow.min + timeNow.hour * 60  -- number of minutes since midnight
+json=require("dkjson")
+log(E_DEBUG,"====================== RainWindCheck ============================")
+-- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
+for str in otherdevices[RAINDEV]:gmatch("[^;]+") do
+	rainRate=tonumber(str)/40;
+	break
+end
+
+-- extract wind direction and speed
+-- Wind: 315;NW;9;12;6.1;6.1   315=direction; NW=direction, 9=speed 0.9m/s, 12=gust 1.2m/s
+local w1, w2, w3, w4
+for w1, w2, w3, w4 in otherdevices[WINDDEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;]+).*") do
+	windDirection=tonumber(w1)
+	windDirectionName=w2
+	windSpeed=tonumber(w3)
+	windGust=tonumber(w4)
+	break
+end
+
+-- If it's raining more than 8mm/hour, disable the 230V socket in the garden
+dev='Garden_Socket' -- socket device
+if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
+	log(E_WARNING,"Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")
+	commandArray[dev]='Off'
+end
+
+
+-- check ventilation: enabled since 2 hours after sunrise, for 6 hours, and stop by 30 minutes before sunset
+-- During the winter, ventilation is disabled when wind from W or S to avoid smell from combustion smoke from adjacent buildings using wood heaters.
+if (uservariables['zRainWindCheck'] == nil) then
+	-- initialize variable
+	RWCinit()    --init RWC table
+	-- create a Domoticz variable, coded in json, within all variables used in this module
+	checkVar('zRainWindCheck',2,json.encode(RWC))
+else
+    RWC=json.decode(uservariables['zRainWindCheck'])
+	RWCinit()   -- check that all variables in RWC table are initialized
+end
+
+-- at start time, reset ventilation time (ventilation active for TIME minutes) and set auto=0
+if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
+	RWC['time']=0
+	RWC['maxtime']=VENTILATION_TIME
+	RWC['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
+end
+
+log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": RWC['auto']="..RWC['auto'].." time="..RWC['time'].."/"..RWC['maxtime'].." windSpeed=".. (windSpeed/10) .."m/s windDirection="..windDirection.."°")
+if (otherdevices[VENTILATION_DEV]=='Off') then
+	-- ventilation was OFF
+	if (RWC['auto']==1 or RWC['auto']==3) then
+		-- ventilation was ON by this script, but was forced OFF manually
+		RWC['auto']=2
+		if (RWC['time']>=VENTILATION_TIME or minutesNow>(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			-- already worked for a sufficient time: disable it
+			RWC['maxtime']=RWC['time']
+		end
+	-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+	elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
+			RWC['auto']=1	-- ON
+			--commandArray[VENTILATION_DEV]='On'
+			deviceOn(VENTILATION_DEV,RWC,'d1')
+--		end
+	end
+else
+	-- ventilation is ON
+	log(E_DEBUG,"Ventilation is ON")
+	RWC['time']=RWC['time']+1
+	if (RWC['auto']==0) then
+		-- ventilation ON manually: add another 30 minutes (VENTILATION_TIME_ADD) to the working time ?
+		RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
+		RWC['auto']=3
+		if (RWC['time']>=RWC['maxtime']) then
+			RWC['maxtime']=RWC['maxtime']+VENTILATION_TIME_ADD
+		end
+	elseif (RWC['auto']==2) then
+		-- was forced OFF, now have been restarted => go for automatic
+		RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
+		RWC['auto']=1
+	elseif (RWC['auto']==1 or RWC['auto']==3) then
+		if (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..RWC['time'].." minutes")
+			RWC['auto']=0
+			-- commandArray[VENTILATION_DEV]='Off'
+			deviceOff(VENTILATION_DEV,RWC,'d1')
+		-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
+		elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then
+			log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
+			RWC['auto']=0
+			-- commandArray[VENTILATION_DEV]='Off'
+			deviceOff(VENTILATION_DEV,RWC,'d1')
+		end
+	end
+end
+
+if (otherdevices['HeatPump_Mode']=='Winter') then 
+	-- in Winter, activate the ventilation water coil when heat pump and ventilation are ON (to heat the air from ventilation)
+	if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
+		-- ventilation coil exists: 
+		-- if ventilation is ON and heatpump ON => ventilation coil must be ON
+		-- else must be OFF
+		if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On') or (otherdevices[VENTILATION_DEHUMIDIFY_DEV]~=nil and otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On'))) then
+			if (otherdevices[VENTILATION_COIL_DEV]~='On') then
+				commandArray[VENTILATION_COIL_DEV]='On'
+			end
+		else
+			if (otherdevices[VENTILATION_COIL_DEV]~='Off') then
+				commandArray[VENTILATION_COIL_DEV]='Off'
+			end
+		end
+	end
+end
+
+if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
+	-- publish wind data on WindGuru website
+	if (true or RWC['wind']==nil or RWC['wind']~=otherdevices[WINDDEV]) then
+		-- wind has changed
+		local windSpeedkn=string.format("%.2f", windSpeed*0.1943)
+		local windGustkn =string.format("%.2f", windGust*0.1943)
+		log(E_DEBUG,"WindGuru: "..otherdevices[WINDDEV].." Speed="..windSpeedkn.."kn Gust="..windGustkn.."kn Dir="..windDirection)
+		local windgurusalt=os.time()
+		local windgurusecret=windgurusalt..WINDGURU_USER..WINDGURU_PASS
+		local fd=assert(io.popen('echo -n ' .. windgurusecret .. ' | md5sum', 'r'))
+		local windguruhash=assert(fd:read('*a')):match("(%w+)")
+		local windgurucmd='curl -s http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
+                    '&wind_avg='..windSpeedkn..'&wind_max='..windGustkn..'&wind_direction='..windDirection
+		if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
+			-- temperature from weather station value should be in the format "12.20;42;0;1017;0"
+			--log(E_DEBUG,"WindGuru: TEMPERATURE_OUTDOOR="..otherdevices[TEMPERATURE_OUTDOOR_DEV])
+			for w1, w2, w3, w4 in otherdevices[TEMPERATURE_OUTDOOR_DEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;]+).*") do
+				temp=tonumber(w1)
+				rh=tonumber(w2)
+				baro=tonumber(w4)
+				break
+			end
+			windgurucmd=windgurucmd..'&temperature='..temp..'&rh='..rh
+		end
+		log(E_DEBUG,"WindGuru cmd is "..windgurucmd)
+		ret=os.execute(windgurucmd)
+		--log(E_DEBUG,"windguru curl returned "..tostring(ret))
+		RWC['wind']=otherdevices[WINDDEV]	-- save current wind state
+	end
+end
+commandArray['Variable:zRainWindCheck']=json.encode(RWC)
+return commandArray
+
+
