@@ -146,7 +146,7 @@ end
 
 if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 	-- publish wind data on WindGuru website
-	if (true or RWC['wind']==nil or RWC['wind']~=otherdevices[WINDDEV]) then
+	if (RWC['wind']==nil or RWC['wind']~=otherdevices[WINDDEV]) then
 		-- wind has changed
 		local windSpeedkn=string.format("%.2f", windSpeed*0.1943)
 		local windGustkn =string.format("%.2f", windGust*0.1943)
