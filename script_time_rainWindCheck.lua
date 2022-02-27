@@ -31,7 +31,7 @@ function RWCinit()
 end
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainWindCheck: "
 commandArray={}
 
@@ -160,11 +160,13 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 		local windSpeedkn=string.format("%.2f", windSpeed*0.1943)
 		local windGustkn =string.format("%.2f", windGust*0.1943)
 		log(E_DEBUG,"WindGuru: "..otherdevices[WINDDEV].." Speed="..windSpeedkn.."kn Gust="..windGustkn.."kn Dir="..windDirection)
-		local windgurusalt=os.time()
+		local windgurusalt=os.date('%Y%m%d%H%M%S')
 		local windgurusecret=windgurusalt..WINDGURU_USER..WINDGURU_PASS
-		local fd=assert(io.popen('echo -n ' .. windgurusecret .. ' | md5sum', 'r'))
+		local windgurucmd='echo -n ' .. windgurusecret .. ' | md5sum'
+		log(E_DEBUG,"WindGuru: create hash with the command "..windgurucmd)
+		local fd=assert(io.popen(windgurucmd, 'r'))
 		local windguruhash=assert(fd:read('*a')):match("(%w+)")
-		local windgurucmd='curl -s http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
+		windgurucmd='curl -s \'http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
                     '&wind_avg='..windSpeedkn..'&wind_max='..windGustkn..'&wind_direction='..windDirection
 		if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
 			-- temperature from weather station value should be in the format "12.20;42;0;1017;0"
@@ -177,9 +179,12 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 			end
 			windgurucmd=windgurucmd..'&temperature='..temp..'&rh='..rh
 		end
+		windgurucmd=windgurucmd..'\''
 		log(E_DEBUG,"WindGuru cmd is "..windgurucmd)
-		ret=os.execute(windgurucmd)
-		--log(E_DEBUG,"windguru curl returned "..tostring(ret))
+		-- ret=os.execute(windgurucmd)
+		fd=assert(io.popen(windgurucmd, 'r'))
+		ret=assert(fd:read('*a'))
+		log(E_DEBUG,"WindGuru returned: "..tostring(ret))
 		RWC['wind']=otherdevices[WINDDEV]	-- save current wind state
 	end
 end
