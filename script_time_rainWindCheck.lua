@@ -31,7 +31,7 @@ function RWCinit()
 end
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainWindCheck: "
 commandArray={}
 

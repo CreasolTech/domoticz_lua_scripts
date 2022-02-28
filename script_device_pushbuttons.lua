@@ -32,7 +32,7 @@
 --
 -- Based on your logic, fill the commandArray with device commands. Device name is case sensitive. 
 --
-
+--startTime=os.clock() --DEBUG
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
@@ -207,4 +207,6 @@ end
 if PB~=nil then	-- PB variable was read and used => update the corresponding variable in domoticz
 	commandArray['Variable:zPushButton']=json.encode(PB)
 end
+
+--print("pushbutton end: "..os.clock()-startTime) --DEBUG
 return commandArray

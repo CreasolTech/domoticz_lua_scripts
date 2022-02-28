@@ -237,7 +237,7 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if ((prodPower>1200 or (HPmode == 'Winter' and (prodPower>0 or instPower<0 or HP['Level']==LEVEL_WINTER_MAX)))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
+		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>0 or instPower<0 or HP['Level']==LEVEL_WINTER_MAX)))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
@@ -354,6 +354,12 @@ else
 			-- in the morning, if temperature is not so distant from the setpoint, try to not consume from the grid
 			diffMaxHigh_power=0 
 		end
+		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
+		if (diffMax<diffMaxHigh and peakPower()) then
+			log(E_INFO,"Try to export energy")
+			diffMax=-10
+		end
+
 		if (diffMax>0) then
 			if (EVPOWER_DEV~=nil and EVPOWER_DEV~='') then
 				-- A device measuring electric vehicle charging power exists

@@ -585,7 +585,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							else
 								coff=load("return FALSE")
 							end
-							if (prodPower<-100 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
+							if (peakPower() or prodPower<-100 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
 								-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE
 								if (v[11]~=nil) then
 									-- timeout for this device is set
@@ -610,7 +610,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							else
 								con=load("return 1")
 							end
-							if (auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
+							if (peakPower()==false and auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 								deviceOn(v[1],PowerAux,'a'..n)
 								prodPower=prodPower-v[4]  -- update prodPower
 								Power['usage']=Power['usage']+v[4]
@@ -657,7 +657,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							coff=load("return FALSE")
 						end
-						if (prodPower<-200 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
+						if (peakPower() or prodPower<-200 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
 							-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE
 							-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
 							deviceOff(v[1],PowerAux,'f'..n)
@@ -674,7 +674,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							con=load("return 1")
 						end
 						log(E_DEBUG,prodPower..">=".. (v[4]) .." and "..cond.."~="..v[devCond+1] .." and (".. HP['Level'] ..">=".. v[devLevel] .." or "..HPmode.."=='Off') and "..con())
-						if (prodPower>=(v[4]) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
+						if (peakPower()==false and prodPower>=(v[4]) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 							deviceOn(v[1],PowerAux,'f'..n)
 							prodPower=prodPower-v[4]  -- update prodPower
 							Power['usage']=Power['usage']+v[4]
@@ -764,9 +764,11 @@ if (currentPower>-20000 and currentPower<20000) then
 				if (setCurrent<6) then
 					-- charge current should be reduced
 					EVSE['t']=EVSE['t']+1
-					log(E_INFO,"EV: Overload for "..EVSE['t'].."/"..PowerThreshold[4].."s")
-					if (EVSE['t']>=PowerThreshold[4]-1) then
-						log(E_INFO,"EV: disable charging because Power[EVt]>=PowerThreshold[4]-1")
+					maxtime=PowerThreshold[4]	-- max time after which the EVSE must be stopped to prevent disconnections
+					if (currentPower<PowerThreshold[1]) then maxtime=180 end	-- probably setCurrent is low because only renewable energy should be use: increase maxtime
+					log(E_INFO,"EV: Overload for "..EVSE['t'].."/"..maxtime.."s")
+					if (EVSE['t']>=maxtime) then
+						log(E_INFO,"EV: disable charging because Power[EVt]>=maxtime")
 						setCurrent=0
 					else
 						log(E_INFO,"EV: overload => set current=6A")
@@ -794,8 +796,8 @@ if (currentPower>-20000 and currentPower<20000) then
 			EVSE['S']=otherdevices[EVSE_STATE_DEV]
 		end
 		Et=os.difftime(os.time(),EVSE['Et'])
-		if (Et>=60) then
-			-- while charing -> update EVSE_RENEWABLE energy meter
+		if (Et>=30) then
+			-- while charging -> update EVSE_RENEWABLE energy meter
 			Ec=getEnergyValue(otherdevices[EVSE_POWERMETER])
 			Ei=getEnergyValue(otherdevices[EVSE_POWERIMPORT])
 			Er=(Ec-EVSE['Ec'])-(Ei-EVSE['Ei'])	-- renewable energy used to charge the car
