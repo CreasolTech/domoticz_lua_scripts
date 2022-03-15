@@ -27,8 +27,7 @@ if (PVDisabledAtNight==1) then
 	end
 end
 
-
-JSON = (loadfile "/home/pi/domoticz/scripts/lua/JSON.lua")()   -- For Linux
+JSON = (loadfile "scripts/lua/JSON.lua")() -- using relative path - Thanks to wolfscave for testing
 
 --Extract data from Fronius converter.
 froniusurl   = 'curl --connect-timeout 1 "http://'..IPFronius..'/solar_api/v1/GetInverterRealtimeData.cgi?Scope=Device&DeviceId=1&DataCollection=CommonInverterData"'
@@ -51,7 +50,7 @@ if (retcode[3]~=28) then        -- curl returns 28 in case of timeout => inverte
 		local Vac=froniusdata['Body']['Data']['UAC']['Value']
 		local Vdc=froniusdata['Body']['Data']['UDC']['Value']
 		local Freq=froniusdata['Body']['Data']['FAC']['Value']
-		if (Pac~=nil and dayEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. totalEnergy} end
+		if (Pac~=nil and totaleEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. totalEnergy} end
 		if (Vac~=nil) then commandArray[2] = {['UpdateDevice'] = PVVacIDX .. "|"..Vac.."|"..Vac} end
 		if (Vdc~=nil) then commandArray[3] = {['UpdateDevice'] = PVVdcIDX .. "|"..Vdc.."|"..Vdc} end
 		if (Freq~=nil) then commandArray[4] = {['UpdateDevice'] = PVFreqIDX .. "|"..Freq.."|"..Freq} end

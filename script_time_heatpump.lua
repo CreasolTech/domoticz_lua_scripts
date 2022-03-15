@@ -34,6 +34,8 @@ function HPinit()
 	if (HP['Level']==nil) then HP['Level']=0 end
 	if (HP['SPoff']==nil) then HP['SPoff']=0 end
 	if (HP['HPout']==nil) then HP['HPout']=0 end	-- tempHPout temperature
+	if (HP['t']==nil) then HP['t']=0 end			-- when HP works at max level, the level can be reduced only if the system ask to reduce it for at least 5 minutes
+	if (HP['trc']==nil) then HP['trc']=0 end		-- disable the Valve_Radiant_Coil after 3 minutes from HeatPump going OFF
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -130,6 +132,7 @@ tempDerivate=HPZ['gr']
 
 
 levelOld=HP['Level']	-- save previous level
+--levelOld=2	--DEBUG
 diffMax=0
 
 for n,v in pairs(zones) do	-- check that temperature setpoint exist
@@ -187,6 +190,7 @@ prodPower=0-avgPower
 if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	-- Both heating and cooling are disabled
 	HP['Level']=LEVEL_OFF
+	levelOld=LEVEL_OFF	
 	heatingCoolingEnabled=0
 	levelMax=0
 else
@@ -200,10 +204,10 @@ else
 		zone_stop=ZONE_WINTER_STOP
 		zone_offset=ZONE_WINTER_OFFSET
 		zone_weight=ZONE_WINTER_WEIGHT
-		levelMax=LEVEL_WINTER_MAX -- max value for HP['Level']
-		if (prodPower<1000 and HP['Level']<LEVEL_WINTER_MAX) then
-			-- no energy from photovoltaic => do not go to full power
-			levelMax=LEVEL_WINTER_MAX-1
+		levelMax=LEVEL_WINTER_MAX-1 -- max value for HP['Level']
+		if (prodPower>1000 or (HP['Level']==LEVEL_WINTER_MAX and (avgPower<200 or instPower<200))) then
+			-- extra energy from photovoltaic => enable full power
+			levelMax=LEVEL_WINTER_MAX
 		end
 		-- diffMaxHigh is used to define when room temperature is distant from the set point
 	 	-- diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
@@ -237,13 +241,13 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>0 or instPower<0 or HP['Level']==LEVEL_WINTER_MAX)))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
+		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>0 or instPower<0 --[[ or HP['Level']==LEVEL_WINTER_MAX ]] )))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
 	else
 		log(E_INFO,"SPoff != 0")
-		if ((HPmode == 'Summer' and prodPower<0) or (HPmode == 'Winter' and prodPower<-500 and instPower>800)) then
+		if ((HPmode == 'Summer' and prodPower<0) or (HPmode == 'Winter' and avgPower>500 and instPower>500)) then
 			HP['SPoff']=0
 			log(E_INFO,"Disable OverHeating/Cooling")
 		end
@@ -345,7 +349,7 @@ else
 		-- Level 4 => + HeatPump Fancoil temperature (use with care with radiant system!!) Disabled by defaul
 		
 		-- TODO: dehumidification during winter: how? My stupid CMV needs cold water to do that!
-		if (HPmode ~= 'Winter' and rhMax>60 and HP['Level']==LEVEL_OFF and prodPower>1000) then
+		if (HPmode == 'Summer' and rhMax>60 and HP['Level']==LEVEL_OFF and prodPower>1000) then
 			-- high humidity: activate heatpump + ventilation + chiller (Level 1)
 			incLevel()
 		end
@@ -382,7 +386,7 @@ else
 					if (tempFluidLimit>TEMP_WINTER_HP_MAX) then
 						tempFluidLimit=TEMP_WINTER_HP_MAX
 					end
-				else
+				elseif (HPmode == 'Summer') then
 					-- during the Summer
 					-- make tempFluidLimit lower if rooms are warm
 					tempFluidLimit=18
@@ -464,7 +468,7 @@ else
 						elseif (tonumber(otherdevices[tempHPout])<HP['HPout']-1) then
 							HP['HPout']=tonumber(otherdevices[tempHPout])
 							if (otherdevices[HPSummer]=='On') then 
-								log(TELEGRAM_LEVEL,HPsummer.." was On => disable it")
+								log(TELEGRAM_LEVEL, HPSummer.." was On => disable it")
 								commandArray[HPSummer]='Off'
 							end
 							if (HP['HPout']<=TEMP_SUMMER_HP_MIN) then
@@ -601,7 +605,7 @@ if (HPmode == 'Winter') then
 		-- during the night, go to the minimum level to reduce noise
 		levelMax=LEVEL_WINTER_MAX_NIGHT
 	end
-else 
+elseif (HPmode == 'Summer') then
 	devLevel=4 
 	levelMax=LEVEL_SUMMER_MAX
 	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
@@ -614,6 +618,25 @@ if (HP['Level']>levelMax) then
 else
 	log(E_INFO,"levelMax="..levelMax)
 end
+if (HP['Level']<levelOld) then
+	-- decLevel requested => reduce level only after N minutes where the system ask to reduce level
+	-- My heat pump works very bad if level switch between LEVEL_WINTER_MAX and LEVE_WINTER_MAX-1
+	if (HP['t']==nil or HP['t']>=3) then
+		HP['t']=0
+	else
+		HP['t']=HP['t']+1
+	end
+	log(E_INFO,"Level decrease requested, t="..HP['t'].."/3")
+	HP['Level']=levelOld
+	if (HP['t']==3) then
+		-- in the last 5 minutes, the system requested to reduce heat pump level
+		HP['t']=0
+		HP['Level']=levelOld-1
+	end
+else
+	HP['t']=0
+end
+
 for n,v in pairs(DEVlist) do
 	-- n=table index
 	-- v={deviceName, winterLevel, summerLevel}
@@ -640,9 +663,11 @@ updateValves() -- enable/disable the valve for each zone
 if (outdoorTemperature<=4 or HP['Level']>LEVEL_OFF or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
+		HP['trc']=0
 	end
 else
-	if (otherdevices['Valve_Radiant_Coil']~='Off') then
+	HP['trc']=HP['trc']+1
+	if (otherdevices['Valve_Radiant_Coil']~='Off' and HP['trc']>=3) then
 		commandArray['Valve_Radiant_Coil']='Off'
 	end
 end
