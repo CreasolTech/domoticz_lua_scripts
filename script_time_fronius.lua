@@ -15,7 +15,7 @@ local DEBUG=2			-- 0 => do NOT print anything to log. 1 => print debugging info.
 
 commandArray = {}
 if (DEBUG>=1) then startTime=os.clock() end
-
+-- for this to work, if it is a new setup it is neccessary to update enter your location in the settings
 if (PVDisabledAtNight==1) then
 	-- Inverter is OFF during the night, so it does not answer to the LAN interface. Does not try to contact inverter, saving a lot of time (curl timeout)
 	timeNow = os.date("*t")
@@ -27,7 +27,7 @@ if (PVDisabledAtNight==1) then
 	end
 end
 
-
+--JSON = (loadfile "c:\\Program Files (x86)\\Domoticz\\scripts\\lua\\JSON.lua")()   -- For Windows
 JSON = (loadfile "/home/pi/domoticz/scripts/lua/JSON.lua")()   -- For Linux
 
 --Extract data from Fronius converter.
@@ -47,6 +47,8 @@ if (retcode[3]~=28) then        -- curl returns 28 in case of timeout => inverte
 		local totalEnergy = froniusdata['Body']['Data']['TOTAL_ENERGY']['Value']
 		if (statusCode~=nil and statusCode==7) then --Fronius converter is Running
 			Pac = froniusdata['Body']['Data']['PAC']['Value']
+			-- if it is not defined, condition "if (Pac~=nil and dayEnergy~=nil)" will fail and the PVPowerIDX will not be populated
+			dayEnergy = froniusdata['Body']['Data']['DAY_ENERGY']['Value']
 		end
 		local Vac=froniusdata['Body']['Data']['UAC']['Value']
 		local Vdc=froniusdata['Body']['Data']['UDC']['Value']
