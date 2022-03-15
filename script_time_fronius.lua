@@ -27,7 +27,7 @@ if (PVDisabledAtNight==1) then
 	end
 end
 
---JSON = (loadfile "c:\\Program Files (x86)\\Domoticz\\scripts\\lua\\JSON.lua")()   -- For Windows
+--JSON = (loadfile "scripts/lua/JSON.lua")()   -- For Windows
 JSON = (loadfile "/home/pi/domoticz/scripts/lua/JSON.lua")()   -- For Linux
 
 --Extract data from Fronius converter.
