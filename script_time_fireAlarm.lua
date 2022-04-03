@@ -13,7 +13,7 @@ function FAinit()
 end
 
 DEBUG_LEVEL=E_INFO
--- DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
+DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
 DEBUG_PREFIX="FireAlarm: "
 commandArray={}
 
@@ -44,12 +44,14 @@ for n,v in pairs(ROOMS) do
 			-- room average value already set
 			if (tempNow>FA[n]+v[3]) then
 				-- fire alarm!
-				log(E_CRITICAL,"room "..v[1].." Temp. "..FA[n].."->"..tempNow)
+				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
+			else
+				log(E_DEBUG,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 			end
-			FA[n]=math.floor(FA[n]*9+tempNow)/10 -- average temperature = (avg*9+current)/10
+			FA[n]=math.floor(FA[n]*90+tempNow*10)/100 -- average temperature = (avg*9+current)/10
 		else
 			-- room average temperature not initialized
-			FA[n]=math.floor(tempNow*10)/10
+			FA[n]=math.floor(tempNow*100)/100
 		end
 	end
 end

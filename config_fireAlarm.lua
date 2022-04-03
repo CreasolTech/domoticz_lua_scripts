@@ -5,7 +5,7 @@ ROOMS={
 -- 	 RoomName			SensorName				incTemperature
 	{"Kitchen", 		"Temp_Cucina", 			0.3},
 	{"Living",			"Temp_Soggiorno",		0.3},
-	{"Office",			"Temp_Studio",			0.3},
+	{"Office",			"Temp_Studio",			0.6},
 	{"Laundry",			"Temp_Lavanderia",		0.3},
 	{"Garage",			"Temp_Garage",			0.3},
 	{"Wallbox",			"Temp_Wallbox",			0.3},
