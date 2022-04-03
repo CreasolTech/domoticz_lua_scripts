@@ -8,15 +8,18 @@
 --      green LED flashes 1..M times if photovoltaic produces up to 1..M kWatt
 --
 
+-- Check that at least one changed device has "Power" string in its name, else return immediately. Used to avoid parsing this long script if not needed
 commandArray={}
---[[
-startTime=os.clock() --DEBUG
-dc=""
-for k,v in pairs(devicechanged) do
-	dc=dc..k..","
+local found=0
+for devName,devValue in pairs(devicechanged) do
+	if (devName:find('Power')) then
+		found=1
+		break
+	end
 end
-print("power: devicechanged="..dc)
-]]
+if (found==0) then return commandArray end	-- no device containing "Power" in its name has changed
+
+-- At least a device with "Power" in its name has changed: let's go!
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/config_power.lua"		-- configuration file
@@ -237,6 +240,7 @@ function powerDisconnect(forced,msg)
 	end
 end
 
+log(E_DEBUG,"========================= "..DEBUG_PREFIX.." ===========================")
 currentPower=10000000 -- dummy value (10MW)
 EVChargingPower=0
 HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
@@ -365,6 +369,7 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 end
+
 
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
@@ -870,5 +875,10 @@ if (currentPower>-20000 and currentPower<20000) then
 	end
 end
 --print("power end: "..os.clock()-startTime) --DEBUG
+if (commandArray~={}) then
+	log(E_DEBUG,"commandArray not empty")
+else
+	log(E_DEBUG,"commandArray={}")
+end
 
 return commandArray

@@ -5,7 +5,6 @@
 --startTime=os.clock() --DEBUG
 commandArray = {}
 
-
 if (uservariables['alarmLevelNew']~=nil and uservariables['alarmLevelNew']==0 and uservariables['alarmLevel']~=nil) then
 	-- alarmLevel not changed
 	-- skip parsing file if changed devices are not MCS,PIR,TAMPER,SIREN,ALARM
