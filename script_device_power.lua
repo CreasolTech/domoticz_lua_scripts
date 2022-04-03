@@ -32,7 +32,7 @@ function PowerInit()
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
 
-	if (PowerAux==nil) then PowerAux={} end
+	--if (PowerAux==nil) then PowerAux={} end
 end	
 
 function EVSEInit()
@@ -48,7 +48,7 @@ function evseSetGreenPower(Er, Et)	-- Er=green energy used to charge the vehicle
 	local Pc=getPowerValue(otherdevices[EVSE_POWERMETER])
 	local Prperc=0
 	if (Pc>0) then Prperc=math.floor(Pr*100/Pc) end
-	if (Prperc>100) then Prperc=100 end
+	-- if (Prperc>100) then Prperc=100 end
 	table.insert(commandArray,	{['UpdateDevice'] = otherdevices_idx[EVSE_RENEWABLE].."|0|"..Pr..';'..tostring(Eo+Er)})	-- Update EVSE_greenPower
 	table.insert(commandArray,{['UpdateDevice'] = otherdevices_idx[EVSE_RENEWABLE_PERCENTAGE].."|0|"..Prperc})			-- Update EVSE_green/total percentage
 	log(E_INFO,"EVSE: greenPower="..Pr.." "..Prperc.."%")
@@ -107,14 +107,21 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 		json=require("dkjson")
 		if (uservariables['zPowerAux']==nil) then
 			-- create a Domoticz variable, coded in json, within all variables used in this module
+			log(E_INFO,"ERROR: creating variable zPowerAux")
 			PowerAux={}	-- initialize PowerAux dictionary
 			url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=zPowerAux&vtype=2&vvalue='
 			os.execute('curl "'..url..'"')
 			-- initialize variable
 		else
 			PowerAux=json.decode(uservariables['zPowerAux'])
+			if (otherdevices['Pranzo_Stufetta']=='On' and PowerAux['f1']==nil) then
+				log(E_INFO,"ERROR, Pranzo_Stufetta On manually")
+			end
 		end
 		PowerInit()
+	else
+		log(E_INFO,"PowerAux!=nil")
+		log(E_INFO,"PowerAux="..json.encode(PowerAux))
 	end
 
 	if (uservariables['zHeatPump']~=nil) then
@@ -358,7 +365,6 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 end
-
 
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
@@ -711,6 +717,7 @@ if (currentPower>-20000 and currentPower<20000) then
 				-- To charge only in the night, Disable the EVSE_SOC_MIN slider
 				-- To enable charge now, just enable EVSE_SOC_MIN slider
 				setCurrent=10   -- start charging
+				EVSE['t']=0
 				log(E_INFO,"EV: Start EV charging")
 				commandArray[EVSE_CURRENT_DEV]="On"
 				commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
@@ -729,6 +736,7 @@ if (currentPower>-20000 and currentPower<20000) then
 					EVSE['T']=os.time()
 					evtime=0
 				end
+				currentNow=tonumber(otherdevices_svalues[EVSE_CURRENT_DEV])
 				if (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN])) then
 					-- use any power source, reneable and grid
 					if (evtime<PowerThreshold[3]-60) then
@@ -741,11 +749,14 @@ if (currentPower>-20000 and currentPower<20000) then
 				else
 					-- SOC_MIN <= SOC < SOC_MAX => use only renewable energy
 					maxPower=0	-- currentPower should be negative (exported)
+					if (currentNow>=6 and currentNow<=12 and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX])-5) then
+						-- if charging current is really low and batteryLevel<BatteryMax-5, try to charge using some energy from grid, to improve charging efficiency
+						maxPower=500
+					end
 				end
 				-- Regulate the charging current
 				availablePower=maxPower-currentPower
 				setCurrent=0 -- default: do not change anything
-				currentNow=tonumber(otherdevices_svalues[EVSE_CURRENT_DEV])
 
 				-- Charge at the maximum power
 				availableCurrent=math.floor(availablePower/230)
@@ -766,8 +777,8 @@ if (currentPower>-20000 and currentPower<20000) then
 					EVSE['t']=EVSE['t']+1
 					maxtime=PowerThreshold[4]	-- max time after which the EVSE must be stopped to prevent disconnections
 					if (currentPower<PowerThreshold[1]) then maxtime=180 end	-- probably setCurrent is low because only renewable energy should be use: increase maxtime
-					log(E_INFO,"EV: Overload for "..EVSE['t'].."/"..maxtime.."s")
-					if (EVSE['t']>=maxtime) then
+					log(E_INFO,"EV: Overload for ".. (EVSE['t']*5) .."/"..maxtime.."s")
+					if (EVSE['t']*5>=maxtime) then
 						log(E_INFO,"EV: disable charging because Power[EVt]>=maxtime")
 						setCurrent=0
 					else
@@ -776,7 +787,7 @@ if (currentPower>-20000 and currentPower<20000) then
 					end
 				else
 					-- charge current ok
-					if (EVSE['t']>=2) then EVSE['t']=EVSE['t']-2 end	-- decrease overload timeout
+					if (EVSE['t']>=4) then EVSE['t']=EVSE['t']-4 end	-- decrease overload timeout
 					if (setCurrent>tonumber(otherdevices[EVSE_CURRENTMAX])) then 
 						setCurrent=tonumber(otherdevices[EVSE_CURRENTMAX])
 					end
@@ -796,7 +807,7 @@ if (currentPower>-20000 and currentPower<20000) then
 			EVSE['S']=otherdevices[EVSE_STATE_DEV]
 		end
 		Et=os.difftime(os.time(),EVSE['Et'])
-		if (Et>=30) then
+		if (Et>=18) then
 			-- while charging -> update EVSE_RENEWABLE energy meter
 			Ec=getEnergyValue(otherdevices[EVSE_POWERMETER])
 			Ei=getEnergyValue(otherdevices[EVSE_POWERIMPORT])
@@ -854,6 +865,9 @@ if (currentPower>-20000 and currentPower<20000) then
 	commandArray['Variable:zEVSE']=json.encode(EVSE)
 	commandArray['Variable:avgPower']=tostring(avgPower)
 	log(E_DEBUG,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
+	if (PowerAux~=nil) then
+		log(E_DEBUG,"PowerAux="..json.encode(PowerAux))
+	end
 end
 --print("power end: "..os.clock()-startTime) --DEBUG
 

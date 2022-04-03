@@ -95,7 +95,8 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				RWC['maxtime']=RWC['time']
 			end
 			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
-		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
+		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then -- during the Winter
+--		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection>90 and windDirection<270)) then  -- avoid smoke from the North
 			-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			RWC['auto']=1	-- ON
@@ -125,7 +126,8 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				-- commandArray[VENTILATION_DEV]='Off'
 				deviceOff(VENTILATION_DEV,RWC,'d1')
 				-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
-			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then
+			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then -- during the Winter
+--			elseif (RWC['time']>=RWC['maxtime'] or ((windDirection>210 or windDirection<45))) then -- avoid Smoke from Belluno
 				log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 				RWC['auto']=0
 				-- commandArray[VENTILATION_DEV]='Off'

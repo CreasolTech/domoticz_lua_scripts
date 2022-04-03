@@ -205,7 +205,7 @@ else
 		zone_offset=ZONE_WINTER_OFFSET
 		zone_weight=ZONE_WINTER_WEIGHT
 		levelMax=LEVEL_WINTER_MAX-1 -- max value for HP['Level']
-		if (prodPower>1000 or (HP['Level']==LEVEL_WINTER_MAX and (avgPower<200 or instPower<200))) then
+		if ((prodPower>800 or avgPower>800) or (HP['Level']==LEVEL_WINTER_MAX and (avgPower<200 or instPower<200))) then
 			-- extra energy from photovoltaic => enable full power
 			levelMax=LEVEL_WINTER_MAX
 		end
@@ -241,7 +241,7 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>0 or instPower<0 --[[ or HP['Level']==LEVEL_WINTER_MAX ]] )))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
+		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>400 or instPower<400 --[[ or HP['Level']==LEVEL_WINTER_MAX ]] )))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
@@ -360,7 +360,7 @@ else
 		end
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (diffMax<diffMaxHigh and peakPower()) then
-			log(E_INFO,"Try to export energy")
+			log(E_INFO,"Try to export energy, or not consuming during the night")
 			diffMax=-10
 		end
 
@@ -421,21 +421,21 @@ else
 					log(E_DEBUG,"No enough power from PV")
 					if (HPmode == 'Winter') then
 						-- winter
-						if (diffMax>diffMaxHigh or (diffMax>0 and (monthnow>10 or monthnow<4))) then
+						if (diffMax>diffMaxHigh or (diffMax>0 and (monthnow>10 or monthnow<3))) then
 							-- too much difference from set point => start heating even in case there is not enough power from PV
 							log(E_DEBUG,"Too far from setpoint")
 							if (HP['Level']==0) then incLevel() end
 						else
 							-- diffMax<diffMaxHigh: rooms almost in temperature
-							if (monthnow>=4 and monthnow<=10) then
+							if (monthnow>=3 and monthnow<=10) then
 								if (HP['Level']>0) then 
-									log(E_INFO,"From Apr to Oct, no enough power from PV and rooms almost in temperature => decLevel")
+									log(E_INFO,"From Mar to Oct, no enough power from PV and rooms almost in temperature => decLevel")
 									decLevel() 
 								end	-- From Apr to Oct, turn off Heat Pump if no available power from PV 
 							else
 								-- from November to March, keep heat pump ON, but at low power (rooms are almost in temperature)
 								if (HP['Level']>1) then
-									log(E_INFO,"From Nov to Mar, no enough power from PV and rooms almost in temperature => Level=2 or 1")
+									log(E_INFO,"From Nov to Feb, no enough power from PV and rooms almost in temperature => Level=2 or 1")
 									decLevel()
 								end
 							end
@@ -538,7 +538,8 @@ else
 			end
 		else
 			-- diffMax<=0 => All zones are in temperature!
-			if (HPmode == 'Winter' and HP['otmin']<4 and (tempDerivate*8)<diffMax) then
+			-- if (HPmode == 'Winter' and HP['otmin']<4 and (tempDerivate*8)<diffMax) then
+			if (HPmode == 'Winter' and HP['otmin']<4 and (timenow.month<3 or timenow.month>10) and (tempDerivate*8)<diffMax) then
 				-- room temperature is decreasing: turn ON heat pump at minimum level, but only in the winter
 				log(E_INFO,"Room temperature is decreasing: start HeatPump with Level="..LEVEL_ON)
 				HP['Level']=LEVEL_ON
@@ -611,6 +612,8 @@ elseif (HPmode == 'Summer') then
 	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
 		levelMax=LEVEL_SUMMER_MAX_NIGHT
 	end
+else
+	devLevel=2	-- default: Winter
 end	
 if (HP['Level']>levelMax) then
 	log(E_INFO,"Reduce Level to levelMax="..levelMax)
@@ -640,7 +643,7 @@ end
 for n,v in pairs(DEVlist) do
 	-- n=table index
 	-- v={deviceName, winterLevel, summerLevel}
-	log(E_DEBUG,"DevName="..v[1].." devLevel="..v[devLevel].." CurrentLevel="..HP['Level'].." levelMax="..levelMax )
+	log(E_DEBUG,"DevName="..v[1].."	devLevel="..v[devLevel].." CurrentLevel="..HP['Level'].." levelMax="..levelMax )
 	if (v[devLevel]<255) then -- if devLevel is set to 255, device should be ignored
 		-- v[devLevel]=START level
 		-- v[devLevel+1]=STOP level   e.g. HeatPump_HalfPower: start level=1, stop level=2, so this device should be activated only when HP['level']==1
