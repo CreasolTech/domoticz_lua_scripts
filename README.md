@@ -58,6 +58,14 @@ External sirens delay when alarm is activated on some configurable sensors (for 
 external sensors have been activated (when someone or a cat walk outside), presence light will be managed when AWAY alarm is active, between
 Sunset and Sunrise, to simulate that someone is inside the house.
 
+## Script for fire detector
+File: script/lua/script_time_fireAlarm.lua config_fireAlarm.lua
+
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
+LUA script that load the rooms information from config_fireAlarm.lua and for any room
+if Temperature > averageTemperature + deltaT => fire alarm detected => send notification by Telegram
+
 
 ## Script that check rain and wind
 File: scripts/time/rainCheck.lua
