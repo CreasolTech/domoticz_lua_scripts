@@ -49,7 +49,7 @@ for n,v in pairs(ROOMS) do
 			else
 				log(E_DEBUG,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 			end
-			FA[n]=math.floor(FA[n]*90+tempNow*10)/100 -- average temperature = (avg*9+current)/10
+			FA[n]=math.floor(FA[n]*75+tempNow*25)/100 -- average temperature = (avg*3+current)/4
 		else
 			-- room average temperature not initialized
 			FA[n]=math.floor(tempNow*100)/100
