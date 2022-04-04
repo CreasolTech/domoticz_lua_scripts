@@ -45,6 +45,7 @@ for n,v in pairs(ROOMS) do
 			if (tempNow>FA[n]+v[3]) then
 				-- fire alarm!
 				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
+				FA[n]=(FA[n]+tempNow)/2	-- real average between avg and the new temperature
 			else
 				log(E_DEBUG,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 			end
