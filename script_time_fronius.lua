@@ -50,7 +50,7 @@ if (retcode[3]~=28) then        -- curl returns 28 in case of timeout => inverte
 		local Vac=froniusdata['Body']['Data']['UAC']['Value']
 		local Vdc=froniusdata['Body']['Data']['UDC']['Value']
 		local Freq=froniusdata['Body']['Data']['FAC']['Value']
-		if (Pac~=nil and totaleEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. totalEnergy} end
+		if (Pac~=nil and totalEnergy~=nil) then commandArray[1] = {['UpdateDevice'] = PVPowerIDX .. "|0|" .. Pac .. ";" .. totalEnergy} end
 		if (Vac~=nil) then commandArray[2] = {['UpdateDevice'] = PVVacIDX .. "|"..Vac.."|"..Vac} end
 		if (Vdc~=nil) then commandArray[3] = {['UpdateDevice'] = PVVdcIDX .. "|"..Vdc.."|"..Vdc} end
 		if (Freq~=nil) then commandArray[4] = {['UpdateDevice'] = PVFreqIDX .. "|"..Freq.."|"..Freq} end
