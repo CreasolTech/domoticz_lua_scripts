@@ -20,17 +20,17 @@ log "$0 $ipcamera1 $ipcamera2 $message"
 
 . /home/pi/domoticz/scripts/lua/globalvariables.lua # some variables and functions common to all scripts
 
-TELEGRAMSCRIPT='/home/pi/domoticz/scripts/telegramSendText.sh'
+TELEGRAMSCRIPT='/home/pi/domoticz/scripts/lua/telegramSendText.sh'
 
-#SNAPURL='http://192.168.3.201:8088/snap.jpg'  #snapshot URL: if camera does not support snapshot, comment this variable
-#MEDIAURL='192.168.3.201:554/mpeg4cif' #low quality stream
+#SNAPURL='http://192.168.1.201:8088/snap.jpg'  #snapshot URL: if camera does not support snapshot, comment this variable
+#MEDIAURL='192.168.1.201:554/mpeg4cif' #low quality stream
 MEDIAURL1="${ipcamera1}/mpeg4cif"	#high quality stream
 MEDIAUSER1='admin'
-MEDIAPASS1='iuafio'
+MEDIAPASS1='ipcampassword'
 
 MEDIAURL2="${ipcamera2}/mpeg4cif"	#high quality stream
 MEDIAUSER2='admin'
-MEDIAPASS2='iuafio'
+MEDIAPASS2='ipcampassword'
 
 #Used to get light status, and set lights ON before snapshot and OFF after a while...
 DOMOTICZ_URL='http://127.0.0.1:8080'
