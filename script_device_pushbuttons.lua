@@ -37,6 +37,7 @@ dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables co
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
 DEBUG_LEVEL=E_ERROR			
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="Pushbuttons: "
 
 commandArray = {}

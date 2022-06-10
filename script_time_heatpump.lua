@@ -6,7 +6,6 @@
 -- 127.0.0.1 is enabled to connect without authentication, in Domoticz -> Configuration -> Settings -> Local Networks (e.g. 127.0.0.1;192.168.1.*)
 --
 commandArray={}
-
 dofile "/home/pi/domoticz/scripts/lua/config_heatpump.lua"
 
 -- Level can be 0 (OFF) or >0 (ON: the higher the level, more power can be used by the heat pump)
@@ -193,6 +192,23 @@ if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	levelOld=LEVEL_OFF	
 	heatingCoolingEnabled=0
 	levelMax=0
+elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]=='Dehum') then
+	-- Dehumidification selected
+	if (HPmode ~= 'Summer') then
+		-- cannot dry in Winter mode => cancel dehumidification level
+		commandArray[HPLevel]='Off'
+	else
+		-- Activate heat pump to the minimum level, to send cold water to the MVHR (ventilation)
+		log(E_INFO,'==================== HeatPump - Dehumidification ======================')
+		HP['Level']=2
+	end
+elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]~='Auto') then
+	-- Heat pump Level is forced by the selector switch
+	log(E_INFO,'==================== HeatPump - Level forced to '..otherdevices[HPLevel]..' ======================')
+	levelMax=tonumber(otherdevices[HPLevel])
+	if (levelMax==nil) then levelMax=0 end	-- HPLevel selector switch was set to "Off" or to a non-numeric value
+	HP['Level']=levelMax
+	levelOld=levelMax
 else
 	heatingCoolingEnabled=1
 	-- Heating or cooling is enabled
@@ -241,7 +257,7 @@ else
 	zonesOn=0	-- number of zones that are ON
 	-- HP['SPoff']==offset added to set point based on available energy, to overheat/overcool in case of extra energy
 	if (HP['SPoff']==0) then
-		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and (prodPower>400 or instPower<400 --[[ or HP['Level']==LEVEL_WINTER_MAX ]] )))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
+		if (peakPower()==false and (prodPower>1200 or (HPmode == 'Winter' and prodPower>400 --[[ or HP['Level']==LEVEL_WINTER_MAX ]] ))) then	-- more than 800W fed to the electrical grid, or more than 1000W avg power (excluding power used by aux loads, that can be disconnected)
 			HP['SPoff']=spOffset	-- increase setpoint by OVERHEAT parameter to overheat, in case of extra available energy
 			log(E_INFO,"Enable OverHeating/Cooling")
 		end
@@ -607,10 +623,15 @@ if (HPmode == 'Winter') then
 		levelMax=LEVEL_WINTER_MAX_NIGHT
 	end
 elseif (HPmode == 'Summer') then
-	devLevel=4 
-	levelMax=LEVEL_SUMMER_MAX
-	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
-		levelMax=LEVEL_SUMMER_MAX_NIGHT
+	devLevel=4
+	if (otherdevices[HPLevel]=='Dehum') then
+		-- Dehumidification -> set HP to the minimum level
+		levelMax=1
+	else
+		levelMax=LEVEL_SUMMER_MAX
+		if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
+			levelMax=LEVEL_SUMMER_MAX_NIGHT
+		end
 	end
 else
 	devLevel=2	-- default: Winter
@@ -618,8 +639,6 @@ end
 if (HP['Level']>levelMax) then
 	log(E_INFO,"Reduce Level to levelMax="..levelMax)
 	HP['Level']=levelMax
-else
-	log(E_INFO,"levelMax="..levelMax)
 end
 if (HP['Level']<levelOld) then
 	-- decLevel requested => reduce level only after N minutes where the system ask to reduce level
@@ -674,6 +693,23 @@ else
 		commandArray['Valve_Radiant_Coil']='Off'
 	end
 end
+
+
+if (otherdevices[HPLevel]=='Dehum') then
+    -- force dehumidification only
+	commandArray['Valve_Radiant_Coil']='Off'	-- disable radiant => use only MVHR or fan coils
+	if (tonumber(otherdevices[tempHPout])>TEMP_SUMMER_HP_MIN) then	
+		commandArray['HeatPump_Fancoil']='On'
+	else
+		commandArray['HeatPump_Fancoil']='Off'
+	end
+	commandArray[VENTILATION_COIL_DEV]='On'
+	commandArray[VENTILATION_DEHUMIDIFY_DEV]='On'
+elseif (HPmode~=Summer or HP['Level']==0) then
+	commandArray[VENTILATION_COIL_DEV]='Off'
+	commandArray[VENTILATION_DEHUMIDIFY_DEV]='Off'
+end
+
 
 
 -- save variables
