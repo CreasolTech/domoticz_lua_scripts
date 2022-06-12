@@ -23,11 +23,8 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 Used to check power from energy meter (SDM120, SDM230, ...) and performs the following actions
 
   1. Send notification when consumed power is above a threshold (to avoid power outage)
-
   2. Enabe/Disable electric heaters or other appliances, to reduced power consumption from the electric grid
-
   3. Emergency lights: turn ON some LED devices in case of power outage, and turn off when power is restored
-
   4. Show on DomBusTH LEDs red and green the produced/consumed power: red LED flashes 1..N times if power consumption is greater than 1..N kW; 
      green LED flashes 1..M times if photovoltaic produces up to 1..M kW 
 
