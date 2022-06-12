@@ -55,11 +55,11 @@ Scripts that manages a burglar alarm system: magnetic contact sensors on doors/w
 
 Full notifications on Telegram and 3 working modes fully configurable:
 
-DAY: it shortly activates internal sirens when a door/window opens or a PIR is activated
+* DAY: it shortly activates internal sirens when a door/window opens or a PIR is activated
 
-NIGHT: in case of alarm, only activates the internal sirens and turns ON some lights.
+* NIGHT: in case of alarm, only activates the internal sirens and turns ON some lights.
 
-AWAY: in case of alarm, both internal and external sirens are activated. 
+* AWAY: in case of alarm, both internal and external sirens are activated. 
 
 External sirens delay when alarm is activated on some configurable sensors (for example, main door), record short videos when 
 external sensors have been activated (when someone or a cat walk outside), presence light will be managed when AWAY alarm is active, between
