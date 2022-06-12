@@ -57,6 +57,7 @@ AWAY: in case of alarm, both internal and external sirens are activated.
 External sirens delay when alarm is activated on some configurable sensors (for example, main door), record short videos when 
 external sensors have been activated (when someone or a cat walk outside), presence light will be managed when AWAY alarm is active, between
 Sunset and Sunrise, to simulate that someone is inside the house.
+More info at https://www.creasol.it/freeBurglarAlarm
 
 ## Fire detector scripts
 File: script/lua/script_time_fireAlarm.lua config_fireAlarm.lua

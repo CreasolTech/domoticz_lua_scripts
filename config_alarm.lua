@@ -62,31 +62,31 @@ MCSlist={ -- MCS_window/door, 	MCS_shutter, 	delay[s]
     	{'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
     	{'MCS_Kitchen_Window2','MCS_Kitchen_Blind2',0,},	--00000002
     	{'MCS_Kitchen_Window3','MCS_Kitchen_Blind3',0,},	--00000004
-    	{'MCS_Kitchen_Door','',10},		-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
-	{'MCS_Living_Window1','MCS_Living_Blind1',0},			--00000010	-- finestra1 non collegato
-	{'MCS_Living_Window2','MCS_Living_Blind2',0},			--00000020	-- finestra2 non collegato
-    	{'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},			--00000040
-    	{'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},			--00000080
-    	{'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},			--00000100
-	{'MCS_Sud_Door','MCS_Sud_Scuro',0},									--00000200
-	{'MCS_Lab_Window_Sud','MCS_Lab_Blind_Sud',0},			--00000400
-	{'MCS_Lab_Window_Nord','MCS_Lab_Blind_Nord',0},		--00000800
-	{'MCS_BagnoPT_Window','MCS_BagnoPT_Blind',0},			--00001000
-	{'MCS_Magazzino_Window_Sud','MCS_Magazzino_Blind_Sud',0},		--00002000
-	{'MCS_Magazzino_Window_Nord','MCS_Magazzino_Blind_Nord',0},	--00004000
-	{'MCS_Garage_Door_Magazzino','',0},							--00008000
-	{'MCS_Garage_Door_Pranzo','',0},								--00010000
-	{'','MCS_Scale_Blind',0},										--00020000
-	{'MCS_Notte_Scorrevole','',0},									--00040000
-	{'MCS_Bedroom_Door','',0},										--00080000
-	{'MCS_Bedroom_Window1','MCS_Bedroom_Blind1',0},					--00100000
-	{'MCS_Bedroom_Window2','MCS_Bedroom_Blind2',0},					--00200000
-	{'MCS_Bedroom_Window3','MCS_Bedroom_Blind3',0},					--00400000
-	{'','MCS_Stireria_Scuri',0},									--00800000
-	{'','MCS_BagnoP1_Blind',0},										--01000000
-	{'','MCS_Bedroom_Ospiti_Scuri',0},								--02000000
-	{'','MCS_Bedroom_Valentina_Blind1',0},							--04000000
-	{'','MCS_Bedroom_Valentina_Blind2',0},							--08000000
+    	{'MCS_Kitchen_Door','',10},							-- in case of alarm, "delayed sirens" must be activated after 15s (delay) --0008
+		{'MCS_Living_Window1','MCS_Living_Blind1',0},		--00000010	-- finestra1 non collegato
+		{'MCS_Living_Window2','MCS_Living_Blind2',0},		--00000020	-- finestra2 non collegato
+    	{'MCS_Pranzo_Window1','MCS_Pranzo_Blind1',0},		--00000040
+    	{'MCS_Pranzo_Window2','MCS_Pranzo_Blind2',0},		--00000080
+    	{'MCS_Pranzo_Window3','MCS_Pranzo_Blind3',0},		--00000100
+		{'MCS_Sud_Door','MCS_Sud_Scuro',0},					--00000200
+		{'MCS_Lab_Window_Sud','MCS_Lab_Blind_Sud',0},		--00000400
+		{'MCS_Lab_Window_Nord','MCS_Lab_Blind_Nord',0},		--00000800
+		{'MCS_BagnoPT_Window','MCS_BagnoPT_Blind',0},		--00001000
+		{'MCS_Magazzino_Window_Sud','MCS_Magazzino_Blind_Sud',0},	--00002000
+		{'MCS_Magazzino_Window_Nord','MCS_Magazzino_Blind_Nord',0},	--00004000
+		{'MCS_Garage_Door_Magazzino','',0},							--00008000
+		{'MCS_Garage_Door_Pranzo','',0},					--00010000
+		{'','MCS_Scale_Blind',0},							--00020000
+		{'MCS_Notte_Scorrevole','',0},						--00040000
+		{'MCS_Bedroom_Door','',0},							--00080000
+		{'MCS_Bedroom_Window1','MCS_Bedroom_Blind1',0},		--00100000
+		{'MCS_Bedroom_Window2','MCS_Bedroom_Blind2',0},		--00200000
+		{'MCS_Bedroom_Window3','MCS_Bedroom_Blind3',0},		--00400000
+		{'','MCS_Stireria_Scuri',0},						--00800000
+		{'','MCS_BagnoP1_Blind',0},							--01000000
+		{'','MCS_Bedroom_Ospiti_Scuri',0},					--02000000
+		{'','MCS_Bedroom_Valentina_Blind1',0},				--04000000
+		{'','MCS_Bedroom_Valentina_Blind2',0},				--08000000
 }
 
 
