@@ -72,7 +72,7 @@ if Temperature > averageTemperature + deltaT => fire alarm detected => send noti
 
 
 ## Script that check rain and wind
-File: scripts/time/rainCheck.lua
+File: script_time_rainCheck.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -80,6 +80,14 @@ Silly script that check the raining rate, and if above 8mm/h disable external so
 
 Also, checks wind speed and direction and disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using
 wood stoves generating bad smoke smell.
+
+## Script to get data from Fronius inverter
+File: script_time_fronius.lua
+
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
+Simple script that every minute fetch data, by http, from Fronius solar inverter.
+
 
 ## DomBus modules for Domoticz and Home Assistant
 **DomBus are domotic modules, optimized for very low power consumption and high reliability, with inputs, outputs and sensors** (temperature, relative humidity, distance).
