@@ -16,7 +16,7 @@ For any requests, you can join DomBus channel on Telegram, https://t.me/DomBus
 
 
 ## Script POWER 
-File: scripts/lua/script_device_power.lua
+File: script_device_power.lua  and  config_power.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -29,7 +29,7 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
      green LED flashes 1..M times if photovoltaic produces up to 1..M kW 
 
 ## Script for heat pump and gas heater
-File: scripts/lua/script_time_heatpump.lua and heatpump_conf.lua
+Files: script_time_heatpump.lua  and  heatpump_conf.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -44,7 +44,7 @@ the external temperature does not permit to get an high efficiency
 
 
 ## Script for alarm system
-File: scripts/lua/script_device_alarm.lua alarm_config.lua alarm_sendsnapshot.sh and alarmSet.sh
+Files: script_device_alarm.lua  alarm_config.lua  alarm_sendsnapshot.sh  and  alarmSet.sh
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -63,7 +63,7 @@ Sunset and Sunrise, to simulate that someone is inside the house.
 More info at https://www.creasol.it/freeBurglarAlarm
 
 ## Fire detector scripts
-File: script/lua/script_time_fireAlarm.lua config_fireAlarm.lua
+Files: script_time_fireAlarm.lua  config_fireAlarm.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
