@@ -245,7 +245,7 @@ else
 		-- cooling enabled only if consumed power is < 200 Watt. It's tolerated to consume more than 200W only if room temperature > setpoint + 2°C
 		diffMaxHigh=2		-- if diffMax<diffMaxHigh, temperature is near the set point
 		diffMaxHigh_power=200	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)
-		prodPower_incLevel=1000		--minimum production power to increment level
+		prodPower_incLevel=500		--minimum production power to increment level
 		spOffset=OVERCOOL
 	end
 	realdiffMax=-10
@@ -465,7 +465,8 @@ else
 						end
 					end
 				end
-	
+
+				tempFluid=tonumber(otherdevices[tempHPout])
 				if (HP['Level']>0) then
 					-- regulate fluid tempeature in case of max Level 
 					if (HPmode == 'Winter') then
@@ -474,15 +475,15 @@ else
 						-- tempHPout > tempFluidLimit+2 or tempHPin > tempFluidLimit => HALFPOWER
 
 						-- check that fluid is not decreasing abnormally
-						if (tonumber(otherdevices[tempHPout])>HP['HPout']) then
-							if (tonumber(otherdevices[tempHPout])>=HP['HPout']+1) then
-								HP['HPout']=tonumber(otherdevices[tempHPout]) 
+						if (tempFluid>HP['HPout']) then
+							if (tempFluid>=HP['HPout']+1) then
+								HP['HPout']=tempFluid 
 								if (HP['HPout']>=TEMP_WINTER_HP_MAX+2) then
 									log(TELEGRAM_LEVEL,"Fluid temperature is too high!! "..HP['HPout'].."°C")
 								end
 							end
-						elseif (tonumber(otherdevices[tempHPout])<HP['HPout']-1) then
-							HP['HPout']=tonumber(otherdevices[tempHPout])
+						elseif (tempFluid<HP['HPout']-1) then
+							HP['HPout']=tempFluid
 							if (otherdevices[HPSummer]=='On') then 
 								log(TELEGRAM_LEVEL, HPSummer.." was On => disable it")
 								commandArray[HPSummer]='Off'
@@ -492,7 +493,7 @@ else
 								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is very low!! "..HP['HPout'].."°C")
 							end
 						end
-						if (tonumber(otherdevices[tempHPout])<=(tempFluidLimit-1)) then
+						if (tempFluid<=(tempFluidLimit-1)) then
 							-- must heat!
 							if (HP['Level']<LEVEL_WINTER_FANCOIL) then 
 								log(E_INFO,"Fluid temperature is low => must heat!")
@@ -507,22 +508,22 @@ else
 								log(E_INFO,"Fluid temperature almost equal to limit => reduce power")
 								decLevel()
 							end
-							if (tonumber(otherdevices[tempHPout])>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
+							if (tempFluid>tempFluidLimit+2 or tonumber(otherdevices[tempHPin])>tempFluidLimit) then
 								log(E_INFO,"Fluid temperature to radiant/coil > "..tempFluidLimit.." => switch to radiant temperature")
 								while (HP['Level']>=LEVEL_WINTER_FANCOIL) do decLevel() end
 							end
 						end
 					else -- Summer
 						-- check that fluid is not increasing/decreasing abnormally
-						if (tonumber(otherdevices[tempHPout])<HP['HPout']) then
-							if (tonumber(otherdevices[tempHPout])<HP['HPout']-1) then
-								HP['HPout']=tonumber(otherdevices[tempHPout]) 
+						if (tempFluid<HP['HPout']) then
+							if (tempFluid<HP['HPout']-1) then
+								HP['HPout']=tempFluid 
 								if (HP['HPout']<=TEMP_SUMMER_HP_MIN-2) then
 									log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is too low!! "..HP['HPout'].."°C")
 								end
 							end
-						elseif (tonumber(otherdevices[tempHPout])>HP['HPout']+1) then
-							HP['HPout']=tonumber(otherdevices[tempHPout])
+						elseif (tempFluid>HP['HPout']+1) then
+							HP['HPout']=tempFluid
 							if (otherdevices[HPSummer]=='Off' and otherdevices[HPOn]=='On') then 
 								-- heat pump was ON, but heat pump Summer input was Off: that's strange, in summer season!
 								log(TELEGRAM_LEVEL,HPSummer.." was Off => enable it")
@@ -532,7 +533,7 @@ else
 								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is too high!! "..HP['HPout'].."°C")
 							end
 						end
-						if (tonumber(otherdevices[tempHPout])>tempFluidLimit) then
+						if (tempFluid>tempFluidLimit) then
 							-- must cool!
 							if (prodPower>=prodPower_incLevel and HP['Level']<levelMax) then
 								-- enough power from photovoltaic to increase level
@@ -682,7 +683,7 @@ updateValves() -- enable/disable the valve for each zone
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 
-if (outdoorTemperature<=4 or HP['Level']>LEVEL_OFF or GasHeaterOn==1) then
+if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=2) or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
 		HP['trc']=0
@@ -697,17 +698,32 @@ end
 
 if (otherdevices[HPLevel]=='Dehum') then
     -- force dehumidification only
-	commandArray['Valve_Radiant_Coil']='Off'	-- disable radiant => use only MVHR or fan coils
-	if (tonumber(otherdevices[tempHPout])>TEMP_SUMMER_HP_MIN) then	
-		commandArray['HeatPump_Fancoil']='On'
+	deviceOff('Valve_Radiant_Coil')	-- disable radiant => use only MVHR or fan coils
+	if (tempFluid>TEMP_SUMMER_HP_MIN) then	
+		deviceOn('HeatPump_Fancoil',HP,'DF')
 	else
-		commandArray['HeatPump_Fancoil']='Off'
+		deviceOn('HeatPump_Fancoil',HP,'DF')
 	end
-	commandArray[VENTILATION_COIL_DEV]='On'
-	commandArray[VENTILATION_DEHUMIDIFY_DEV]='On'
-elseif (HPmode~=Summer or HP['Level']==0) then
-	commandArray[VENTILATION_COIL_DEV]='Off'
-	commandArray[VENTILATION_DEHUMIDIFY_DEV]='Off'
+	deviceOn(VENTILATION_COIL_DEV,HP,'DC')
+	if (tempFluid<=18) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+		deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+	elseif (tempFluid>=20) then
+		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+	end
+elseif (HPmode~='Summer' or HP['Level']==0) then
+	deviceOff(VENTILATION_COIL_DEV,HP,'DC')
+	deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+elseif (HPmode=='Summer') then
+	-- Summer, and Level~=0
+	if (HP['Level']==levelMax) then
+		if (tempFluid<=18) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+			deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+		elseif (tempFluid>=20) then
+			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+		end
+	else		
+		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+	end
 end
 
 

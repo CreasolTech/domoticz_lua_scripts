@@ -65,12 +65,12 @@ DEVlist={
 	--'deviceName',				winterLevel,		summerLevel
 	--							start stop			start	stop
 	{'HeatPump',				1, 	10,				1, 10	},	-- HeatPump input ON/OFF (thermostat input)
-	{'HeatPump_HalfPower',		1,	2,				1, 2	},	-- HeatPump input HalfPower (if On, works at 50% of nominal power)
-	{'HeatPump_Fancoil',		3,	10,				3, 10	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
+	{'HeatPump_HalfPower',		1,	2,				1, 10	},	-- HeatPump input HalfPower (if On, works at 50% of nominal power): only half power during the Summer
+	{'HeatPump_Fancoil',		3,	10,				2, 10	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
 	{'HeatPump_Summer',			10,	10,				1,	10	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid) -- LEVEL_WINTER_MAX+1 => Always OFF
 --	{'Valve_Radiant_Coil',		255,				255	},	-- Valve to switch between Radiant (On) or Coil (Off) circuit - Managed by script-time-headpump
 	{'VMC_CaldoFreddo',			10,	10,				1,	10	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
---	{'VMC_Deumidificazione',	LEVEL_WINTER_MAX+1,	1	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
+	{'VMC_Deumidificazione',	10, 10,				3,	10	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
 HP_ON='HeatPump'				-- device corresponding to heatpump on/off
@@ -114,7 +114,7 @@ GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 DEBUG_PREFIX="HeatPump: "
 

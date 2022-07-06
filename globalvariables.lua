@@ -2,6 +2,10 @@ TELEGRAM_CHATID="-1234567890123"
 TELEGRAM_DEBUG_CHATID="12345678"
 TELEGRAM_TOKEN="1234567890:abcdefghijkakdfjak239rjas9djf9jdfaf"
 
+-- used by alarm_sendsnapshot.sh to send fetch videos from ipcam and send by Telegram
+IPCAM_USER="admin"
+IPCAM_PASS="verysecret"
+
 TEMPERATURE_OUTDOOR_DEV='TempOutdoor'		-- temperature from weather station (including relative humidity and, if available, pressure
 RAINDEV='Rain'          -- name of device that shows the rain rate/level
 WINDDEV='Wind'          -- name of device that shows the wind speed/gust

@@ -556,7 +556,14 @@ for devName,devValue in pairs(devicechanged) do
 					rainRate=tonumber(str);
 					break
 				end
-				if (rainRate<1*40) then -- ignore PIR if it's raining! 1mm/h
+				for w1, w2, w3, w4 in otherdevices[WINDDEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;]+).*") do
+					windDirection=tonumber(w1)
+					windDirectionName=w2
+					windSpeed=tonumber(w3)
+					windGust=tonumber(w4)
+					break
+				end
+				if (rainRate<1*40 and windSpeed<4*10) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s)
 					if (timeofday['Nighttime']) then
 						if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
 						if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
@@ -577,6 +584,8 @@ for devName,devValue in pairs(devicechanged) do
 					end
 					-- activate display, but only if alarm is not active (it's useless to activate display if nobody is home)
 					if (otherdevices['Display_Lab_12V']~='On' and alarmLevel<ALARM_NIGHT) then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
+				else
+					log(E_DEBUG,"PIR ignored because it's winding (".. windSpeed/10 .." m/s) or raining (".. rainRate/10 .." mm/h)")
 				end
 			end
 		end		

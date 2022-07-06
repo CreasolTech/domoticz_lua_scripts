@@ -8,14 +8,14 @@
 
 . /home/pi/domoticz/scripts/lua/globalvariables.lua # some variables common to all scripts
 
-TELEGRAMTEXT='Campanello'
+TELEGRAMTEXT='Doorbell'
 TELEGRAMSCRIPT='/home/pi/domoticz/scripts/lua/telegramSendText.sh'
 
 #SNAPURL='http://192.168.1.201:8088/snap.jpg'  #snapshot URL: if camera does not support snapshot, comment this variable
 #MEDIAURL='192.168.1.201:554/mpeg4cif' #low quality stream
-MEDIAURL='192.168.1.201:554/mpeg4'	#high quality stream
+MEDIAURL='192.168.3.201:554/mpeg4'	#high quality stream
 MEDIAUSER='admin'
-MEDIAPASS='ipcampass'
+MEDIAPASS='iuafio'
 #Telegram picture snapshot: 420x210
 PICTURE_REGION=1200x600+450+0  #extract picture 1400x800px, starting from offset 520x+0y
 #PICTURE_REGION=500x200+228+40  #extract picture 500x200px, starting from offset 228x+40y
