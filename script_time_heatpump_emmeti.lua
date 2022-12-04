@@ -414,6 +414,7 @@ else
 					if (tempFluidLimit<tempFluidLimitT or inverterPower==0) then
 						tempFluidLimit=tempFluidLimitT	-- used computed fluid limit if greater than tempFluidLimit or during the night
 					end
+					if (tempFluidLimit<(tempHPout+1) and diffMax>0.1) then tempFluidLimit=tempHPout+1 end	-- assure that heat pump does not stop when it must heat
 					if (tempFluidLimit>TEMP_WINTER_HP_MAX) then tempFluidLimit=TEMP_WINTER_HP_MAX end
 				elseif (HPmode == 'Summer') then
 					-- during the Summer
@@ -481,7 +482,7 @@ else
 								decLevel()
 							end
 						end
-						if (HPPower<100 and tempFluidLimit<otherdevices[TEMPHPOUT_DEV]+4) then
+						if (levelOld~=0 and HPPower<100 and tempFluidLimit<otherdevices[TEMPHPOUT_DEV]+4) then
 							log(E_DEBUG,"tempFluidLimit near outlet water temperature => avoid pump ON if heat pump will never start heating!")
 							HP['t']=HP['t']+1
 							if (HP['t']>=3) then
