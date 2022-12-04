@@ -539,7 +539,8 @@ for devName,devValue in pairs(devicechanged) do
 		if (alarmLevel>=ALARM_OFF) then
 			-- get snapshot only every 4 seconds (time to grab media stream and create pictures) if PIR is active but internal doors were closed for more than 5 minutes
 			if (devName=='PIR_Garage' and devValue=='On' and (timeNow-ZA['PIR_Gs'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
-				if (timeofday['Nighttime']) then
+				if (timeofday['Nighttime'] and alarmLevel<=ALARM_DAY) then
+					-- do not turn ON lights if alarm away or night is active
 					if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 124 SECONDS' end
 				end
 				if (otherdevices['MCS_Garage_Porta_Pranzo']~='Open' and otherdevices['MCS_Garage_Porta_Magazzino']~='Open' and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Pranzo'])>300 and timedifference(otherdevices_lastupdate['MCS_Garage_Porta_Magazzino'])>300) then
@@ -564,7 +565,8 @@ for devName,devValue in pairs(devicechanged) do
 					break
 				end
 				if (rainRate<1*40 and windSpeed<4*10) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s)
-					if (timeofday['Nighttime']) then
+					if (timeofday['Nighttime'] and alarmLevel<=ALARM_DAY) then
+						-- do not turn ON lights if alarm away or night is active
 						if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
 						if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
 					end

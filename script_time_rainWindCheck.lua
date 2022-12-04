@@ -12,10 +12,11 @@
 --   globalfunctions.lua
 -- Put this script and the 2 configuration files on DOMOTICZDIR/scripts/lua
 
-VENTILATION_START=120	-- Start ventilation 120 minutes after SunRise
+VENTILATION_START=150	-- Start ventilation 120 minutes after SunRise
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
-VENTILATION_TIME=180	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
+--VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
@@ -31,7 +32,7 @@ function RWCinit()
 end
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainWindCheck: "
 commandArray={}
 
@@ -95,7 +96,8 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				RWC['maxtime']=RWC['time']
 			end
 			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
-		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then -- during the Winter
+--		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime']) then -- do not check wind direction
+		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<210 or windSpeed>20)) then -- during the Winter, avoid smoke from South and West
 --		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection>90 and windDirection<270)) then  -- avoid smoke from the North
 			-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
@@ -126,7 +128,8 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				-- commandArray[VENTILATION_DEV]='Off'
 				deviceOff(VENTILATION_DEV,RWC,'d1')
 				-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
-			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then -- during the Winter
+			elseif (RWC['time']>=RWC['maxtime']) then -- do not check for windDirection (smoke)
+--			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then -- during the Winter
 --			elseif (RWC['time']>=RWC['maxtime'] or ((windDirection>210 or windDirection<45))) then -- avoid Smoke from Belluno
 				log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 				RWC['auto']=0

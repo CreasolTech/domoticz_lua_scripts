@@ -14,7 +14,12 @@ local found=0
 for devName,devValue in pairs(devicechanged) do
 	if (devName:find('Power') or devName:find('Button')) then
 		found=1
-		break
+		--break
+	end
+	if (devName=='dombus2 - (ffe3.1) EV On') then	--DEBUG: activate contactor in garage syncing with contactor in Lab
+		commandArray['EVSE On']=devValue
+	elseif (devName=='PowerMeter') then
+		commandArray['Grid Power']=devValue
 	end
 end
 if (found==0) then return commandArray end	-- no device containing "Power" in its name has changed
@@ -34,6 +39,7 @@ function PowerInit()
 	if (Power['disc']==nil) then Power['disc']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
+	if (Power['EV']==nil) then Power['EV']=0 end	-- EV Charge power
 
 	--if (PowerAux==nil) then PowerAux={} end
 end	
@@ -87,7 +93,9 @@ function setAvgPower() -- store in the user variable avgPower the building power
 	else
 		avgPower=tonumber(uservariables['avgPower'])
 	end
-	avgPower=(math.floor((avgPower*11 + currentPower - Power['usage'] )/12)) -- average on 12*5s=60s
+	log(E_INFO,"currentPower="..currentPower.." Usage="..Power['usage'].." EV="..Power['EV'])
+	avgPower=(math.floor((avgPower*11 + currentPower - Power['usage'] - Power['EV'])/12)) -- average on 12*5s=60s
+	commandArray['Variable:zPower']=json.encode(Power)
 end
 
 
@@ -243,7 +251,6 @@ end
 
 log(E_DEBUG,"========================= "..DEBUG_PREFIX.." ===========================")
 currentPower=10000000 -- dummy value (10MW)
-EVChargingPower=0
 HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
 if (HPmode==nil) then 
 	HPmode='Off' 
@@ -271,10 +278,12 @@ for devName,devValue in pairs(devicechanged) do
 		-- get actual EV charging power
 		if (devName==EVPowerMeter) then
 			-- new value from the electric vehicle charging power meter
-			EVChargingPower=getPowerValue(devValue)
+			Power['EV']=getPowerValue(devValue)
+			log(E_INFO,"Power[EV]="..Power['EV'])
+			commandArray['Variable:zPower']=json.encode(Power)	-- save Power['EV']
 			-- output current value to led status
 			if (EVLedStatus ~= '') then
-				l=(math.floor(EVChargingPower/1000))*10	-- 0=0..999W, 1=1000..1999, 2=2000..2999W, ...
+				l=(math.floor(Power['EV']/1000))*10	-- 0=0..999W, 1=1000..1999, 2=2000..2999W, ...
 				for k,led in pairs(EVLedStatus) do
 					if (otherdevices_svalues[led]~=tostring(l)) then
 						commandArray[led]="Set Level "..tostring(l)
@@ -285,6 +294,7 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 	-- EV: check EVChargingButton
+	-- print("EVSE BatteryMax="..otherdevices_svalues["EVSE BatteryMax"])
 	for k,evRow in pairs(eVehicles) do
 		if (evRow[9]~='') then
 			levelChanged=0
@@ -341,7 +351,7 @@ for devName,devValue in pairs(devicechanged) do
 	if (EVSE_BUTTON~='' and devName==EVSE_BUTTON) then
 		if (devValue=='Down') then
 --			if (otherdevices[EVSE_STATE_DEV]=='Ch' or otherdevices[EVSE_STATE_DEV]=='Vent') then
-				commandArray[EVSE_CURRENT_DEV]='Off'	-- turn off charging
+--DEBUG				commandArray[EVSE_CURRENT_DEV]='Off'	-- turn off charging
 				otherdevices[EVSE_CURRENT_DEV]='Off'
 				commandArray[EVSE_SOC_MIN]='Set Level 10'	-- min 40% battery level
 				commandArray[EVSE_CURRENTMAX]="Set Level 0" -- set max current to 0A
@@ -349,7 +359,7 @@ for devName,devValue in pairs(devicechanged) do
 --			end
 		elseif (devValue=='Up') then
 			if (otherdevices[EVSE_STATE_DEV]=='Con') then
-				commandArray[EVSE_CURRENT_DEV]='On'		-- turn on charging
+--DEBUG				commandArray[EVSE_CURRENT_DEV]='On'		-- turn on charging
 				otherdevices[EVSE_CURRENT_DEV]='On'
 				commandArray[EVSE_CURRENT_DEV]="Set Level 8"
 			end
@@ -375,7 +385,7 @@ for devName,devValue in pairs(devicechanged) do
 	end
 	if (EVSE['S']~='Dis' and otherdevices[EVSE_STATE_DEV]=='Dis') then
 		-- vehicle was just disconnected => restore default charging setting
-		commandArray[EVSE_CURRENT_DEV]='On'
+--DEBUG		commandArray[EVSE_CURRENT_DEV]='On'
 		commandArray[EVSE_CURRENT_DEV]="Set Level 8"
 		if (tonumber(otherdevices[EVSE_CURRENTMAX])<20) then -- less than 20A
 			commandArray[EVSE_CURRENTMAX]="Set Level 40" -- set to Level=40 => 20A
@@ -421,6 +431,11 @@ end
 if (currentPower>-20000 and currentPower<20000) then
 	-- currentPower is good
 	prodPower=0-currentPower
+	--[[
+	if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
+		commandArray[DOMBUSEVSE_GRIDPOWER]=tostring(currentPower)..';0'
+	end
+	]]
 	setAvgPower()
 	incMinute=0	-- zero if script was executed not at the start of the current minute
 	if (Power['min']~=timeNow.min) then
@@ -524,6 +539,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						-- battery state of charge not available
 						batteryLevel=batteryMin	-- battery level device does not exist => set to 50%
 					end
+					log(E_DEBUG, "EV: batteryLevel="..batteryLevel.." batteryMin="..batteryMin.." batteryMax="..batteryMax);
 					evDistance=0
 					if (evRow[6]~='') then
 						-- car distance sensor exists
@@ -742,9 +758,10 @@ if (currentPower>-20000 and currentPower<20000) then
 	
 		if (batteryLevel>=tonumber(otherdevices_svalues[EVSE_SOC_MAX])) then
 			-- battery charged => stop charging
+			log(E_DEBUG, "EV: battery full: batteryLevel>="..otherdevices_svalues[EVSE_SOC_MAX]);
 			commandArray[EVSE_CURRENT_DEV]="Off"
 		else
-			if (otherdevices[EVSE_STATE_DEV]=='Con' and otherdevices[EVSE_CURRENT_DEV]=='On' and tonumber(otherdevices[EVSE_CURRENTMAX])>0 and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX]) and (PowerThreshold[1]-currentPower)>1800 and (currentPower<-800 or (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN]) and (timeNow.hour>=EVSE_NIGHT_START or timeNow.hour<EVSE_NIGHT_STOP or otherdevices[EVSE_SOC_MIN]=='On')))) then
+			if (otherdevices[EVSE_STATE_DEV]=='Con' and tonumber(otherdevices[EVSE_CURRENTMAX])>0 and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX]) and (PowerThreshold[1]-currentPower)>1800 and (currentPower<-800 or (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN]) and (timeNow.hour>=EVSE_NIGHT_START or timeNow.hour<EVSE_NIGHT_STOP or otherdevices[EVSE_SOC_MIN]=='On')))) then
 				-- Connected, batteryLevel<EVSE_SOC_MAX, enough power from energy meter, and
 				-- * extra power available from renewables, or
 				-- * in the night, or
@@ -754,9 +771,13 @@ if (currentPower>-20000 and currentPower<20000) then
 				-- To enable charge now, just enable EVSE_SOC_MIN slider
 				setCurrent=10   -- start charging
 				EVSE['t']=0
-				log(E_INFO,"EV: Start EV charging")
-				commandArray[EVSE_CURRENT_DEV]="On"
+				log(E_INFO,"EV: Start EV charging, setCurrent="..setCurrent)
 				commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
+				if (otherdevices[EVSE_CURRENT_DEV]=='Off') then
+					commandArray[EVSE_CURRENT_DEV]="On"
+				end
+				log(E_INFO,"EVSE_CURRENT_DEV="..commandArray[EVSE_CURRENT_DEV])
+				log(E_INFO,"otherdevices_svalues[EVSE_CURRENT_DEV]="..otherdevices_svalues[EVSE_CURRENT_DEV])
 			elseif (otherdevices[EVSE_STATE_DEV]=='Ch') then
 				-- Cable connected and device is charging
 				-- charging!
@@ -837,7 +858,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						otherdevices[EVSE_CURRENT_DEV]=='Off') then
 						commandArray[EVSE_CURRENT_DEV]="On"
 					end
-					commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
+					commandArray[EVSE_CURRENT_DEV]="Set Level "..setCurrent
 				end
 			end -- while charging
 		end
@@ -904,10 +925,16 @@ if (currentPower>-20000 and currentPower<20000) then
 	if (PowerAux~=nil) then
 		log(E_DEBUG,"PowerAux="..json.encode(PowerAux))
 	end
-end
+end -- if currentPower is set
 --print("power end: "..os.clock()-startTime) --DEBUG
 if (commandArray~={}) then
 	log(E_DEBUG,"commandArray not empty")
+	-- commandArray[EVSE_SOC_MIN]="Set Level "..timeNow.sec --DEBUG
+	--[[
+	for k,v in pairs(commandArray) do
+		log(E_INFO,"commandArray["..k.."]="..tostring(v))
+	end
+	]]
 else
 	log(E_DEBUG,"commandArray={}")
 end

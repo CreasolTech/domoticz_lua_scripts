@@ -20,3 +20,5 @@ elif [ $# -eq 4 ]; then
 else
 	printsyntax
 fi
+
+exit 0

@@ -69,7 +69,7 @@ function deviceOn(devName,table,index)
     if (otherdevices[devName]~='On') then
         log(E_DEBUG,"deviceOn("..devName..")")
         commandArray[devName]='On'  -- switch on
-        table[index]='a'    -- store in HP that device was automatically turned ON (and can be turned off)
+        table[index]=1    -- store in HP that device was automatically turned ON (and can be turned off)
     end
 end
 
@@ -77,9 +77,9 @@ function deviceOff(devName,table,index)
     -- if devname is on and was enabled by this script => turn it off
     -- if devname was enabled manually, for example to force heating/cooling, leave it ON.
     if (otherdevices[devName]~='Off') then
-        v='a'
+        v=1
         if (table[index]~=nil) then v=table[index] end
-        if (v=='a') then
+        if (v~=nil) then
             log(E_DEBUG,"deviceOff("..devName..")")
             commandArray[devName]='Off' -- switch off
             table[index]=nil -- store in HP that device was automatically turned ON (and can be turned off)
@@ -91,8 +91,8 @@ end
 
 function peakPower()
 	if (timenow==nil) then timenow = os.date("*t") end
-	if ((timenow.month>=6 and timenow.month<=7 and (timenow.hour>=7 and timenow.hour<8) and tonumber(otherdevices['Clouds_today'])<70) or
-		(((timenow.month>=3 and timenow.month<=4) or (timenow.month>=8 and timenow.month<=9)) and (timenow.hour>=7 and timenow.hour<10) and tonumber(otherdevices['Clouds_today'])<70)) then
+	if ((timenow.month>2 and timenow.month<11) and ((timenow.hour>=8 and timenow.hour<9) or (timenow.hour>=17 and timenow.hour<21))) then 
+		-- tonumber(otherdevices['Clouds_today'])<70)
 		return true
 	else
 		return false

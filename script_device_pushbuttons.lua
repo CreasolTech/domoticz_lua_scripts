@@ -65,7 +65,14 @@ function timeElapsed(devName)
 	return timeNow-PB[devName]
 end
 
-
+if ( false ) then
+	mb=require("libmodbus")
+	mbhp=mb.new_rtu("/dev/ttyUSBheatpump", 9600, "EVEN", 8, 1) -- heat pump serial parameters
+	mbhp:connect()
+	mbhp:set_slave(1)	-- slave address of the heat pump
+	ret=mbhp:read_registers(8975,1)	-- read temperature, at address 8975
+	print("modbus: ret[1]="..ret[1])
+end
 
 -- loop through all the changed devices
 for devName,devValue in pairs(devicechanged) do

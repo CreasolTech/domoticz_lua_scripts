@@ -44,7 +44,7 @@ if [ -n "${ipcamera1}" ]; then
 		rm /tmp/alarm_snapshot1_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
 		#ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 200 /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
 		# 2x speed  (0.50): set to 0.25 to get 4x speed
-		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 100 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
+		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
 		### && >/tmp/alarm_snapshot1_$$.done &
 	fi
 fi
@@ -59,7 +59,7 @@ if [ -n ${ipcamera2} ]; then
 		rm /tmp/alarm_snapshot2_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
 		#ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 200 /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
 		# 2x speed  (0.50): set to 0.25 to get 4x speed
-		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 100 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
+		ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
 		### && >/tmp/alarm_snapshot2_$$.done &
 	fi
 fi

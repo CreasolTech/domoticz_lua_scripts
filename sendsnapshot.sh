@@ -85,3 +85,4 @@ if [ ${LIGHT1_IDX} -gt 0 ]; then
 		sleep ${DELAY_BEFORE_SNAPSHOT}
 	fi
 fi
+exit 0
