@@ -6,6 +6,19 @@ More information, scripts, application notes, examples are available at https://
 
 Description of some products made by our company (DomBusTH, DomBus12, DomBus23, DomBus31, ...) are available at https://www.creasol.it/products/domotics and https://store.creasol.it/en/11-domotics
 
+
+[![alt DomBusTH image](https://images.creasol.it/creDomBusTH1_200.jpg "DomBusTH rear view: module with temp+humidity sensors, 3 LEDs, 4 I/O, 2 outputs, 1 analog input")](https://www.creasol.it/CreasolDomBusTH)
+[![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg "DomBusTH front view with white led, red/green led, temperature + humidity sensor")](https://www.creasol.it/CreasolDomBusTH)
+[![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png "DomBus12: 7 I/Os + 2 open-drain outputs that can be connected to 2 external relays")](https://www.creasol.it/CreasolDomBus12)
+[![alt DomBus23 image](https://images.creasol.it/creDomBus23_400.png "DomBus23: 2 N.O. relay outputs, 1 mosfet output for 12-24V LED dimming or other DC loads, 2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs 5-40V, 1 230Vac opto input")](https://www.creasol.it/CreasolDomBus23)
+[![alt DomBus31 image](https://images.creasol.it/creDomBus31_400.png "DomBus31: low power module with 6 N.O. relay outputs + 2 N.O./N.C. relay outputs")](https://www.creasol.it/CreasolDomBus31)
+
+[![alt DomBusEVSE image](https://images.creasol.it/creDomBusEVSE_400.png "DomBusEVSE: electric vehicle charging module, to build a smart wallbox by yourself")](https://www.creasol.it/CreasolDomBusEVSE)
+[![alt DomBus32 image](https://images.creasol.it/creDomBus32_400.png "DomBus32: 3 relay outputs, 3 AC inputs, 5 I/Os")](https://www.creasol.it/CreasolDomBus32)
+[![alt DomBus34 image](https://images.creasol.it/creDomBus34_400.png "DomBus34: 2 relay outputs, 1 AC inputs, 2 I/Os, 1 Modbus to connect up to 4 energy meters")](https://www.creasol.it/CreasolDomBus34)
+
+
+
 Some scripts require that you install the dkjson package, with the command __apt install lua-dkjson__
 
 All scripts are free to use, with absolute no warranty. Use them at your own risk.
@@ -99,22 +112,15 @@ DomBus modules can be connected together by **wired bus**, using a **common alar
 Using a 13.6V power supply with a lead acid backup battery permits to get **domotic system working even in case of power outage**: this is perfect even for alarm systems.
 
 Actually the following modules are supported:
-* [DomBus1](https://www.creasol.it/CreasolDomBus1): **2-3 N.O. relay outputs, 6 digital inputs, 1 230Vac opto-input**
+* [DomBusTH](https://www.creasol.it/CreasolDomBusTH): **Temperature + Relative Humidity sensors, red + green + white LEDs, 4 GPIO, 2 open-drain outputs, 1 analog input**
 * [DomBus12](https://www.creasol.it/CreasolDomBus12): **7 GPIO, 2 open-drain outputs**
 * [DomBus23](https://www.creasol.it/CreasolDomBus23): **2 N.O. relay outputs, 1 mosfet output** (for 12-24V LED dimming or other DC loads), **2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs (5-40V), 1 230Vac opto input**
-* [DomBus31](https://www.creasol.it/CreasolDomBus31): very low power consumption module with **6 N.O. relay outputs + 2 N.O./N.C. relay outputs**
-* [DomBusTH](https://www.creasol.it/CreasolDomBusTH): **Temperature + Relative Humidity sensors, red + green + white LEDs, 4 GPIO, 2 open-drain outputs, 1 analog input**
+* [DomBus31](https://www.creasol.it/CreasolDomBus31): DIN rail module, very low power consumption module with **6 N.O. relay outputs + 2 N.O./N.C. relay outputs**
+* [DomBus32](https://www.creasol.it/DomBus32): DIN rail module with **3 relay outputs, 3 AC inputs, 5 I/Os**
+* [DomBus32](https://www.creasol.it/DomBus34): DIN rail module with **2 relay outputs, 1 AC inputs, 2 I/Os, 1 Modbus to connect up to 4 energy meters**
+* [DomBusEVSE](https://www.creasol.it/creDomBusEVSE): **electric vehicle charging** module, to build a **Smart WALLBOX** by yourself
 
 Modules and components are developed by Creasol, https://www.creasol.it/domotics
-
-## Pictures of DomBus modules
-
-[![alt DomBus23 image](https://images.creasol.it/creDomBus23_400.png "DomBus23: 2 N.O. relay outputs, 1 mosfet output for 12-24V LED dimming or other DC loads, 2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs 5-40V, 1 230Vac opto input")](https://www.creasol.it/CreasolDomBus23)
-[![alt DomBus31 image](https://images.creasol.it/creDomBus31_400.png "DomBus31: low power module with 6 N.O. relay outputs + 2 N.O./N.C. relay outputs")](https://www.creasol.it/CreasolDomBus31)
-
-[![alt DomBusTH image](https://images.creasol.it/creDomBusTH1_200.jpg "DomBusTH rear view: module with temp+humidity sensors, 3 LEDs, 4 I/O, 2 outputs, 1 analog input")](https://www.creasol.it/CreasolDomBusTH)
-[![alt DomBusTH image](https://images.creasol.it/creDomBusTH2_200.jpg "DomBusTH front view with white led, red/green led, temperature + humidity sensor")](https://www.creasol.it/CreasolDomBusTH)
-[![alt DomBus12 image](https://images.creasol.it/creDomBus12_400.png "DomBus12: 7 I/Os + 2 open-drain outputs that can be connected to 2 external relays")](https://www.creasol.it/CreasolDomBus12)
 
 
 ## Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...
