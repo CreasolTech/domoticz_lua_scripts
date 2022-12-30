@@ -379,9 +379,13 @@ else
 			incLevel()
 		end
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
-		if (diffMax<diffMaxHigh and peakPower()) then
-			log(E_INFO,"Try to export energy in the peak hours: DiffMax-=0.6")
-			diffMax=diffMax-0.2
+		if (peakPower()) then
+			log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
+			if ((timenow.month>=11 or timenow.month<3)) then
+				diffMax=diffMax-0.2
+			else
+				diffMax=diffMax-0.2
+			end
 		end
 
 		if (diffMax>0) then
@@ -400,7 +404,7 @@ else
 				
 				if (HPmode == 'Winter') then
 					-- make tempFluidLimit higher if rooms are cold
-					tempFluidLimitT=29+(10-HP['otmin'])/4+diffMax*10-tempDerivate*10 -- Tf=22+(10-outdoorTempMin)/4+deltaT*10+tempDerivate*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
+					tempFluidLimitT=29+(10-HP['otmin'])/4+diffMax*15-tempDerivate*20 -- Tf=22+(10-outdoorTempMin)/4+deltaT*10+tempDerivate*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
 					tempFluidLimit=HP['Limit']
 					if (prodPower>100) then --increase set point for outlet water
 						if (tempFluidLimit<tempHPout+2) then
@@ -596,12 +600,25 @@ else
 	end
 end -- heatingCoolingEnabled=1
 
+
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (HPmode == 'Winter') then 
 	devLevel=2 
-	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
-		-- during the night, go to the minimum level to reduce noise
-		levelMax=LEVEL_WINTER_MAX_NIGHT
+	levelMax=LEVEL_WINTER_MAX_NIGHT
+	if (tempFluidLimit<=25) then
+		compressorPerc=25
+	elseif (tempFluidLimit>=40) then
+		compressorPerc=60
+	else
+		-- compressorPerc=25+(60-25)/(40-25)*(tempFluidLimit-25)
+		compressorPerc=25+2.33*(tempFluidLimit-25)
+	end
+	if (minutesnow>=HPNightEnd and minutesnow<HPNightStart and peakPower()==false) then
+		-- during the day
+		compressorPerc=compressorPerc*1.5	-- increase power during the day	
+		if (prodPower>0) then				-- indeed increase power in case of extra power from photovoltaic
+			compressorPerc=compressorPerc+prodPower/30
+		end
 	end
 elseif (HPmode == 'Summer') then
 	devLevel=4
@@ -618,6 +635,11 @@ else
 	devLevel=2	-- default: Winter
 end	
 if (HP['Level']>levelMax) then HP['Level']=levelMax end
+
+-- set compressor power
+if (compressorPerc>100) then compressorPerc=100 end
+compressorPerc=math.floor(compressorPerc)
+os.execute('mbpoll -m rtu -a 1 -b 9600 -r 16388 /dev/ttyUSBheatpump '..compressorPerc*10)	-- send compressor frequency percentage*10
 
 for n,v in pairs(DEVlist) do
 	-- n=table index
@@ -673,7 +695,7 @@ if (otherdevices[HPLevel]=='Dehum') then
 		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 	end
 	if (tempHPout>=18) then commandArray['HeatPump_HalfPower']='Off' end
-elseif (HPmode~='Summer' or HP['Level']==0) then
+elseif (HP['Level']==0) then
 	deviceOff(VENTILATION_COIL_DEV,HP,'DC')
 	deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 elseif (HPmode=='Summer') then
@@ -711,9 +733,10 @@ end
 
 -- save variables
 diffMax=string.format("%.2f", diffMax)
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..' DiffMax='..diffMax..'°C Power HP/Grid='..HPPower..'/'..avgPower..'W WaterTemp SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
+if (compressorPerc==nil) then compressorPerc='?' end
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..' DiffMax='..diffMax..'°C Compr/HP/Grid='..compressorPerc..'%/'..HPPower..'W/'..avgPower..'W SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
 
-commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..' DiffMax='..diffMax.."°C\nWaterTemp SP/Out/In="..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C'
+commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..' Diff='..diffMax.."°C\n SP/Out/In="..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C Compressor='..compressorPerc..'%'
 HP['Limit']=tempFluidLimit
 commandArray['Variable:zHeatPump']=json.encode(HP)
 commandArray['Variable:zHeatPumpZone']=json.encode(HPZ)

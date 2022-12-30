@@ -146,7 +146,7 @@ if (otherdevices['HeatPump_Mode']=='Winter') then
 		-- ventilation coil exists: 
 		-- if ventilation is ON and heatpump ON => ventilation coil must be ON
 		-- else must be OFF
-		if (otherdevices[HEATPUMP_DEV]=='On' and ((commandArray[VENTILATION_DEV]~=nil and commandArray[VENTILATION_DEV]=='On') or (commandArray[VENTILATION_DEV]==nil and otherdevices[VENTILATION_DEV]=='On') or (otherdevices[VENTILATION_DEHUMIDIFY_DEV]~=nil and otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On'))) then
+		if (otherdevices[HEATPUMP_DEV]=='On' and otherdevices[VENTILATION_DEV]=='On' or otherdevices[VENTILATION_DEHUMIDIFY_DEV]=='On') then
 			if (otherdevices[VENTILATION_COIL_DEV]~='On') then
 				commandArray[VENTILATION_COIL_DEV]='On'
 			end

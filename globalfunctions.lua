@@ -91,7 +91,7 @@ end
 
 function peakPower()
 	if (timenow==nil) then timenow = os.date("*t") end
-	if ((timenow.month>2 and timenow.month<11) and ((timenow.hour>=8 and timenow.hour<9) or (timenow.hour>=17 and timenow.hour<21))) then 
+	if ((timenow.hour>=9 and timenow.hour<10) or (timenow.hour>=18 and timenow.hour<21)) then 
 		-- tonumber(otherdevices['Clouds_today'])<70)
 		return true
 	else

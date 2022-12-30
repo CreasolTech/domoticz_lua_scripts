@@ -16,11 +16,6 @@ for devName,devValue in pairs(devicechanged) do
 		found=1
 		--break
 	end
-	if (devName=='dombus2 - (ffe3.1) EV On') then	--DEBUG: activate contactor in garage syncing with contactor in Lab
-		commandArray['EVSE On']=devValue
-	elseif (devName=='PowerMeter') then
-		commandArray['Grid Power']=devValue
-	end
 end
 if (found==0) then return commandArray end	-- no device containing "Power" in its name has changed
 
@@ -231,7 +226,7 @@ function powerDisconnect(forced,msg)
 		if (forced~=0) then
 			-- TODO: try to disable overloadDisconnect devices
 			for k,loadRow in pairs(overloadDisconnect) do
-				if (otherdevices[ loadRow[1] ]=='On') then
+				if (otherdevices[ loadRow[1] ]==loadRow[3]) then
 					log(E_WARNING, msg..': disconnect '..loadRow[1])
 					commandArray[ loadRow[1] ]=loadRow[2]
 					Power['disc']=os.time()
@@ -260,6 +255,17 @@ end
 getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (coded in JSON format)
 
 for devName,devValue in pairs(devicechanged) do
+	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
+	if (devName=='PowerMeter') then
+		log(E_INFO,"PowerMeter!!")
+		if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
+			powerValue=getPowerValue(devValue)
+			for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do
+				commandArray[name]=tostring(powerValue)..';0'
+				log(E_INFO,"Update "..name.."="..powerValue)
+			end
+		end
+	end
 	if (PowerMeter~='') then
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
 		if (devName==PowerMeter) then
@@ -433,7 +439,9 @@ if (currentPower>-20000 and currentPower<20000) then
 	prodPower=0-currentPower
 	--[[
 	if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
-		commandArray[DOMBUSEVSE_GRIDPOWER]=tostring(currentPower)..';0'
+		for k,name in DOMBUSEVSE_GRIDPOWER do
+			commandArray[name]=tostring(currentPower)..';0'
+		end
 	end
 	]]
 	setAvgPower()
