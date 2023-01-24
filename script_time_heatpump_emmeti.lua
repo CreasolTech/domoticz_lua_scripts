@@ -40,6 +40,7 @@ function HPinit()
 	if (HP['otmax']==nil) then HP['otmax']=10 end	-- outodorTemperatureMin
 	if (HP['Level']==nil) then HP['Level']=0 end
 	if (HP['Limit']==nil) then HP['Limit']=25 end	-- tempFluidLimit (previous saved value)
+	if (HP['CP']==nil) then HP['CP']=0 end			-- compressorPerc
 	if (HP['HPout']==nil) then HP['HPout']=0 end	-- TEMPHPOUT_DEV temperature
 	if (HP['t']==nil) then HP['t']=0 end			-- when HP works at max level, the level can be reduced only if the system ask to reduce it for at least 5 minutes
 	if (HP['trc']==nil) then HP['trc']=0 end		-- disable the Valve_Radiant_Coil after 3 minutes from HeatPump going OFF
@@ -406,6 +407,9 @@ else
 					-- make tempFluidLimit higher if rooms are cold
 					tempFluidLimitT=29+(10-HP['otmin'])/4+diffMax*15-tempDerivate*20 -- Tf=22+(10-outdoorTempMin)/4+deltaT*10+tempDerivate*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
 					tempFluidLimit=HP['Limit']
+					if (monthnow<=3 or monthnow>=12) then
+						prodPower=prodPower+500	-- From Dec to Mar, set heat pump to use at least 500W, even during noon
+					end
 					if (prodPower>100) then --increase set point for outlet water
 						if (tempFluidLimit<tempHPout+2) then
 							tempFluidLimit=tempHPout+2
@@ -617,6 +621,9 @@ if (HPmode == 'Winter') then
 		-- during the day
 		compressorPerc=compressorPerc*1.5	-- increase power during the day	
 		if (prodPower>0) then				-- indeed increase power in case of extra power from photovoltaic
+			if (compressorPerc<HP['CP']) then		-- prodPower>0 and compressorPerc<old value => set to old value
+				compressorPerc=HP['CP']
+			end
 			compressorPerc=compressorPerc+prodPower/30
 		end
 	end
@@ -733,11 +740,12 @@ end
 
 -- save variables
 diffMax=string.format("%.2f", diffMax)
-if (compressorPerc==nil) then compressorPerc='?' end
+if (compressorPerc==nil) then compressorPerc=0 end
 log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..' DiffMax='..diffMax..'°C Compr/HP/Grid='..compressorPerc..'%/'..HPPower..'W/'..avgPower..'W SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
 
 commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..' Diff='..diffMax.."°C\n SP/Out/In="..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C Compressor='..compressorPerc..'%'
 HP['Limit']=tempFluidLimit
+HP['CP']=compressorPerc
 commandArray['Variable:zHeatPump']=json.encode(HP)
 commandArray['Variable:zHeatPumpZone']=json.encode(HPZ)
 --log(E_DEBUG,'zHeatPump='..json.encode(HP))

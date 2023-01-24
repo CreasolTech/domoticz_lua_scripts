@@ -6,7 +6,7 @@
 TIME_DOMOTICZ_UNAVAILABLE=5			#minutes: restart domoticz if unavailable since 5 minutes
 CHECK_PLUGINS=1						#check that all python plugins are running correctly
 DOMOTICZ_LOG=/var/log/domoticz.log	#domoticz log file
-DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly|Kia.*thread seems to have ended unexpectedly)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
+DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly| seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
 
 count=0
 loglinesold=0
@@ -30,6 +30,7 @@ logcount
 while [ 1 ]; do
 	if [ -z "`pidof domoticz`" ]; then
 		count=$(( $count + 1 ))
+		echo "`date` : domoticz not running since ${count} minutes" >>/tmp/domoticzCheck.log
 		if [ $count -ge $TIME_DOMOTICZ_UNAVAILABLE ]; then
 			#echo "Restart domoticz after 5 minutes it is off"
 			echo "`date` : Restart domoticz because not active since ${TIME_DOMOTICZ_UNAVAILABLE} minutes" >>/tmp/domoticzCheck.log

@@ -716,7 +716,8 @@ end
 -- lights['new']=next item in ALARM_Lights
 -- lights['off']=time in seconds to turn off lights['now']
 -- lights['on'] =time in seconds to turn on  lights['new']
-if (timeofday["Nighttime"]==true and alarmLevel==ALARM_AWAY) then
+print("#ALARM_Lights="..#ALARM_Lights)
+if (timeofday["Nighttime"]==true and alarmLevel==ALARM_AWAY and #ALARM_Lights>=2) then
 --if (true) then
 	lightsCheck()
 	-- check if it's time to turn off lights['now']

@@ -35,14 +35,16 @@ DEBUG_PREFIX=''
 -- ALARMlist is a bit difficult to configure: for any type of alarm (Day, Night, Away, ...) set which PIRs and MCS sensors should be enabled  
 -- For example:
 -- PIRlist={
---   {'PIR_Garage',15},		-- bitmask: 0x01
---   {'PIR_Kitchen',15},	-- bitmask: 0x02
---   {'PIR_Living',15},		-- bitmask: 0x04
---   {'PIR_Stairway',15},	-- bitmask: 0x08
---   {'PIR_Bedroom',15},	-- bitmask: 0x10
+--   {'PIR_Garage',15},		-- bitmask: 0x01  (binary 0b00000001)
+--   {'PIR_Kitchen',15},	-- bitmask: 0x02  (binary 0b00000010)
+--   {'PIR_Living',15},		-- bitmask: 0x04  (binary 0b00000100)
+--   {'PIR_Stairway',15},	-- bitmask: 0x08  (binary 0b00001000)
+--   {'PIR_Bedroom',15},	-- bitmask: 0x10  (binary 0b00010000)
 -- }
+--
 -- ALARM OFF => no PIRs enabled => 0x00000000
--- ALARM Day => only Garage PIR is enabled => 0x00000001
+-- ALARM Day => only Garage PIR is enabled => 0x00000001. To enable PIR_Garage (0x01) PIR_Stairway (0x08) and PIR_Bedroom (0x10) sum these items 
+--              (use an hex calculator) and write the result (0x00000019) in (ALARM Day,PIRs en) position
 -- ALARM Night => Garage+Kitchen+Living+Stairway enabled => 1+2+4+8=15 => 0x0f in hex => 0x0000000f
 -- ALARM Away => All pirs enabled => 0xffffffff or 0x0000001f if only 5 pirs are installed
 -- 
@@ -58,6 +60,7 @@ ALARMlist={
 
 -- List of magnetic contact sensors (window/door + associated shutter/blind)
 -- Magnetic sensors name must start with MCS prefix
+-- If the associated blind or window/door is missing, write ''
 MCSlist={ -- MCS_window/door, 	MCS_shutter, 	delay[s]
     	{'MCS_Kitchen_Window1','MCS_Kitchen_Blind1',0,},	--00000001
     	{'MCS_Kitchen_Window2','MCS_Kitchen_Blind2',0,},	--00000002
@@ -120,16 +123,17 @@ SIRENlist={ -- output_device, 	alarmLevel, 				delayed, duration[min]  -- delaye
 }  -- REMEMBER TO CONFIGURE THE LIST of IDX associated to the sirens on alarmSet.sh : this is needed to switch off sirens setting alarmLevel to OFF
 
 ALARM_OTHERlist={	
-	-- other devices. Syntax: devicename, alarm_level (255 for any alarmLevel), sensor_value1, notification1, sensor_value2, notification2 
-	{ 'ALARM_Supply_Raspberry',255,'Off','PowerSupply to Raspberry interrupted','On','PowerSupply to Raspberry restored' },
+	-- other devices. Syntax: 
+	-- devicename, 			alarm_level (255 for any alarmLevel), sensor_value1, notification1, 				sensor_value2, notification2 
+	{ 'ALARM_Supply_Raspberry',255,									'Off',	'PowerSupply to Raspberry is OFF',	'On','PowerSupply to Raspberry restored' },
 }
 
 ALARM_Lights={
 	-- light that are automatically switched ON/OFF when ALARM_AWAY, in the right sequence 1-> 2 -> 3 -> 2 -> 1 -> 2 -> 3 ....
 	-- light dev,   	min duration[s],	max duration	min/max delay before switching next ON
-	{'Light_Pranzo',	20,			2700,		4,	7},
-	{'Light_Scale',		12,			25,		-2,	2},
-	{'Light_Bedroom',	20,			900,		0,	0,},
+	{'Light_Living',	20,			2700,		4,	7},
+	{'Light_Stairway'	12,			25,			-2,	2},
+	{'Light_Bedroom',	20,			900,		0,	0},
 }
 
 -- Leds activated for few seconds when alarm has been activated

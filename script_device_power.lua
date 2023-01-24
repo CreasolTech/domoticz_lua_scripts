@@ -888,12 +888,11 @@ if (currentPower>-20000 and currentPower<20000) then
 	if (currentPower>PowerThreshold[1]) then
 		if (currentPower<PowerThreshold[2]) then
 			-- power consumption a little bit more than available power => long intervention time, before disconnecting
+			if (Power['th1']==0) then Power['th1']=os.time() end
 			time=(os.time()-Power['th1'])
 			log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
 			Power['th2']=0
-			if (Power['th1']==0) then
-				Power['th1']=os.time()
-			elseif (time>PowerThreshold[3]) then
+			if (time>PowerThreshold[3]) then
 				-- can I disconnect anything?
 				time=os.time()-Power['disc']	-- disconnect devices every 50s
 				if (powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
