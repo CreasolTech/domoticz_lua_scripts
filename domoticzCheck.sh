@@ -6,7 +6,8 @@
 TIME_DOMOTICZ_UNAVAILABLE=5			#minutes: restart domoticz if unavailable since 5 minutes
 CHECK_PLUGINS=1						#check that all python plugins are running correctly
 DOMOTICZ_LOG=/var/log/domoticz.log	#domoticz log file
-DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly| seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
+DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
+DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly)'	#TODO: Hyundai/Kia plugin stops working in case of internet connection down
 
 count=0
 loglinesold=0
@@ -45,9 +46,16 @@ while [ 1 ]; do
 				# Check that domoticz_hyundai_kia plugin is running correctly
 				if [ -n "`tail -n $loglines ${DOMOTICZ_LOG} |egrep \"${DOMOTICZ_LOG_STRING}\"`" ]; then
 					logerrorscount=$(( $logerrorscount +1 ))
-					if [ $logerrorscount -ge 5 ]; then
-						echo "`date` : Restart domoticz because at least one plugin thread has ended"  >>/tmp/domoticzCheck.log
+					if [ $logerrorscount -ge 2 ]; then
+						echo "`date` : Restart domoticz because at more than 2 errors found"  >>/tmp/domoticzCheck.log
 						#echo "Restarting domoticz because log file contain the selected string"
+						service domoticz restart
+						logerrorscount=0
+					fi
+				elif [ -n "`tail -n $loglines ${DOMOTICZ_LOG} |egrep \"${DOMOTICZ_LOG_STRING2}\"`" ]; then
+					logerrorscount=$(( $logerrorscount +1 ))
+					if [ $logerrorscount -ge 10 ]; then
+						echo "`date` : Restart domoticz because at least one plugin thread has ended"  >>/tmp/domoticzCheck.log
 						service domoticz restart
 						logerrorscount=0
 					fi
@@ -57,7 +65,7 @@ while [ 1 ]; do
 						logerrorscount=$(( $logerrorscount -1 ))
 					fi
 				fi
-				echo "logerrorscount=$logerrorscount"
+				#echo "logerrorscount=$logerrorscount"
 			fi
 		fi
 	fi

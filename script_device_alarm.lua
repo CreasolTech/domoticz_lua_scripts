@@ -748,12 +748,12 @@ if (timeofday["Nighttime"]==true and alarmLevel==ALARM_AWAY and #ALARM_Lights>=2
 	end
 else
 	-- check that no light are left ON, after disabling ALARM_AWAY
-	if (uservariables['zAlarmLightOn1']~='') then
+	if (uservariables['zAlarmLightOn1']~=nil and uservariables['zAlarmLightOn1']~='') then
 		-- light remained on => turn off
 		commandArray[uservariables['zAlarmLightOn1']]='Off'
 		commandArray['Variable:zAlarmLightOn1']=''
 	end
-	if (uservariables['zAlarmLightOn2']~='') then
+	if (uservariables['zAlarmLightOn2']~='' and uservariables['zAlarmLightOn2']~='') then
 		-- light remained on => turn off
 		commandArray[uservariables['zAlarmLightOn2']]='Off'
 		commandArray['Variable:zAlarmLightOn2']=''

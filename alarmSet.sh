@@ -26,7 +26,7 @@ if [ $# -eq 1 ]; then
 #		4=ALARM_NIGHT
 #		8=ALARM_AWAY
 #		16=ALARM_TEST
-		if [ $alarmLevel==8 ]; then alarmLevel=2; fi	#DEBUG: avoid setting ALARM_AWAY
+#		if [ $alarmLevel==8 ]; then alarmLevel=2; fi	#DEBUG: avoid setting ALARM_AWAY
 		#set variable alarmLevel to the new level (Off, Day, Night, Away)
 		curl -s "${DOMOTICZ_URL}/json.htm?type=command&param=updateuservariable&vname=alarmLevel&vtype=0&vvalue=$alarmLevel"
 		#set variable alarmLevelNew to 1 to indicate the alarmLevel was changed

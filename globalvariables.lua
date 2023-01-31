@@ -1,6 +1,7 @@
 TELEGRAM_CHATID="-1234567890123"
 TELEGRAM_DEBUG_CHATID="12345678"
 TELEGRAM_TOKEN="1234567890:abcdefghijkakdfjak239rjas9djf9jdfaf"
+DOMOTICZ_URL="http://127.0.0.1:8080"	
 
 -- used by alarm_sendsnapshot.sh to send fetch videos from ipcam and send by Telegram
 IPCAM_USER="admin"
@@ -18,7 +19,6 @@ HEATPUMP_DEV=""         -- heat pump device On/Off state
 WINDGURU_USER=''        -- windguru station UID, if you want to publish your wind data on WindGuru website, else '' . 
 WINDGURU_PASS='' 		-- windguru station password
 
-DOMOTICZ_URL="http://127.0.0.1:8080"	-- Domoticz address
 -- Debug levels
 E_CRITICAL=0
 E_ERROR=1

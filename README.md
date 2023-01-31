@@ -128,6 +128,19 @@ Modules and components are developed by Creasol, https://www.creasol.it/domotics
 ![alt Domotic system using DomBus modules](https://images.creasol.it/AN_domoticz_example2.png "Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...")
 
 
+## Lua script that send a message to Telegram channel/group/user
+```
+    -- script_time_example.lua  : simple example script that write a message to Telegram channel/group if temperature is less than 5
+    commandArray={}
+    dofile "script/lua/globalvariables.lua" -- read a file with some variables, including Telegram API key and ChatID
+    dofile "script/lua/globalfunctions.lua" -- read a file with some functions
+    if (tonumber(otherdevices['Temp_outdoor']) < 5) then  -- check that Temp_outdoor temperature sensor is >=5 Celsius, or send a notice to Telegram
+    	telegramNotify("Low temperature: bring flowers inside")	-- send message by Telegram
+    end
+    return commandArray
+```
+
+
 ## Custom icons for Domoticz
 * domoticz_custom_icon_batteryMin.zip : battery level min (used for EVehicles)
 * domoticz_custom_icon_batteryMax.zip : battery level max (used for EVehicles)
