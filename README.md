@@ -142,5 +142,5 @@ Modules and components are developed by Creasol, https://www.creasol.it/domotics
 
 
 ## Custom icons for Domoticz
-* domoticz_custom_icon_batteryMin.zip : battery level min (used for EVehicles)
-* domoticz_custom_icon_batteryMax.zip : battery level max (used for EVehicles)
+* [batteryMin.zip](https://docs.creasol.it/domoticz_custom_icon_batteryMin.zip) : battery level min (used for EVehicles)
+* [batteryMax.zip](https://docs.creasol.it/domoticz_custom_icon_batteryMax.zip) : battery level max (used for EVehicles)
