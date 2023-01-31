@@ -128,7 +128,7 @@ Modules and components are developed by Creasol, https://www.creasol.it/domotics
 ![alt Domotic system using DomBus modules](https://images.creasol.it/AN_domoticz_example2.png "Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...")
 
 
-## Lua script that send a message to Telegram channel/group/user
+## Lua script that sends a message to Telegram channel/group/user
 ```
     -- script_time_example.lua  : simple example script that write a message to Telegram channel/group if temperature is less than 5
     commandArray={}
