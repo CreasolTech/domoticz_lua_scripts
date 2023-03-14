@@ -46,15 +46,15 @@ DEBUG_PREFIX=''
 -- ALARM Day => only Garage PIR is enabled => 0x00000001. To enable PIR_Garage (0x01) PIR_Stairway (0x08) and PIR_Bedroom (0x10) sum these items 
 --              (use an hex calculator) and write the result (0x00000019) in (ALARM Day,PIRs en) position
 -- ALARM Night => Garage+Kitchen+Living+Stairway enabled => 1+2+4+8=15 => 0x0f in hex => 0x0000000f
--- ALARM Away => All pirs enabled => 0xffffffff or 0x0000001f if only 5 pirs are installed
+-- ALARM Away => All PIRs enabled => 0xffffffff or 0x0000001f if only 5 pirs are installed
 -- 
 ALARMlist={
 -- AlarmLevel: Name, 			Tampers	    PIRs en.   	MCS1 en.    MCS2 en.  
-	[0x01]={'ALARM OFF',		0xffffffff, 0x00000000, 0x00000000, 0x00000000},	
-	[0x02]={'ALARM Day',		0xffffffff, 0x00000003, 0xffffffff, 0xffffffff}, 
-	[0x04]={'ALARM Night',		0xffffffff, 0x00000001,	0xffffffff, 0xffffffff}, 
-	[0x08]={'ALARM Away',  		0xffffffff, 0x00000001, 0xffffffff, 0xffffffff},
-	[0x10]={'ALARM Test',  		0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff},
+	[0x01]={'ALARM OFF',		0xffffffff, 0x00000000, 0x00000000, 0x00000000},	-- Tampers: all enabled; PIRS: all disabled; MCS: all disabled
+	[0x02]={'ALARM Day',		0xffffffff, 0x00000003, 0xffffffff, 0xffffffff}, 	-- Only PIR1 and PIR2 enabled, all MCS enabled
+	[0x04]={'ALARM Night',		0xffffffff, 0x00000001,	0xffffffff, 0xffffffff}, 	-- Only PIR1 enabled, all MCS enabled
+	[0x08]={'ALARM Away',  		0xffffffff, 0x00000001, 0xffffffff, 0xffffffff},	-- Only PIR1 enabled, all MCS enabled
+	[0x10]={'ALARM Test',  		0xffffffff, 0xffffffff, 0xffffffff, 0xffffffff},	-- All PIRs and MCSs are enabled
 }
 
 

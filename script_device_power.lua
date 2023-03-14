@@ -83,7 +83,7 @@ function setAvgPower() -- store in the user variable avgPower the building power
 		-- create a Domoticz variable, coded in json, within all variables used in this module
 		avgPower=currentPower
 		url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=avgPower&vtype=0&vvalue='..tostring(currentPower)
-		os.execute('curl "'..url..'"')
+		os.execute('curl -m 1 "'..url..'"')
 		-- initialize variable
 	else
 		avgPower=tonumber(uservariables['avgPower'])
@@ -102,7 +102,7 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			-- create a Domoticz variable, coded in json, within all variables used in this module
 			PowerInit()	-- initialize Power dictionary
 			url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=zPower&vtype=2&vvalue='
-			os.execute('curl "'..url..'"')
+			os.execute('curl -m 1 "'..url..'"')
 			-- initialize variable
 		else
 			Power=json.decode(uservariables['zPower'])
@@ -117,7 +117,7 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			log(E_INFO,"ERROR: creating variable zPowerAux")
 			PowerAux={}	-- initialize PowerAux dictionary
 			url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=zPowerAux&vtype=2&vvalue='
-			os.execute('curl "'..url..'"')
+			os.execute('curl -m 1 "'..url..'"')
 			-- initialize variable
 		else
 			PowerAux=json.decode(uservariables['zPowerAux'])
@@ -146,7 +146,7 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			-- create a Domoticz variable, coded in json, within all variables used in this module
 			EVSEInit()	-- initialize Power dictionary
 			url=DOMOTICZ_URL..'/json.htm?type=command&param=adduservariable&vname=zEVSE&vtype=2&vvalue='
-			os.execute('curl "'..url..'"')
+			os.execute('curl -m 1 "'..url..'"')
 			-- initialize variable
 		else
 			EVSE=json.decode(uservariables['zEVSE'])
@@ -722,8 +722,8 @@ if (currentPower>-20000 and currentPower<20000) then
 						else
 							coff=load("return FALSE")
 						end
-						if (peakPower() or prodPower<-200 or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
-							-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE
+						if (peakPower() or prodPower<-200 or (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') or (HP['Level']<v[devLevel] and HPmode~='Off') or cond==v[devCond+1] or coff()) then
+							-- no power from photovoltaic, or heat pump is below the minimum level defined in config, or condition is not satisified, or OFF condition returns TRUE or EVSE is on (vehicle in charging)
 							-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
 							deviceOff(v[1],PowerAux,'f'..n)
 							prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
@@ -734,11 +734,11 @@ if (currentPower>-20000 and currentPower<20000) then
 						-- device is OFF
 						log(E_DEBUG,prodPower..">="..v[4]+100 .." and "..cond.."~="..v[devCond+1].." and "..HP['Level']..">="..v[devLevel])
 						if (v[12]~='') then
-							con=load("return "..v[12])	-- expression that needs to turn off device
+							con=load("return "..v[12])	-- expression that needs to turn on device
 						else
 							con=load("return 1")
 						end
-						log(E_DEBUG,prodPower..">=".. (v[4]) .." and "..cond.."~="..v[devCond+1] .." and (".. HP['Level'] ..">=".. v[devLevel] .." or "..HPmode.."=='Off') and "..con())
+						log(E_DEBUG,prodPower..">=".. (v[4]) .." and "..cond.."~="..v[devCond+1] .." and (".. HP['Level'] ..">=".. v[devLevel] .." or "..HPmode.."=='Off') and "..tostring(con()))
 						if (peakPower()==false and prodPower>=(v[4]) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 							deviceOn(v[1],PowerAux,'f'..n)
 							prodPower=prodPower-v[4]  -- update prodPower
@@ -934,16 +934,5 @@ if (currentPower>-20000 and currentPower<20000) then
 	end
 end -- if currentPower is set
 --print("power end: "..os.clock()-startTime) --DEBUG
-if (commandArray~={}) then
-	log(E_DEBUG,"commandArray not empty")
-	-- commandArray[EVSE_SOC_MIN]="Set Level "..timeNow.sec --DEBUG
-	--[[
-	for k,v in pairs(commandArray) do
-		log(E_INFO,"commandArray["..k.."]="..tostring(v))
-	end
-	]]
-else
-	log(E_DEBUG,"commandArray={}")
-end
 
 return commandArray

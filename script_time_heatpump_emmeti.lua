@@ -44,6 +44,8 @@ function HPinit()
 	if (HP['HPout']==nil) then HP['HPout']=0 end	-- TEMPHPOUT_DEV temperature
 	if (HP['t']==nil) then HP['t']=0 end			-- when HP works at max level, the level can be reduced only if the system ask to reduce it for at least 5 minutes
 	if (HP['trc']==nil) then HP['trc']=0 end		-- disable the Valve_Radiant_Coil after 3 minutes from HeatPump going OFF
+	if (HP['OL']==nil) then HP['OL']=0 end			-- OverLimit: used to overheat or overcool
+	if (HP['mb']==nil) then HP['mb']=0 end			-- Heat pump modbus error
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -251,12 +253,15 @@ else
 		zone_weight=ZONE_WINTER_WEIGHT
 		levelMax=LEVEL_WINTER_MAX
 		-- diffMaxHigh is used to define when room temperature is distant from the set point
-	 	-- diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
+	 	-- diffMaxHigh=0.1	-- if diffMax<diffMaxHigh, temperature is near the set point
 		-- reduce diffMaxHigh if outdoor temperature is low (to use higher temperatures to heat the building)
-		diffMaxHigh=0.3+(HP['otmin']/40)+HP['otmax']/60
+		diffMaxHigh=(HP['otmin']/40)+HP['otmax']/160
+		if (diffMaxHigh<0) then diffMaxHigh=0 end
 
 		prodPower_incLevel=200		--minimum production power to increment level
-		spOffset=OVERHEAT
+		overlimitTemp=OVERHEAT		-- max overheat temperature
+		overlimitPower=500			-- minimum power to start overheating	
+		overlimitDiff=0.2			-- forced diffmax value
 	else
 		-- Cooling enabled
 		log(E_INFO,'================================= Summer ================================')
@@ -338,9 +343,16 @@ else
 		else
 			log(E_DEBUG,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..uservariables['TempSet_'..v[ZONE_NAME]]..'+'..temperatureOffset..' diff='..diff)
 		end
+		if (v[ZONE_TEMP_DEV]==TempZoneAlwaysOn) then
+			diffZoneAlwaysOn=diff	-- diff calculated on the zone that is always on
+		end
 	end
 	
 	log(E_INFO,'tempDerivate='..tempDerivate..' diffMax='..diffMax..' diffMaxHigh='..diffMaxHigh..' RHMax='..rhMax)
+	if (tempDerivate<0) then
+		diffMax=diffMax-tempDerivate*2	-- if room temperature is decreasing, in winter, it's better to start heater early
+		log(E_INFO,"Since tempDerivate<0 => increase diffMax to "..diffMax)
+	end
 
 
 	-- set outdoorTemperatureMin (reset every midnight)
@@ -379,6 +391,7 @@ else
 			-- high humidity: activate heatpump + ventilation + chiller (Level 1)
 			incLevel()
 		end
+
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (peakPower()) then
 			log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
@@ -386,6 +399,36 @@ else
 				diffMax=diffMax-0.2
 			else
 				diffMax=diffMax-0.2
+			end
+		elseif (timenow.hour<12 or timenow.hour>=20) then
+			-- in the morning, or in the night, no problem if the temperature is far from setpoint
+			diffMaxHigh=diffMaxHigh+0.2
+			log(E_INFO,"diffMaxHigh increased to "..diffMaxHigh)
+		end
+		if (diffMax<=diffMaxHigh and diffMax+overlimitTemp>0) then
+			if (HP['OL']==0 and prodPower>overlimitPower) then
+				diffMax=overlimitDiff
+				HP['OL']=1
+				log(E_INFO,"OverHeating/Cooling: force diffMax="..diffMax)
+			end
+		end
+		if (HP['OL']~=0) then
+			diffMax=overlimitDiff
+			if (prodPower>300 or (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='Off' and prodPower>0)) then
+				-- enough power
+				HP['OL']=1
+			else
+				-- not enough power
+				log(E_INFO,"Not enough power to keep overlimit ON")
+				diffMax=0.1
+				HP['OL']=HP['OL']+1
+				if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
+				log(E_DEBUG,"HP[OL]="..HP['OL'])
+				if (HP['OL']>15) then -- more than 3 minutes with insufficient power
+					-- stop overheating
+					HP['OL']=0
+					diffMax=0
+				end
 			end
 		end
 
@@ -407,8 +450,14 @@ else
 					-- make tempFluidLimit higher if rooms are cold
 					tempFluidLimitT=29+(10-HP['otmin'])/4+diffMax*15-tempDerivate*20 -- Tf=22+(10-outdoorTempMin)/4+deltaT*10+tempDerivate*10   otmin=-6, deltaT=0.4 => Tf=30+4+3.2=37.2°C
 					tempFluidLimit=HP['Limit']
+					if (timenow.hour>=11 and timenow.hour<16 and outdoorTemperature<5) then
+						-- very very cold
+						tempFluidLimitT=tempFluidLimit+3
+					end
 					if (monthnow<=3 or monthnow>=12) then
-						prodPower=prodPower+500	-- From Dec to Mar, set heat pump to use at least 500W, even during noon
+						if (HP['OL']==0 and timenow.hour>=10 and timenow.hour<=16) then
+							prodPower=prodPower+1000	-- From Dec to Mar, set heat pump to use at least 1000W during the day
+						end
 					end
 					if (prodPower>100) then --increase set point for outlet water
 						if (tempFluidLimit<tempHPout+2) then
@@ -418,7 +467,6 @@ else
 					elseif (prodPower<-300) then -- reduce setpoint for outlet water
 						tempFluidLimit=tempFluidLimit-math.abs(HP['Limit']-(tempHPout+0.6))/3
 					end
-
 					if (tempFluidLimit<tempFluidLimitT or inverterPower==0) then
 						tempFluidLimit=tempFluidLimitT	-- used computed fluid limit if greater than tempFluidLimit or during the night
 					end
@@ -441,7 +489,7 @@ else
 					-- winter
 					if (diffMax>diffMaxHigh or (diffMax>0 and (monthnow>=11 or monthnow<=2))) then
 						-- too much difference from set point => start heating even in case there is not enough power from PV
-						log(E_DEBUG,"Too far from setpoint => incLevel")
+						log(E_DEBUG,"Too far from setpoint, or setpoint not reached from Nov to Feb")
 						incLevel()
 					else
 						-- diffMax<diffMaxHigh: rooms almost in temperature
@@ -544,7 +592,7 @@ else
 		else
 			-- diffMax<=0 => All zones are in temperature!
 			-- if (HPmode == 'Winter' and HP['otmin']<4 and (tempDerivate*8)<diffMax) then
-			if (HPmode == 'Winter' and HP['otmin']<4 and (timenow.month<3 or timenow.month>10) and (tempDerivate*8)<diffMax) then
+			if (HPmode == 'Winter' and HP['otmin']<4 and (timenow.month<3 or timenow.month>10) and (tempDerivate*4)<diffZoneAlwaysOn) then
 				-- room temperature is decreasing: turn ON heat pump at minimum level, but only in the winter
 				log(E_INFO,"Room temperature is decreasing: start HeatPump with Level="..LEVEL_ON)
 				HP['Level']=LEVEL_ON
@@ -627,6 +675,12 @@ if (HPmode == 'Winter') then
 			compressorPerc=compressorPerc+prodPower/30
 		end
 	end
+	if (HP['OL']~=0) then
+		-- overlimit on : track power
+		compressorPerc=HP['CP']+prodPower/30
+		log(E_DEBUG,"OverLimit ON: compressorPerc="..compressorPerc.." HP[CP]="..HP['CP'].." deltaCP="..prodPower/30)
+		if (HP['Level']==0 and otherdevices[HPLevel]~='Off') then incLevel() end
+	end
 elseif (HPmode == 'Summer') then
 	devLevel=4
 	if (otherdevices[HPLevel]=='Dehum') then
@@ -645,8 +699,20 @@ if (HP['Level']>levelMax) then HP['Level']=levelMax end
 
 -- set compressor power
 if (compressorPerc>100) then compressorPerc=100 end
+if (compressorPerc<0) then compressorPerc=10 end
 compressorPerc=math.floor(compressorPerc)
-os.execute('mbpoll -m rtu -a 1 -b 9600 -r 16388 /dev/ttyUSBheatpump '..compressorPerc*10)	-- send compressor frequency percentage*10
+ret=os.execute('mbpoll -m rtu -a 1 -b 9600 -r 16388 /dev/ttyUSBheatpump '..compressorPerc*10)	-- send compressor frequency percentage*10
+if (ret ~= true) then 
+	HP['mb']=HP['mb']+1;
+	if (HP['mb']>=60) then
+		log(E_CRITICAL,"Modbus communication with heatpump does not work")
+		HP['mb']=0
+	else
+		log(E_ERROR,"mbpoll return "..tostring(ret))
+	end
+else
+	HP['mb']=0
+end
 
 for n,v in pairs(DEVlist) do
 	-- n=table index
@@ -741,9 +807,10 @@ end
 -- save variables
 diffMax=string.format("%.2f", diffMax)
 if (compressorPerc==nil) then compressorPerc=0 end
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..' DiffMax='..diffMax..'°C Compr/HP/Grid='..compressorPerc..'%/'..HPPower..'W/'..avgPower..'W SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
-
-commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..' Diff='..diffMax.."°C\n SP/Out/In="..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C Compressor='..compressorPerc..'%'
+diffMaxText=' diff='..diffMax..'°C'
+if (HP['OL']~=0) then diffMaxText=' OverLimit' end
+log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..diffMaxText..' Compr/HP/Grid='..compressorPerc..'%/'..HPPower..'W/'..avgPower..'W SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
+commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..diffMaxText.."\n SP/Out/In="..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C Compressor='..compressorPerc..'%'
 HP['Limit']=tempFluidLimit
 HP['CP']=compressorPerc
 commandArray['Variable:zHeatPump']=json.encode(HP)

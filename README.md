@@ -16,12 +16,16 @@ Description of some products made by our company (DomBusTH, DomBus12, DomBus23, 
 [![alt DomBusEVSE image](https://images.creasol.it/creDomBusEVSE_200.png "DomBusEVSE: electric vehicle charging module, to build a smart wallbox by yourself")](https://www.creasol.it/CreasolDomBusEVSE)
 [![alt DomBus32 image](https://images.creasol.it/creDomBus32_200.png "DomBus32: 3 relay outputs, 3 AC inputs, 5 I/Os")](https://www.creasol.it/CreasolDomBus32)
 [![alt DomBus34 image](https://images.creasol.it/creDomBus34_200.png "DomBus34: 2 relay outputs, 1 AC inputs, 2 I/Os, 1 Modbus to connect up to 4 energy meters")](https://www.creasol.it/CreasolDomBus34)
+[![alt DomBus36 image](https://images.creasol.it/creDomBus36_400.png "DomBus36: 12 relay outputs")](https://www.creasol.it/DomBus36)
+[![alt DomBusEVSE to make your smart wallbox for electric vehicle charging](https://images.creasol.it/creDomBusEVSE_adv1_400.png "DomBusEVSE can be used to make your Smart Wallbox to charge your electric car with load balancing")](https://www.creasol.it/DomBusEVSE)
 
 
 
 Some scripts require that you install the dkjson package, with the command __apt install lua-dkjson__
 
-All scripts are free to use, with absolute no warranty. Use them at your own risk.
+All scripts are free to use, with absolute no warranty. Use them at your own risk. 
+
+All global variables and functions are stored in the files globalvariables.lua and globalfunctions.lua.
 
 
 ### Support or Contact
@@ -40,6 +44,20 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
   3. Emergency lights: turn ON some LED devices in case of power outage, and turn off when power is restored
   4. Show on DomBusTH LEDs red and green the produced/consumed power: red LED flashes 1..N times if power consumption is greater than 1..N kW; 
      green LED flashes 1..M times if photovoltaic produces up to 1..M kW 
+
+## Script to control the EMMETI Mirai heat pump in a smart way
+Files: script_time_heatpump_emmeti.lua and config_heatpump_emmeti.lua
+
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
+This script is designed for radiant systems: 
+* it measures the temperature in each room, computes a derivative of a temperature to states if the house is warming or not (PID control) and
+regulates the heat pump power to satisfy the warming/cooling needs for the best comfort.
+* it's possible to define peak hours where power consumption should be limited, to give your contribution for electricity grid stabilization
+* if photovoltaic or wind generator is available, try to consume most energy from it, improving own consumption
+* for each room it's possible to define a period where the set-temperature can be reduced (in Winter, or increased in Summera)
+[![alt Optimized management of Heat Pump EMMETI Mirai](https://images.creasol.it/heatpump_emmeti_modbus_solar_power_tracking.png "Heat pump optimized management with this script")](https://www.creasol.it/DomBusTH)
+
 
 ## Script for heat pump and gas heater
 Files: script_time_heatpump.lua  and  heatpump_conf.lua
@@ -102,8 +120,14 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 Simple script that every minute fetch data, by http, from Fronius solar inverter.
 
 
-## DomBus modules for Domoticz and Home Assistant
+## DomBus modules for Domoticz, Home Assistant, Node-RED, OpenHAB, ...
 **DomBus are domotic modules, optimized for very low power consumption and high reliability, with inputs, outputs and sensors** (temperature, relative humidity, distance).
+
+All modules are available with *DomBus protocol*, a special multi-master protocol that permits to exchange commands between modules as KNX does. *DomBus* protocol is well supported
+by *Domoticz*, and have a limited support on *Home Assistant*.
+
+Some modules are also available with *Modbus protocol*, a standard master-slave protocol where the controller have to poll slaves module to get their state, and that is compatible 
+with almost any smart home controller (Home Assistant, OpenHAB, ioBroker, node-RED, and much more).
 
 DomBus modules can be connected together by **wired bus**, using a **common alarm shielded cable within 4 wires**:
 * 2x0.22mm² wires for data
@@ -117,7 +141,8 @@ Actually the following modules are supported:
 * [DomBus23](https://www.creasol.it/CreasolDomBus23): **2 N.O. relay outputs, 1 mosfet output** (for 12-24V LED dimming or other DC loads), **2 analog outputs 0-10V, 2 GPIO, 2 low voltage opto-inputs (5-40V), 1 230Vac opto input**
 * [DomBus31](https://www.creasol.it/CreasolDomBus31): DIN rail module, very low power consumption module with **6 N.O. relay outputs + 2 N.O./N.C. relay outputs**
 * [DomBus32](https://www.creasol.it/DomBus32): DIN rail module with **3 relay outputs, 3 AC inputs, 5 I/Os**
-* [DomBus32](https://www.creasol.it/DomBus34): DIN rail module with **2 relay outputs, 1 AC inputs, 2 I/Os, 1 Modbus to connect up to 4 energy meters**
+* [DomBus34](https://www.creasol.it/DomBus34): DIN rail module with **2 relay outputs, 1 AC inputs, 2 I/Os, 1 Modbus to connect up to 4 energy meters**
+* [DomBus36](https://www.creasol.it/DomBus36): DIN rail module with **12 relay outputs**
 * [DomBusEVSE](https://www.creasol.it/creDomBusEVSE): **electric vehicle charging** module, to build a **Smart WALLBOX** by yourself
 
 Modules and components are developed by Creasol, https://www.creasol.it/domotics

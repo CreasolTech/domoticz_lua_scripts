@@ -104,7 +104,7 @@ function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 				if (timeNow>ZA['SirDis']) then
 					-- send a short pulse to internal sirens: enable siren ON using JSON, and use commandArray to disable siren.
 					url=DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=On'
-					os.execute('curl "'..url..'"')
+					os.execute('curl -m 1 "'..url..'"')
 					cmd='Off'
 					urloff=urloff..DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=Off|'
 				end
@@ -119,7 +119,7 @@ function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 	end
 	if (alarmLevel==ALARM_DAY) then
 		for url in string.gmatch(urloff, "([^|]+)") do
-			os.execute('curl "'..url..'"')
+			os.execute('curl -m 1 "'..url..'"')
 		end
 	end
 	--[[

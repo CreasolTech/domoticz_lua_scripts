@@ -12,10 +12,11 @@
 --   globalfunctions.lua
 -- Put this script and the 2 configuration files on DOMOTICZDIR/scripts/lua
 
-VENTILATION_START=150	-- Start ventilation 120 minutes after SunRise
+VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winter)
+VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
-VENTILATION_TIME_ADD=30	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
+VENTILATION_TIME_ADD=120	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 
 
@@ -78,6 +79,12 @@ else
 end
 
 -- at start time, reset ventilation time (ventilation active for TIME minutes) and set auto=0
+if (timeNow.month>=10 or timeNow.month<=5) then
+	VENTILATION_START=VENTILATION_START_WINTER
+else
+	VENTILATION_START=VENTILATION_START_SUMMER
+end
+
 if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	RWC['time']=0
 	RWC['maxtime']=VENTILATION_TIME
@@ -96,8 +103,8 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				RWC['maxtime']=RWC['time']
 			end
 			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
---		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime']) then -- do not check wind direction
-		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<210 or windSpeed>20)) then -- during the Winter, avoid smoke from South and West
+		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime']) then -- do not check wind direction
+--		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<210 or windSpeed>20)) then -- during the Winter, avoid smoke from South and West
 --		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection>90 and windDirection<270)) then  -- avoid smoke from the North
 			-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
@@ -171,7 +178,7 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 		log(E_DEBUG,"WindGuru: create hash with the command "..windgurucmd)
 		local fd=assert(io.popen(windgurucmd, 'r'))
 		local windguruhash=assert(fd:read('*a')):match("(%w+)")
-		windgurucmd='curl -s \'http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
+		windgurucmd='curl -m 1 -s \'http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
                     '&wind_avg='..windSpeedkn..'&wind_max='..windGustkn..'&wind_direction='..windDirection
 		if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
 			-- temperature from weather station value should be in the format "12.20;42;0;1017;0"
