@@ -405,7 +405,7 @@ else
 			if ((timenow.month>=11 or timenow.month<3)) then
 				diffMax=diffMax-0.2
 			else
-				diffMax=diffMax-0.2
+				diffMax=diffMax-0.6
 			end
 		elseif (timenow.hour<12 or timenow.hour>=20) then
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
@@ -803,15 +803,24 @@ elseif (HP['Level']==0) then
 elseif (HPmode=='Summer') then
 	-- Summer, and Level~=0
 	if (HP['Level']>=1) then
-		if (tempHPout<=18) then	-- activate chiller only if fluid temperature from heat pump is cold enough
-			deviceOn(VENTILATION_COIL_DEV,HP,'DC')
-			deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
-		elseif (tempHPout>=20) then
+		if (tempHPout<=17) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+			if (prodPower>800) then deviceOn(VENTILATION_COIL_DEV,HP,'DC') end
+			if (prodPower>1800) then deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') end
+		elseif (tempHPout>=18) then
 			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
 			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 		end
 	else		
 		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+	end
+	if (prodPower<0) then 
+		if (otherdevices[VENTILATION_DEHUMIDIFY_DEV]=="On") then
+			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') 
+		elseif (otherdevices[VENTILATION_COIL_DEV]=="On") then
+			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
+		else
+			decLevel();
+		end
 	end
 end
 

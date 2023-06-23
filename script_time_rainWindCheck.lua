@@ -19,8 +19,11 @@ VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD=90	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 
+-- This section is used to enable one or two fans in the attic for cooling, heating or drying.
+-- A virtual "Selector Switch" named as ATTIC_SELECTOR_DEV variable should be create, with state "Off", "On", "Winter", "Summer" used to enable these function modes
 ATTIC_FAN_DEV="Fan_Attic"	-- Fan used for cooling the attic during the Summer. "" = not used
 ATTIC_FAN2_DEV=""		-- Aspirator used for cooling the attic during the Summer. "" = not used
+ATTIC_SELECTOR_DEV="Attic_Fans_Active"
 ATTIC_TEMP_DEV="Temp_Attic"
 ATTIC_DELTA_START=8
 ATTIC_DELTA_STOP=5
@@ -210,18 +213,27 @@ end
 
 -- If ATTIC_FAN_DEV is defined, manage cooling the attic during the Summer or heat during the Winter
 if (ATTIC_FAN_DEV~="") then
-	if (timeNow.month>=5 and timeNow.month<=9) then
-		if (otherdevices[ATTIC_FAN_DEV]=="Off") then
-			-- Fans are off
-			if (outdoorTemp+ATTIC_DELTA_START<tonumber(otherdevices[ATTIC_TEMP_DEV]) and (minutesNow>300 or tonumber(uservariables["alarmLevel"])<=2)) then
-				deviceOn(ATTIC_FAN_DEV,"af1")
-				if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
-			end
-		else
-			-- Fans are On !!
-			if (outdoorTemp+ATTIC_DELTA_STOP>tonumber(otherdevices[ATTIC_TEMP_DEV]) or (minutesNow<300 and tonumber(uservariables["alarmLevel"])>2)) then
-				deviceOff(ATTIC_FAN_DEV,"af1")
-				if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+	print("AtticFansActive="..otherdevices["Attic_Fans_Active"])
+	if (otherdevices["Attic_Fans_Active"]=="Off") then
+		deviceOff(ATTIC_FAN_DEV,"af1")
+		if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+	elseif (otherdevices["Attic_Fans_Active"]=="On") then
+		deviceOn(ATTIC_FAN_DEV,"af1")
+		if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
+	elseif (otherdevices["Attic_Fans_Active"]=="Summer") then
+		if (timeNow.month>=5 and timeNow.month<=9 and otherdevices["Attic_Fans_Active"]=="Summer") then
+			if (otherdevices[ATTIC_FAN_DEV]=="Off") then
+				-- Fans are off
+				if (outdoorTemp+ATTIC_DELTA_START<tonumber(otherdevices[ATTIC_TEMP_DEV]) and (minutesNow>300 or tonumber(uservariables["alarmLevel"])<=2)) then
+					deviceOn(ATTIC_FAN_DEV,"af1")
+					if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
+				end
+			else
+				-- Fans are On !!
+				if (outdoorTemp+ATTIC_DELTA_STOP>tonumber(otherdevices[ATTIC_TEMP_DEV]) or (minutesNow<300 and tonumber(uservariables["alarmLevel"])>2)) then
+					deviceOff(ATTIC_FAN_DEV,"af1")
+					if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+				end
 			end
 		end
 	end

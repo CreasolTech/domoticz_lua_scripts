@@ -47,7 +47,7 @@ for n,v in pairs(ROOMS) do
 		end
 		if (FA[n]~=nil) then
 			-- room average value already set
-			if (tempNow>FA[n]+v[3]) then
+			if (tempNow>FA[n]+v[3] or tempNow>=v[4]) then
 				-- fire alarm!
 				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 				FA[n]=(FA[n]+tempNow)/2	-- real average between avg and the new temperature
