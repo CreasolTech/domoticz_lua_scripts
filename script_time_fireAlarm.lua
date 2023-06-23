@@ -15,6 +15,11 @@ end
 DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
 DEBUG_PREFIX="FireAlarm: "
+SIREN_DEV="SIREN_Internal"	-- In case of alarm, activate the internal siren
+SIREN_TIME="10"				-- activation time in seconds
+SIREN2_DEV="Light_Camera"	-- Second siren (maybe a light)
+SIREN2_TIME="600"			-- Activation time for the second siren/light
+
 commandArray={}
 
 json=require("dkjson")
@@ -46,6 +51,12 @@ for n,v in pairs(ROOMS) do
 				-- fire alarm!
 				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 				FA[n]=(FA[n]+tempNow)/2	-- real average between avg and the new temperature
+				if (SIREN_DEV~="") then
+					commandArray[SIREN_DEV]="ON FOR "..SIREN_TIME.." SECONDS"
+				end
+				if (SIREN2_DEV~="") then
+					commandArray[SIREN2_DEV]="ON FOR "..SIREN2_TIME.." SECONDS"
+				end
 			else
 				log(E_DEBUG,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 			end
@@ -59,6 +70,7 @@ end
 
 commandArray['Variable:zFireAlarm']=json.encode(FA)
 log(E_DEBUG,"Set zFireAlarm="..commandArray['Variable:zFireAlarm'])
+
 return commandArray
 
 

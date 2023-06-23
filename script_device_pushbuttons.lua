@@ -164,6 +164,33 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 
+	--[[
+	if (devName=='BagnoPT_Touch') then	-- PULSANTE_Bagno = device name for pushbutton switch in the bathroom
+		-- short pulse => toggles VMC
+		-- 2s pulse => enable ricircolo acqua calda sanitaria
+		PBinit(devName)	-- read zPushButton variable into PB[] and add this devName if not exists 
+		if (devValue=='Off') then
+			-- pushbutton released
+			-- compute pulse length
+			pulseLen=timeElapsed(devName)
+			log(E_INFO,"EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
+			if (pulseLen<=1) then
+				-- short pulse, toggle ventilation ON/OFF
+				if (otherdevices['VMC_Rinnovo']=='Off') then		-- VMC_Rinnovo = device name for controlled mechanical ventilation
+					commandArray['VMC_Rinnovo']='On'
+				else
+					commandArray['VMC_Rinnovo']='Off'
+				end
+			elseif (pulseLen>=2 and pulseLen<=3) then
+				commandArray['Ricircolo ACS']='On FOR 25 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+			end
+		else
+			-- devValue==On => store the current date/time in PB array
+			PB[devName]=timeNow 
+		end
+	end
+	--]]
+
 	-- pushbutton in the bathroom: 
 	-- short pulse => toggles ON/OFF the electric heater
 	-- 2 seconds pulse => starts hot-water recirculating pump
@@ -196,7 +223,7 @@ for devName,devValue in pairs(devicechanged) do
 			PB[devName]=timeNow 
 		end
 	end
-	
+
 	-- now, update LED status to show the ventilation machine status
 	if (devName:sub(1,4)=='VMC_') then
 		-- one ventilation device has changed
@@ -209,6 +236,9 @@ for devName,devValue in pairs(devicechanged) do
 		if (otherdevices_svalues['Led_Cucina_White']~=tostring(ledVMCstatus)) then		-- led device on DomBusTH , configured in Selection mode with levels 0..3
 			print("ledVMCstatus=="..tostring(ledVMCstatus).." otherdevices_svalues[Led_Cucina_White]="..otherdevices_svalues['Led_Cucina_White'])
 			commandArray['Led_Cucina_White']="Set Level "..tostring(ledVMCstatus)
+		end
+		if (otherdevices_svalues['BagnoPT_LedW']~=tostring(ledVMCstatus)) then		-- led device on DomBusTH , configured in Selection mode with levels 0..3
+			commandArray['BagnoPT_LedW']="Set Level "..tostring(ledVMCstatus)
 		end
 	end
 end

@@ -16,9 +16,14 @@ VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winte
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
-VENTILATION_TIME_ADD=120	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
+VENTILATION_TIME_ADD=90	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 
+ATTIC_FAN_DEV="Fan_Attic"	-- Fan used for cooling the attic during the Summer. "" = not used
+ATTIC_FAN2_DEV=""		-- Aspirator used for cooling the attic during the Summer. "" = not used
+ATTIC_TEMP_DEV="Temp_Attic"
+ATTIC_DELTA_START=8
+ATTIC_DELTA_STOP=5
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
@@ -56,6 +61,17 @@ for w1, w2, w3, w4 in otherdevices[WINDDEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;
 	windSpeed=tonumber(w3)
 	windGust=tonumber(w4)
 	break
+end
+
+if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
+	-- temperature from weather station value should be in the format "12.20;42;0;1017;0"
+	--log(E_DEBUG,"WindGuru: TEMPERATURE_OUTDOOR="..otherdevices[TEMPERATURE_OUTDOOR_DEV])
+	for w1, w2, w3, w4 in otherdevices[TEMPERATURE_OUTDOOR_DEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;]+).*") do
+		outdoorTemp=tonumber(w1)
+		outdoorRH=tonumber(w2)
+		outdoorBaro=tonumber(w4)
+		break
+	end
 end
 
 -- If it's raining more than 8mm/hour, disable the 230V socket in the garden
@@ -180,17 +196,7 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 		local windguruhash=assert(fd:read('*a')):match("(%w+)")
 		windgurucmd='curl -m 1 -s \'http://www.windguru.cz/upload/api.php?uid='..WINDGURU_USER..'&salt='..windgurusalt..'&hash='..windguruhash..
                     '&wind_avg='..windSpeedkn..'&wind_max='..windGustkn..'&wind_direction='..windDirection
-		if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
-			-- temperature from weather station value should be in the format "12.20;42;0;1017;0"
-			--log(E_DEBUG,"WindGuru: TEMPERATURE_OUTDOOR="..otherdevices[TEMPERATURE_OUTDOOR_DEV])
-			for w1, w2, w3, w4 in otherdevices[TEMPERATURE_OUTDOOR_DEV]:gmatch("([^;]+);([^;]+);([^;]+);([^;]+).*") do
-				temp=tonumber(w1)
-				rh=tonumber(w2)
-				baro=tonumber(w4)
-				break
-			end
-			windgurucmd=windgurucmd..'&temperature='..temp..'&rh='..rh
-		end
+		windgurucmd=windgurucmd..'&temperature='..outdoorTemp..'&rh='..outdoorRH
 		windgurucmd=windgurucmd..'\''
 		log(E_DEBUG,"WindGuru cmd is "..windgurucmd)
 		-- ret=os.execute(windgurucmd)
@@ -200,6 +206,28 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 		RWC['wind']=otherdevices[WINDDEV]	-- save current wind state
 	end
 end
+
+
+-- If ATTIC_FAN_DEV is defined, manage cooling the attic during the Summer or heat during the Winter
+if (ATTIC_FAN_DEV~="") then
+	if (timeNow.month>=5 and timeNow.month<=9) then
+		if (otherdevices[ATTIC_FAN_DEV]=="Off") then
+			-- Fans are off
+			if (outdoorTemp+ATTIC_DELTA_START<tonumber(otherdevices[ATTIC_TEMP_DEV]) and (minutesNow>300 or tonumber(uservariables["alarmLevel"])<=2)) then
+				deviceOn(ATTIC_FAN_DEV,"af1")
+				if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
+			end
+		else
+			-- Fans are On !!
+			if (outdoorTemp+ATTIC_DELTA_STOP>tonumber(otherdevices[ATTIC_TEMP_DEV]) or (minutesNow<300 and tonumber(uservariables["alarmLevel"])>2)) then
+				deviceOff(ATTIC_FAN_DEV,"af1")
+				if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+			end
+		end
+	end
+end
+			
+
 commandArray['Variable:zRainWindCheck']=json.encode(RWC)
 return commandArray
 

@@ -11,6 +11,9 @@
 -- Please assure that
 -- 127.0.0.1 is enabled to connect without authentication, in Domoticz -> Configuration -> Settings -> Local Networks (e.g. 127.0.0.1;192.168.1.*)
 --
+-- Emmeti Mirai heatpump: verify that:
+-- * 16436 = 140 (14°C) = minimum fluid temperature for cooling using the radiant system
+--
 commandArray={}
 dofile "/home/pi/domoticz/scripts/lua/config_heatpump_emmeti.lua"
 
@@ -262,6 +265,7 @@ else
 		overlimitTemp=OVERHEAT		-- max overheat temperature
 		overlimitPower=500			-- minimum power to start overheating	
 		overlimitDiff=0.2			-- forced diffmax value
+		modbusFluidTempBase=16421	-- register address for the fluid temperature
 	else
 		-- Cooling enabled
 		log(E_INFO,'================================= Summer ================================')
@@ -273,7 +277,10 @@ else
 		-- cooling enabled only if consumed power is < 200 Watt. It's tolerated to consume more than 200W only if room temperature > setpoint + 2°C
 		diffMaxHigh=2		-- if diffMax<diffMaxHigh, temperature is near the set point
 		prodPower_incLevel=300		--minimum production power to increment level
-		spOffset=OVERCOOL
+		overlimitTemp=OVERCOOL		-- max overheat temperature
+		overlimitPower=2500			-- minimum power to start overheating	
+		overlimitDiff=0.2			-- forced diffmax value
+		modbusFluidTempBase=16428	-- register address for the fluid temperature
 	end
 	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
@@ -404,30 +411,44 @@ else
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
 			diffMaxHigh=diffMaxHigh+0.2
 			log(E_INFO,"diffMaxHigh increased to "..diffMaxHigh)
+		else
+			-- during the day, not in peak hours
+			if (prodPower>2000) then
+				log(E_INFO,"Extra power => extra overlimit")
+				overlimitTemp=overlimitTemp+0.3
+			end
 		end
 		if (diffMax<=diffMaxHigh and diffMax+overlimitTemp>0) then
-			if (HP['OL']==0 and prodPower>overlimitPower) then
+			if (HP['OL']==0 and prodPower>overlimitPower and peakPower()==false and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
+				log(E_INFO,"OverHeating/Cooling: diffMax="..diffMax.."=>"..overlimitDiff)
 				diffMax=overlimitDiff
 				HP['OL']=1
-				log(E_INFO,"OverHeating/Cooling: force diffMax="..diffMax)
 			end
 		end
 		if (HP['OL']~=0) then
-			diffMax=overlimitDiff
-			if (prodPower>300 or (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='Off' and prodPower>0)) then
-				-- enough power
-				HP['OL']=1
+			-- overlimit is ON
+			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or peakPower()) then
+				-- EV is charging => disable overlimit now
+				HP['OL']=0
+				diffMax=0
 			else
-				-- not enough power
-				log(E_INFO,"Not enough power to keep overlimit ON")
-				diffMax=0.1
-				HP['OL']=HP['OL']+1
-				if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
-				log(E_DEBUG,"HP[OL]="..HP['OL'])
-				if (HP['OL']>15) then -- more than 3 minutes with insufficient power
-					-- stop overheating
-					HP['OL']=0
-					diffMax=0
+				-- EV not charging
+				if (diffMax+overlimitTemp>0 and prodPower>0) then
+					-- enough power
+					HP['OL']=1
+					diffMax=diffMax+overlimitDiff
+				else
+					-- not enough power
+					log(E_INFO,"Not enough power to keep overlimit ON, or reached max temperature")
+					diffMax=0.1
+					HP['OL']=HP['OL']+1
+					if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
+					log(E_DEBUG,"HP[OL]="..HP['OL'])
+					if (HP['OL']>15) then -- more than 3 minutes with insufficient power
+						-- stop overheating
+						HP['OL']=0
+						diffMax=0
+					end
 				end
 			end
 		end
@@ -475,7 +496,7 @@ else
 				elseif (HPmode == 'Summer') then
 					-- during the Summer
 					-- make tempFluidLimit lower if rooms are warm
-					tempFluidLimit=18
+					tempFluidLimit=16
 					-- if outdoor temperature > 28 => tempFluidLimit-=(outdoorTemperature-28)/3
 					if (outdoorTemperature>28) then
 						tempFluidLimit=tempFluidLimit-(outdoorTemperature-28)/3
@@ -675,12 +696,6 @@ if (HPmode == 'Winter') then
 			compressorPerc=compressorPerc+prodPower/30
 		end
 	end
-	if (HP['OL']~=0) then
-		-- overlimit on : track power
-		compressorPerc=HP['CP']+prodPower/30
-		log(E_DEBUG,"OverLimit ON: compressorPerc="..compressorPerc.." HP[CP]="..HP['CP'].." deltaCP="..prodPower/30)
-		if (HP['Level']==0 and otherdevices[HPLevel]~='Off') then incLevel() end
-	end
 elseif (HPmode == 'Summer') then
 	devLevel=4
 	if (otherdevices[HPLevel]=='Dehum') then
@@ -692,12 +707,26 @@ elseif (HPmode == 'Summer') then
 			levelMax=LEVEL_SUMMER_MAX_NIGHT
 		end
 	end
+	compressorPerc=HP['CP']	-- fetch current compressorPerc and modify it to meet the prodPower
+	compressorPerc=compressorPerc+(prodPower-500)/30	-- try have 500W exported
+	if (compressorPerc<5) then
+		-- no enough power: set heat pump to minimum, and disable VMC DEHUMIDIFY if enabled
+		compressorPerc=5
+		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+	end
 else
 	devLevel=2	-- default: Winter
 end	
+if (HP['OL']~=0) then
+	-- overlimit on : track power
+	compressorPerc=HP['CP']+(prodPower-500)/30	-- keep 500W free
+	log(E_DEBUG,"OverLimit ON: compressorPerc="..compressorPerc.." HP[CP]="..HP['CP'].." deltaCP="..prodPower/30)
+	if (HP['Level']==0 and otherdevices[HPLevel]~='Off') then incLevel() end
+end
 if (HP['Level']>levelMax) then HP['Level']=levelMax end
 
 -- set compressor power
+if (compressorPerc==nil) then compressorPerc=10 end
 if (compressorPerc>100) then compressorPerc=100 end
 if (compressorPerc<0) then compressorPerc=10 end
 compressorPerc=math.floor(compressorPerc)
@@ -737,7 +766,7 @@ updateValves() -- enable/disable the valve for each zone
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 
-if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=2) or GasHeaterOn==1) then
+if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1) or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
 		HP['trc']=0
@@ -775,8 +804,10 @@ elseif (HPmode=='Summer') then
 	-- Summer, and Level~=0
 	if (HP['Level']>=1) then
 		if (tempHPout<=18) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+			deviceOn(VENTILATION_COIL_DEV,HP,'DC')
 			deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 		elseif (tempHPout>=20) then
+			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
 			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 		end
 	else		
@@ -801,12 +832,11 @@ if (HP['Level']>0) then
 		end
 	end
 	heatpumptemp=string.format("%.0f", tempFluidLimit*10)
-	os.execute('mbpoll -m rtu -a 1 -b 9600 -r 16421 /dev/ttyUSBheatpump '..heatpumptemp..' '..heatpumptemp)	-- send setpoint using Modbus
+	os.execute('mbpoll -m rtu -a 1 -b 9600 -r '..modbusFluidTempBase..' /dev/ttyUSBheatpump '..heatpumptemp..' '..heatpumptemp)	-- send setpoint using Modbus
 end
 
 -- save variables
 diffMax=string.format("%.2f", diffMax)
-if (compressorPerc==nil) then compressorPerc=0 end
 diffMaxText=' diff='..diffMax..'°C'
 if (HP['OL']~=0) then diffMaxText=' OverLimit' end
 log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..diffMaxText..' Compr/HP/Grid='..compressorPerc..'%/'..HPPower..'W/'..avgPower..'W SP/Out/In='..string.format("%.1f", tempFluidLimit)..'/'..tempHPout..'/'..tempHPin..'°C OutdoorTemp now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')

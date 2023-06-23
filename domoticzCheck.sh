@@ -69,6 +69,33 @@ while [ 1 ]; do
 			fi
 		fi
 	fi
+	# check that /var/log partition is not full
+	df /var/log>/dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		# partition exists
+		perc=`df /var/log|tail -n 1|awk '{print $5}'|tr -d %`
+		if [ $perc -gt 80 ];then
+			# Erase the 5 greater files
+			cd /var/log
+			for file in `ls -Sr /var/log |tail -n 5`; do > $file; done
+			#restart domoticz to flush logfile
+			service rsyslog restart
+			service domoticz restart
+		fi
+	fi
+	# check that /tmp partition is not full
+	df /tmp>/dev/null 2>&1
+	if [ $? -eq 0 ]; then
+		# partition exists
+		perc=`df /tmp|tail -n 1|awk '{print $5}'|tr -d %`
+		if [ $perc -gt 80 ];then
+			# Erase the 10 greater files
+			cd /tmp
+			rm `ls -Sr /tmp |tail -n 10`
+			# now restart domoticz to free the domoticz.log file and let domoticz write a new log
+			service domoticz restart
+		fi
+	fi
 	sleep 60
 done
 
