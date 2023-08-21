@@ -84,6 +84,8 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 LUA script that load the rooms information from config_fireAlarm.lua and for any room
 if Temperature > averageTemperature + deltaT => fire alarm detected => send notification by Telegram
 
+More information available at https://www.creasol.it/en/support/domotics-home-automation-and-diy/fire-alarm-detection-with-domoticz-home-automation-system
+
 
 ## Script that check rain and wind
 File: script_time_rainCheck.lua
