@@ -100,6 +100,7 @@ PIRlist={
 	-- Name, Delay before activating external sirens
 	{'PIR_Garage',15},
 	{'PIR_SudEst',15},
+	{'PIR_GarageVerde',15},
 }
 
 -- Tampers name must start with TAMPER prefix

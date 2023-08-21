@@ -16,9 +16,11 @@ DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
 DEBUG_PREFIX="FireAlarm: "
 SIREN_DEV="SIREN_Internal"	-- In case of alarm, activate the internal siren
-SIREN_TIME="10"				-- activation time in seconds
-SIREN2_DEV="Light_Camera"	-- Second siren (maybe a light)
+SIREN_TIME="1"				-- activation time in seconds
+SIREN_TIME_NIGHT="5"		-- activation time in seconds if night alarm is ON (during the night)
+SIREN2_DEV="Light_Camera"	-- Second siren (maybe a light) to be activated during the night if NIGHT alarm is ON.
 SIREN2_TIME="600"			-- Activation time for the second siren/light
+
 
 commandArray={}
 
@@ -52,10 +54,16 @@ for n,v in pairs(ROOMS) do
 				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 				FA[n]=(FA[n]+tempNow)/2	-- real average between avg and the new temperature
 				if (SIREN_DEV~="") then
-					commandArray[SIREN_DEV]="ON FOR "..SIREN_TIME.." SECONDS"
+					commandArray[SIREN_DEV]="On FOR "..SIREN_TIME.." SECONDS"
 				end
-				if (SIREN2_DEV~="") then
-					commandArray[SIREN2_DEV]="ON FOR "..SIREN2_TIME.." SECONDS"
+				if (uservariables['alarmLevel']~=nil and uservariables['alarmLevel']==4) then
+					-- alarm Night active => longer internal siren, and also activate the bedroom light
+					if (SIREN_DEV~="") then
+						commandArray[SIREN_DEV]="On FOR "..SIREN_TIME_NIGHT.." SECONDS"
+					end
+					if (SIREN2_DEV~="") then
+						commandArray[SIREN2_DEV]="On FOR "..SIREN2_TIME.." SECONDS"
+					end
 				end
 			else
 				log(E_DEBUG,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)

@@ -352,7 +352,7 @@ end
 function grabVideoSE()  -- grab a video when PIR_SE has been activated
 	ZA['PIR_SEn']=ZA['PIR_SEn']+1	-- increment variable that count the number of videos grabbed
 	ZA['PIR_SEs']=timeNow			-- set the time of the current video
-	os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_SudEst 2>&1 >/tmp/alarm_sendsnapshot_sud.log &")
+	os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_GarageVerde 2>&1 >/tmp/alarm_sendsnapshot_sud.log &")
 end
 
 --[[
@@ -551,7 +551,7 @@ for devName,devValue in pairs(devicechanged) do
 					if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
 				end
 			end
-			if (devName=='PIR_SudEst') then
+			if (devName=='PIR_GarageVerde') then
 				-- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
 				for str in otherdevices['Rain']:gmatch("[^;]+") do
 					rainRate=tonumber(str);
@@ -564,7 +564,8 @@ for devName,devValue in pairs(devicechanged) do
 					windGust=tonumber(w4)
 					break
 				end
-				if (rainRate<1*40 and windSpeed<4*10) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s)
+				if (rainRate<1*40 and windSpeed<4*10 and devValue=='Off' and timedifference(otherdevices_lastupdate['PIR_GarageVerde'])>=5) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s) and consider PIR ON always if PIR stays ON for more than 5s
+					log(E_DEBUG, "PIR with pulse length > 5s, no rain, no wind")
 					if (timeofday['Nighttime'] and alarmLevel<=ALARM_DAY) then
 						-- do not turn ON lights if alarm away or night is active
 						if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
@@ -579,15 +580,15 @@ for devName,devValue in pairs(devicechanged) do
 						if (diffTime>=30 and ZA['PIR_SEn']<2) then
 							-- at least 30s, needed to grab a video
 							grabVideoSE()
-						elseif (timedifference(otherdevices_lastupdate['PIR_SudEst'])>1800) then
+						elseif (timedifference(otherdevices_lastupdate['PIR_GarageVerde'])>1800) then
 							ZA['PIR_SEn']=0
 							grabVideoSE()
 						end
 					end
 					-- activate display, but only if alarm is not active (it's useless to activate display if nobody is home)
 					if (otherdevices['Display_Lab_12V']~='On' and alarmLevel<ALARM_NIGHT) then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
-				else
-					log(E_DEBUG,"PIR ignored because it's winding (".. windSpeed/10 .." m/s) or raining (".. rainRate/10 .." mm/h)")
+				--else
+				--	log(E_DEBUG,"PIR ignored because it's winding (".. windSpeed/10 .." m/s) or raining (".. rainRate/10 .." mm/h) or pulse length<5s")
 				end
 			end
 		end		

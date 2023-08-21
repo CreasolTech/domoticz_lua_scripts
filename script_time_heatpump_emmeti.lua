@@ -81,12 +81,12 @@ function updateValves()
 		end
 		-- update commandArray only when valve status have changed
 		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and valveStateTemp[v[ZONE_VALVE] ]~=nil and otherdevices[v[ZONE_VALVE] ]~=valveStateTemp[v[ZONE_VALVE] ]) then
-			if (valveStateTemp[v[ZONE_VALVE] ] == 'On') then
+			if (valveStateTemp[v[ZONE_VALVE] ] == 'On' and otherdevices[HPLevel]~='Dehum') then
 				deviceOn(v[ZONE_VALVE],HP,'v'..n)
 			else
 				deviceOff(v[ZONE_VALVE],HP,'v'..n)
 			end
-			log(E_INFO,'**** Valve for zone '..v[ZONE_NAME]..' changed to '..valveStateTemp[ v[ZONE_VALVE] ])
+			-- log(E_DEBUG,'**** Valve for zone '..v[ZONE_NAME]..' changed to '..valveStateTemp[ v[ZONE_VALVE] ])
 		end
 
 	end 
@@ -221,17 +221,11 @@ if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	levelOld=LEVEL_OFF	
 	heatingCoolingEnabled=0
 	levelMax=0
-elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]=='Dehum') then
-	-- Dehumidification selected
-	if (HPmode ~= 'Summer') then
-		-- cannot dry in Winter mode => cancel dehumidification level
-		commandArray[HPLevel]='Off'
-	else
-		-- Activate heat pump to the minimum level, to send cold water to the MVHR (ventilation)
-		log(E_INFO,'==================== HeatPump - Dehumidification ======================')
-		HP['Level']=2
-	end
-elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]~='Auto') then
+elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]=='Dehum' and HPmode~='Summer') then
+	-- Dehumidification selected in Winter mode
+	-- cannot dry in Winter mode => cancel dehumidification level
+	commandArray[HPLevel]='Off'
+elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]<'Auto') then
 	-- Heat pump Level is forced by the selector switch
 	log(E_INFO,'==================== HeatPump - Level forced to '..otherdevices[HPLevel]..' ======================')
 	levelMax=tonumber(otherdevices[HPLevel])
@@ -244,6 +238,7 @@ elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]~='
 		tempFluidLimit=15
 	end
 else
+	-- Auto or Dehum
 	heatingCoolingEnabled=1
 	-- Heating or cooling is enabled
 	-- initialize some variables, depending by the HPmode variable)
@@ -265,10 +260,10 @@ else
 		overlimitTemp=OVERHEAT		-- max overheat temperature
 		overlimitPower=500			-- minimum power to start overheating	
 		overlimitDiff=0.2			-- forced diffmax value
-		modbusFluidTempBase=16421	-- register address for the fluid temperature
 	else
 		-- Cooling enabled
 		log(E_INFO,'================================= Summer ================================')
+		if (otherdevices[HPLevel]=='Dehum') then log(E_INFO,'==================== HeatPump - Dehumidification ======================') end
 		zone_start=ZONE_SUMMER_START	-- offset on zones[] structure
 		zone_stop=ZONE_SUMMER_STOP
 		zone_offset=ZONE_SUMMER_OFFSET
@@ -280,7 +275,7 @@ else
 		overlimitTemp=OVERCOOL		-- max overheat temperature
 		overlimitPower=2500			-- minimum power to start overheating	
 		overlimitDiff=0.2			-- forced diffmax value
-		modbusFluidTempBase=16428	-- register address for the fluid temperature
+		tempFluidLimit=16			-- default temperature
 	end
 	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
@@ -405,7 +400,7 @@ else
 			if ((timenow.month>=11 or timenow.month<3)) then
 				diffMax=diffMax-0.2
 			else
-				diffMax=diffMax-0.6
+				diffMax=diffMax-0.3
 			end
 		elseif (timenow.hour<12 or timenow.hour>=20) then
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
@@ -698,14 +693,9 @@ if (HPmode == 'Winter') then
 	end
 elseif (HPmode == 'Summer') then
 	devLevel=4
-	if (otherdevices[HPLevel]=='Dehum') then
-		-- Dehumidification -> set HP to the minimum level
-		levelMax=1
-	else
-		levelMax=LEVEL_SUMMER_MAX
-		if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
-			levelMax=LEVEL_SUMMER_MAX_NIGHT
-		end
+	levelMax=LEVEL_SUMMER_MAX
+	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
+		levelMax=LEVEL_SUMMER_MAX_NIGHT
 	end
 	compressorPerc=HP['CP']	-- fetch current compressorPerc and modify it to meet the prodPower
 	compressorPerc=compressorPerc+(prodPower-500)/30	-- try have 500W exported
@@ -766,7 +756,7 @@ updateValves() -- enable/disable the valve for each zone
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 
-if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1) or GasHeaterOn==1) then
+if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1 and otherdevices[HPLevel]~='Dehum') or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
 		HP['trc']=0
@@ -778,26 +768,7 @@ else
 	end
 end
 
-
-if (otherdevices[HPLevel]=='Dehum') then
-    -- force dehumidification only
-	if (otherdevices['Valve_Radiant_Coil']~="Off") then commandArray['Valve_Radiant_Coil']="Off"	end -- disable radiant => use only MVHR or fan coils
-	tempHPout=tonumber(otherdevices[TEMPHPOUT_DEV])
-	if (tempHPout>TEMP_SUMMER_HP_MIN) then	
-		log(E_INFO,"Set heatpump to fancoil mode")
-		commandArray['HeatPump_Fancoil']='On'
-	else
-		log(E_INFO,"Set heatpump to radiant mode")
-		commandArray['HeatPump_Fancoil']='Off'
-	end
-	deviceOn(VENTILATION_COIL_DEV,HP,'DC')
-	if (tempHPout<=18) then	-- activate chiller only if fluid temperature from heat pump is cold enough
-		deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
-	elseif (tempHPout>=20) then
-		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
-	end
-	if (tempHPout>=18) then commandArray['HeatPump_HalfPower']='Off' end
-elseif (HP['Level']==0) then
+if (HP['Level']==0) then
 	deviceOff(VENTILATION_COIL_DEV,HP,'DC')
 	deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 elseif (HPmode=='Summer') then
@@ -807,8 +778,11 @@ elseif (HPmode=='Summer') then
 			if (prodPower>800) then deviceOn(VENTILATION_COIL_DEV,HP,'DC') end
 			if (prodPower>1800) then deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') end
 		elseif (tempHPout>=18) then
-			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
+			if (otherdevices[HPLevel]~='Dehum') then deviceOff(VENTILATION_COIL_DEV,HP,'DC') end
 			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
+		end
+		if (otherdevices[HPLevel]=='Dehum') then
+			deviceOn(VENTILATION_COIL_DEV,HP,'DC')	-- ventilation coil always ON, because radiant system is OFF
 		end
 	else		
 		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
@@ -816,8 +790,6 @@ elseif (HPmode=='Summer') then
 	if (prodPower<0) then 
 		if (otherdevices[VENTILATION_DEHUMIDIFY_DEV]=="On") then
 			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') 
-		elseif (otherdevices[VENTILATION_COIL_DEV]=="On") then
-			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
 		else
 			decLevel();
 		end
@@ -841,7 +813,8 @@ if (HP['Level']>0) then
 		end
 	end
 	heatpumptemp=string.format("%.0f", tempFluidLimit*10)
-	os.execute('mbpoll -m rtu -a 1 -b 9600 -r '..modbusFluidTempBase..' /dev/ttyUSBheatpump '..heatpumptemp..' '..heatpumptemp)	-- send setpoint using Modbus
+	os.execute('mbpoll -m rtu -a 1 -b 9600 -r '..MODBUSFLUIDTEMPBASEWINTER..' /dev/ttyUSBheatpump '..heatpumptemp..' '..heatpumptemp)	-- send setpoint using Modbus
+	os.execute('mbpoll -m rtu -a 1 -b 9600 -r '..MODBUSFLUIDTEMPBASESUMMER..' /dev/ttyUSBheatpump '..heatpumptemp..' '..heatpumptemp)	-- send setpoint using Modbus
 end
 
 -- save variables

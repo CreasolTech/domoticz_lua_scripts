@@ -6,11 +6,15 @@
 -- * mechanical ventilation: activates it only when there is enough wind and not from certain directions (to prevent stove smoke from the neighboor to enter into the house).
 -- * if both heat pump and ventilation are active, also activates the hydronic coil inside the ventilation machine (to pre-heat/cool the air)
 -- * if WindGuru station id and password are available, export wind/temperature/humidity data to WindGuru website
+-- * fan/aspirator in the attic, used for cooling the attic in the Summer, or dehumidifing it, or heat in the Winter
+-- * Control the power outlet connected to a mosquitto killer
 
 -- This script needs also to access two configuration files:
 --   globalvariables.lua
 --   globalfunctions.lua
 -- Put this script and the 2 configuration files on DOMOTICZDIR/scripts/lua
+
+RAINTIMEOUT=30					-- Wait 30 minutes after rainCounter stops incrementing and rainRate returns to zero, before determining that the rain is over.
 
 VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winter)
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
@@ -21,12 +25,15 @@ VENTILATION_TIME_ADD=90	-- additional time (in minutes) when ventilation is forc
 
 -- This section is used to enable one or two fans in the attic for cooling, heating or drying.
 -- A virtual "Selector Switch" named as ATTIC_SELECTOR_DEV variable should be create, with state "Off", "On", "Winter", "Summer" used to enable these function modes
-ATTIC_FAN_DEV="Fan_Attic"	-- Fan used for cooling the attic during the Summer. "" = not used
-ATTIC_FAN2_DEV=""		-- Aspirator used for cooling the attic during the Summer. "" = not used
-ATTIC_SELECTOR_DEV="Attic_Fans_Active"
-ATTIC_TEMP_DEV="Temp_Attic"
+ATTIC_FAN_DEV="Fan_Attic"	-- Fan used for cooling the attic during the Summer. "" = not used.  DomBus36 in the attic, port 7
+ATTIC_FAN2_DEV=""		-- Aspirator used for cooling the attic during the Summer. "" = not used. DomBus36 in the attic, port 8
+ATTIC_SELECTOR_DEV="Attic_Fans_Active" -- Virtual selector switch to be created manually with levels "Off", "On", "Winter", "Summer"
+ATTIC_TEMP_DEV="Temp_Attic"	-- Temperature sensor in the attic. DomBusTH in the attic.
 ATTIC_DELTA_START=8
 ATTIC_DELTA_STOP=5
+
+MOSQUITO_DEV="Socket_GarageVerde"	-- power outlet used to supply the mosquito killer ("" if not used) - DomBus31 in the laundry
+MOSQUITTO_SELECTOR_DEV="Mosquitto_Killer_Active" -- Virtual selector switch to be created manually with levels "Off" and "On"
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
@@ -50,9 +57,16 @@ minutesNow = timeNow.min + timeNow.hour * 60  -- number of minutes since midnigh
 json=require("dkjson")
 log(E_DEBUG,"====================== RainWindCheck ============================")
 -- extract the rain rate (otherdevices[dev]="rainRate;rainCounter")
+i=0
+-- otherdevices[RAINDEV]="0.0;21451.1")
 for str in otherdevices[RAINDEV]:gmatch("[^;]+") do
-	rainRate=tonumber(str)/40;
-	break
+	if (i==0) then 
+		rainRate=tonumber(str)/40
+	else
+		rainCounter=tonumber(str)
+		break;
+	end
+	i=i+1
 end
 
 -- extract wind direction and speed
@@ -84,17 +98,32 @@ if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
 	commandArray[dev]='Off'
 end
 
-
 -- check ventilation: enabled since 2 hours after sunrise, for 6 hours, and stop by 30 minutes before sunset
 -- During the winter, ventilation is disabled when wind from W or S to avoid smell from combustion smoke from adjacent buildings using wood heaters.
+
+checkVar('raining',0,0)	-- create uservariable "raining" if it does not exist
+raining=uservariables['raining'] -- 0 => not raining; 30, 29, 28, 27, ... => it's raining
+
 if (uservariables['zRainWindCheck'] == nil) then
 	-- initialize variable
 	RWCinit()    --init RWC table
 	-- create a Domoticz variable, coded in json, within all variables used in this module
 	checkVar('zRainWindCheck',2,json.encode(RWC))
+	RWC['rc']=rainCounter
 else
     RWC=json.decode(uservariables['zRainWindCheck'])
 	RWCinit()   -- check that all variables in RWC table are initialized
+end
+
+--print("rainRate="..rainRate.." rainCounter="..rainCounter.." raining="..raining)
+if (rainCounter~=RWC['rc'] or rainRate>0) then
+	-- it's raining
+	raining=RAINTIMEOUT;
+	RWC['rc']=rainCounter
+else
+	if (raining>0) then
+		raining=raining-1
+	end
 end
 
 -- at start time, reset ventilation time (ventilation active for TIME minutes) and set auto=0
@@ -213,33 +242,52 @@ end
 
 -- If ATTIC_FAN_DEV is defined, manage cooling the attic during the Summer or heat during the Winter
 if (ATTIC_FAN_DEV~="") then
-	print("AtticFansActive="..otherdevices["Attic_Fans_Active"])
+	atticTemp=tonumber(otherdevices[ATTIC_TEMP_DEV])
 	if (otherdevices["Attic_Fans_Active"]=="Off") then
-		deviceOff(ATTIC_FAN_DEV,"af1")
-		if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+		deviceOff(ATTIC_FAN_DEV,RWC,"af1")
+		if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,RWC,"af2") end
 	elseif (otherdevices["Attic_Fans_Active"]=="On") then
-		deviceOn(ATTIC_FAN_DEV,"af1")
-		if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
+		deviceOn(ATTIC_FAN_DEV,RWC,"af1")
+		if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,RWC,"af2") end
 	elseif (otherdevices["Attic_Fans_Active"]=="Summer") then
 		if (timeNow.month>=5 and timeNow.month<=9 and otherdevices["Attic_Fans_Active"]=="Summer") then
 			if (otherdevices[ATTIC_FAN_DEV]=="Off") then
 				-- Fans are off
-				if (outdoorTemp+ATTIC_DELTA_START<tonumber(otherdevices[ATTIC_TEMP_DEV]) and (minutesNow>300 or tonumber(uservariables["alarmLevel"])<=2)) then
-					deviceOn(ATTIC_FAN_DEV,"af1")
-					if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,"af2") end
+				-- if (atticTemp>26 and outdoorTemp+ATTIC_DELTA_START<atticTemp and (minutesNow>120 or tonumber(uservariables["alarmLevel"])<=2)) then
+				if (atticTemp>28 and outdoorTemp+ATTIC_DELTA_START<atticTemp and (minutesNow%20)<15 and raining==0) then
+					deviceOn(ATTIC_FAN_DEV,RWC,"af1")
+					if (ATTIC_FAN2_DEV~="") then deviceOn(ATTIC_FAN2_DEV,RWC,"af2") end
 				end
 			else
 				-- Fans are On !!
-				if (outdoorTemp+ATTIC_DELTA_STOP>tonumber(otherdevices[ATTIC_TEMP_DEV]) or (minutesNow<300 and tonumber(uservariables["alarmLevel"])>2)) then
-					deviceOff(ATTIC_FAN_DEV,"af1")
-					if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,"af2") end
+				-- if (atticTemp<26 or outdoorTemp+ATTIC_DELTA_STOP>atticTemp or (minutesNow<240 and tonumber(uservariables["alarmLevel"])>2)) then
+				if (atticTemp<27 or outdoorTemp+ATTIC_DELTA_STOP>atticTemp or (minutesNow%20>=15) or raining~=0) then
+					deviceOff(ATTIC_FAN_DEV,RWC,"af1")
+					if (ATTIC_FAN2_DEV~="") then deviceOff(ATTIC_FAN2_DEV,RWC,"af2") end
 				end
 			end
 		end
 	end
 end
 			
+if (MOSQUITO_DEV~="") then
+	-- Manage the mosquito killer: turn on in the evening (if not raining) and turn off in case of rain or in the morning
+	if (otherdevices[MOSQUITO_DEV]=='Off') then
+		-- moquito killer not supplied
+		if (otherdevices[MOSQUITTO_SELECTOR_DEV]~='Off' and (minutesNow>=timeofday['SunsetInMinutes']-120 or minutesNow<timeofday['SunriseInMinutes']) and raining==0) then
+			deviceOn(MOSQUITO_DEV,RWC,"MK")
+		end
+	else
+		-- mosquitoes killer already On
+		if (otherdevices[MOSQUITTO_SELECTOR_DEV]=='Off' or (minutesNow<timeofday['SunsetInMinutes']-120 and minutesNow>=timeofday['SunriseInMinutes']) or raining~=0) then
+			deviceOff(MOSQUITO_DEV,RWC,"MK")
+		end
+	end
+end
 
+
+
+commandArray['Variable:raining']=tostring(raining)
 commandArray['Variable:zRainWindCheck']=json.encode(RWC)
 return commandArray
 

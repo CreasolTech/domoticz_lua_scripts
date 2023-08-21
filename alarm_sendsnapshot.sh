@@ -7,7 +7,7 @@
 #Syntax: scripts/lua/alarm_sendsnapshot.sh IP_Camera1 IP_Camera2 Message
 #for example: scripts/lua/alarm_sendsnapshot.sh 192.168.3.205 192.168.3.206 PIR_Garage
 
-DEBUG=1		# Set to 0 to disable verbose output to the log, or 1 to enable verbosity
+DEBUG=0		# Set to 0 to disable verbose output to the log, or 1 to enable verbosity
 
 function log () {
 	echo "`date '+%H:%M:%S.%N'` $*" >>/tmp/alarm_sendsnapshot.log
