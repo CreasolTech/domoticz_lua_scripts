@@ -16,12 +16,15 @@
 
 RAINTIMEOUT=30					-- Wait 30 minutes after rainCounter stops incrementing and rainRate returns to zero, before determining that the rain is over.
 
-VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winter)
+VENTILATION_START_WINTER=212	-- Start ventilation 3.5 hours after SunRise (Winter)
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
-VENTILATION_TIME_ADD=90	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
+VENTILATION_TIME_ADD=40	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
+--VENTILATION_START_NIGHT=210	-- start at night to renew air in the bedroom. Set to 1400 or more to disable
+VENTILATION_START_NIGHT=1400
+VENTILATION_STOP_NIGHT=270
 
 -- This section is used to enable one or two fans in the attic for cooling, heating or drying.
 -- A virtual "Selector Switch" named as ATTIC_SELECTOR_DEV variable should be create, with state "Off", "On", "Winter", "Summer" used to enable these function modes
@@ -34,6 +37,10 @@ ATTIC_DELTA_STOP=5
 
 MOSQUITO_DEV="Socket_GarageVerde"	-- power outlet used to supply the mosquito killer ("" if not used) - DomBus31 in the laundry
 MOSQUITTO_SELECTOR_DEV="Mosquitto_Killer_Active" -- Virtual selector switch to be created manually with levels "Off" and "On"
+MOSQUITTO_START1=timeofday['SunsetInMinutes']-90	-- start at Sunset - 2h
+MOSQUITTO_STOP1=timeofday['SunsetInMinutes']-30		-- stop at Sunset - 30m
+MOSQUITTO_START2=2		-- start at Midnight
+MOSQUITTO_STOP2=120		-- stop at 120=02:00
 
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
@@ -43,12 +50,13 @@ function RWCinit()
 	if (RWC==nil) then RWC={} end
 	if (RWC['time']==nil) then RWC['time']=0 end	-- minutes the RWC was ON, today
 	if (RWC['maxtime']==nil) then RWC['maxtime']=VENTILATION_TIME end	-- minutes the CMV was ON, today
+	if (RWC['maxtime']<0) then RWC['maxtime']=0 end
 	if (RWC['auto']==nil) then RWC['auto']=0 end	-- 1 of CMV has been started automatically by this script
 	if (RWC['wind']==nil) then RWC['wind']='' end
 end
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainWindCheck: "
 commandArray={}
 
@@ -92,7 +100,7 @@ if (TEMPERATURE_OUTDOOR_DEV~=nil and TEMPERATURE_OUTDOOR_DEV~='') then
 end
 
 -- If it's raining more than 8mm/hour, disable the 230V socket in the garden
-dev='Garden_Socket' -- socket device
+dev='Socket_Garden' -- socket device
 if (otherdevices[dev]=='On' and rainRate>8) then -- more than 8mm/h
 	log(E_WARNING,"Device "..dev.." is On while raining (rainRate="..rainRate..") => turn OFF")
 	commandArray[dev]='Off'
@@ -150,6 +158,14 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 				-- already worked for a sufficient time: disable it
 				RWC['maxtime']=RWC['time']
 			end
+		elseif (minutesNow==VENTILATION_START_NIGHT) then
+			log(E_INFO,"Ventilation ON in the night: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
+			RWC['auto']=1	-- ON
+			RWC['time']=0
+			RWC['maxtime']=VENTILATION_STOP_NIGHT-VENTILATION_START_NIGHT
+			deviceOn(VENTILATION_DEV,RWC,'d1')
+			commandArray[VENTILATION_ATT_DEV]="On"
+
 			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
 		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime']) then -- do not check wind direction
 --		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<210 or windSpeed>20)) then -- during the Winter, avoid smoke from South and West
@@ -177,12 +193,12 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 			RWC['d1']='a'	-- set device so it can be disabled automatically by deviceOff
 			RWC['auto']=1
 		elseif (RWC['auto']==1 or RWC['auto']==3) then
-			if (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
+			if (minutesNow==VENTILATION_STOP_NIGHT or (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP))) then
 				log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..RWC['time'].." minutes")
 				RWC['auto']=0
-				-- commandArray[VENTILATION_DEV]='Off'
 				deviceOff(VENTILATION_DEV,RWC,'d1')
-				-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
+				commandArray[VENTILATION_ATT_DEV]='Off'
+			-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
 			elseif (RWC['time']>=RWC['maxtime']) then -- do not check for windDirection (smoke)
 --			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then -- during the Winter
 --			elseif (RWC['time']>=RWC['maxtime'] or ((windDirection>210 or windDirection<45))) then -- avoid Smoke from Belluno
@@ -195,7 +211,7 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 	end
 end
 
-if (otherdevices['HeatPump_Mode']=='Winter') then 
+if (false and otherdevices['HeatPump_Mode']=='Winter') then -- IGNORE VMC COIL ACTIVATION
 	-- in Winter, activate the ventilation water coil when heat pump and ventilation are ON (to heat the air from ventilation)
 	if ((otherdevices[VENTILATION_COIL_DEV]~=nil)) then
 		-- ventilation coil exists: 
@@ -274,12 +290,12 @@ if (MOSQUITO_DEV~="") then
 	-- Manage the mosquito killer: turn on in the evening (if not raining) and turn off in case of rain or in the morning
 	if (otherdevices[MOSQUITO_DEV]=='Off') then
 		-- moquito killer not supplied
-		if (otherdevices[MOSQUITTO_SELECTOR_DEV]~='Off' and (minutesNow>=timeofday['SunsetInMinutes']-120 or minutesNow<timeofday['SunriseInMinutes']) and raining==0) then
+		if (otherdevices[MOSQUITTO_SELECTOR_DEV]~='Off' and (minutesNow==MOSQUITTO_START1 or minutesNow==MOSQUITTO_START2) and raining==0) then
 			deviceOn(MOSQUITO_DEV,RWC,"MK")
 		end
 	else
 		-- mosquitoes killer already On
-		if (otherdevices[MOSQUITTO_SELECTOR_DEV]=='Off' or (minutesNow<timeofday['SunsetInMinutes']-120 and minutesNow>=timeofday['SunriseInMinutes']) or raining~=0) then
+		if (otherdevices[MOSQUITTO_SELECTOR_DEV]=='Off' or (minutesNow==MOSQUITTO_STOP1 or minutesNow==MOSQUITTO_STOP2) or raining~=0) then
 			deviceOff(MOSQUITO_DEV,RWC,"MK")
 		end
 	end

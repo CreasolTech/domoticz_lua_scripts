@@ -256,8 +256,7 @@ getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (
 
 for devName,devValue in pairs(devicechanged) do
 	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
-	if (devName=='PowerMeter') then
-		log(E_INFO,"PowerMeter!!")
+	if (devName==PowerMeter) then
 		if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
 			powerValue=getPowerValue(devValue)
 			for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do

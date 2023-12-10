@@ -1,5 +1,5 @@
 #!/bin/bash
-. /home/pi/domoticz/scripts/lua/globalvariables.lua # some variables common to all scripts
+. /home/pi/domoticz/scripts/lua/globalvariables.lua 2>/dev/null # some variables common to all scripts
 
 function printsyntax () {
 	echo "Syntax: $0 chatid	text [picture]"

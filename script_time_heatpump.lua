@@ -186,30 +186,35 @@ else
 end
 prodPower=0-avgPower
 
+hplevel='Off'	-- Off, Auto, Dehum
+hpforced=0		-- if 1, force heat pump working even if no energy from solar 
+
 if (HPmode ~= 'Winter' and HPmode ~= 'Summer') then
 	-- Both heating and cooling are disabled
 	HP['Level']=LEVEL_OFF
 	levelOld=LEVEL_OFF	
 	heatingCoolingEnabled=0
-	levelMax=0
-elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]=='Dehum') then
-	-- Dehumidification selected
-	if (HPmode ~= 'Summer') then
-		-- cannot dry in Winter mode => cancel dehumidification level
-		commandArray[HPLevel]='Off'
-	else
-		-- Activate heat pump to the minimum level, to send cold water to the MVHR (ventilation)
-		log(E_INFO,'==================== HeatPump - Dehumidification ======================')
-		HP['Level']=2
-	end
-elseif (HPLevel~=nil and otherdevices[HPLevel]~=nil and otherdevices[HPLevel]~='Auto') then
-	-- Heat pump Level is forced by the selector switch
-	log(E_INFO,'==================== HeatPump - Level forced to '..otherdevices[HPLevel]..' ======================')
-	levelMax=tonumber(otherdevices[HPLevel])
-	if (levelMax==nil) then levelMax=0 end	-- HPLevel selector switch was set to "Off" or to a non-numeric value
-	HP['Level']=levelMax
-	levelOld=levelMax
 else
+	-- Winter or Summer
+	if (HPLevel==nil or otherdevices[HPLevel]==nil) then
+		hplevel='Off'
+	elseif (otherdevices[HPLevel]=='Night') then
+		hplevel='Auto'
+		hpforced=1
+	elseif (otherdevices[HPLevel]=='NightDehum') then
+		hplevel='Dehum'
+		hpforced=1
+	end
+	if (HPmode~='Summer' and hplevel='Dehum') then
+		-- cannot dry in Winter mode => cancel dehumidification level
+		hplevel='Off'
+		commandArray[HPLevel]='Off'
+	end
+end
+
+-- hplevel='Off', 'Auto' or 'Dehum'
+-- hpforced=0 (normal) or 1 (force ON always if not enough power is available from photovoltaic)
+if (hplevel~⁼'Off') then
 	heatingCoolingEnabled=1
 	-- Heating or cooling is enabled
 	-- initialize some variables, depending by the HPmode variable)
@@ -220,11 +225,6 @@ else
 		zone_stop=ZONE_WINTER_STOP
 		zone_offset=ZONE_WINTER_OFFSET
 		zone_weight=ZONE_WINTER_WEIGHT
-		levelMax=LEVEL_WINTER_MAX-1 -- max value for HP['Level']
-		if ((prodPower>800 or avgPower>800) or (HP['Level']==LEVEL_WINTER_MAX and (avgPower<200 or instPower<200))) then
-			-- extra energy from photovoltaic => enable full power
-			levelMax=LEVEL_WINTER_MAX
-		end
 		-- diffMaxHigh is used to define when room temperature is distant from the set point
 	 	-- diffMaxHigh=0.3	-- if diffMax<diffMaxHigh, temperature is near the set point
 		-- reduce diffMaxHigh if outdoor temperature is low (to use higher temperatures to heat the building)
@@ -241,7 +241,6 @@ else
 		zone_stop=ZONE_SUMMER_STOP
 		zone_offset=ZONE_SUMMER_OFFSET
 		zone_weight=ZONE_SUMMER_WEIGHT
-		levelMax=LEVEL_SUMMER_MAX -- max value for HP['Level']
 		-- cooling enabled only if consumed power is < 200 Watt. It's tolerated to consume more than 200W only if room temperature > setpoint + 2°C
 		diffMaxHigh=2		-- if diffMax<diffMaxHigh, temperature is near the set point
 		diffMaxHigh_power=200	-- if usage power > diffMaxHigh_power, Level will be decreased in case of comfort temperature (diffMax<diffMaxHigh)

@@ -149,9 +149,9 @@ for devName,devValue in pairs(devicechanged) do
 				else
 					commandArray['VMC_Rinnovo']='Off'
 				end
-			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 25 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
-			elseif (pulseLen>=5 and pulseLen<=7) then
+--			elseif (pulseLen>=2 and pulseLen<=3) then
+--				commandArray['Ricircolo ACS']='On FOR 25 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+			elseif (pulseLen>=2 and pulseLen<=7) then
 				if (otherdevices['Bagno_Scaldasalviette']~='Off') then -- Bagno_Scaldasalviette = device name for electric heater
 					commandArray['Bagno_Scaldasalviette']='Off'
 				else

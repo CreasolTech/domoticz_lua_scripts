@@ -47,6 +47,7 @@ dofile "scripts/lua/config_alarm.lua"
 -- Function called when alarm is activated in Day mode
 function alarmDayOn()
 	commandArray['Group:AlarmDay']='On'
+	commandArray['Power Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -57,6 +58,7 @@ end
 -- Function called when alarm is disactivated
 function alarmDayOff()
 	commandArray['Group:AlarmDay']='Off'
+	commandArray['Power Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -67,6 +69,7 @@ end
 -- Function called when alarm is activated in Night mode
 function alarmNightOn()
 	commandArray['Group:AlarmNight']='On'
+	commandArray['Power Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -77,6 +80,25 @@ end
 -- Function called when alarm is disactivated
 function alarmNightOff()
 	commandArray['Group:AlarmNight']='Off'
+	commandArray['Power Apricancello']='On'
+	for i,ledDev in pairs(LEDS_OFF) do
+		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
+			commandArray[ledDev]='On FOR 3 SECONDS'
+		end
+	end
+end
+
+-- Function called when alarm is activated in Away mode
+function alarmAwayOn()
+	commandArray['Power_Apricancello']='Off AFTER 120 SECONDS'
+	lightsCheck()
+	lightsNext()
+end
+
+-- Function called when alarm is disactivated
+function alarmAwayOff()
+	commandArray['Group:AlarmNight']='Off'
+	commandArray['Power Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -455,13 +477,14 @@ if (uservariables['alarmLevelNew']~=0) then
 	if (alarmLevel>=ALARM_DAY) then
 		checkDoorsWindowsBlindsOpen()  -- check if any MCS is open
 		if (alarmLevel==ALARM_AWAY) then
-			-- turn light on in few minutes
-			lightsCheck()
-			lightsNext()
+			alarmAwayOn()
+		elseif (alarmLevel==ALARM_NIGHT) then
+			commandArray["Power_Apricancello"]="Off"
 		end
 	else
 		-- alarmLevel==LEVEL_OFF or LEVEL_TEST
 		log(E_WARNING,"Alarm Disabled")
+		commandArray["Power_Apricancello"]="On"
 		if (otherdevices_scenesgroups['AlarmDay']~='Off') then
 			commandArray["Scene:AlarmDay"]='Off'
 		end
@@ -564,12 +587,12 @@ for devName,devValue in pairs(devicechanged) do
 					windGust=tonumber(w4)
 					break
 				end
-				if (rainRate<1*40 and windSpeed<4*10 and devValue=='Off' and timedifference(otherdevices_lastupdate['PIR_GarageVerde'])>=5) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s) and consider PIR ON always if PIR stays ON for more than 5s
-					log(E_DEBUG, "PIR with pulse length > 5s, no rain, no wind")
+				-- if (rainRate<1*40 and windSpeed<4*10 and devValue=='Off' and timedifference(otherdevices_lastupdate['PIR_GarageVerde'])>=3) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s); also, PIR must be ON for at least 3s
+				if (rainRate<1*40 and windSpeed<4*10 and devValue=='On' and timedifference(otherdevices_lastupdate['PIR_GarageVerde'])>=180) then -- ignore PIR if it's raining (1mm/h) or winding (4m/s) 
 					if (timeofday['Nighttime'] and alarmLevel<=ALARM_DAY) then
 						-- do not turn ON lights if alarm away or night is active
 						if (otherdevices['LightOut2']~='On') then commandArray['LightOut2']='On FOR 120 SECONDS' end
-						if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
+						-- if (otherdevices['LightOut3']~='On') then commandArray['LightOut3']='On FOR 121 SECONDS' end
 					end
 					-- grab video only if South port has not been opened
 					if (alarmLevel>=ALARM_DAY and otherdevices['MCS_Sud_Porta']~='Open' and timedifference(otherdevices_lastupdate['MCS_Sud_Porta'])>600 ) then

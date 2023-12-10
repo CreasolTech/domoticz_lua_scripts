@@ -67,7 +67,7 @@ end
 function deviceOn(devName,table,index)
     -- if devname is off => turn it on
     if (otherdevices[devName]~='On') then
-        log(E_DEBUG,"deviceOn("..devName..")")
+        log(E_DEBUG,"deviceOn("..devName..","..index..")")
         commandArray[devName]='On'  -- switch on
         table[index]=1    -- store in HP that device was automatically turned ON (and can be turned off)
     end
@@ -77,14 +77,14 @@ function deviceOff(devName,table,index)
     -- if devname is on and was enabled by this script => turn it off
     -- if devname was enabled manually, for example to force heating/cooling, leave it ON.
     if (otherdevices[devName]~='Off') then
-        v=1
+        v=0
         if (table[index]~=nil) then v=table[index] end
-        if (v~=nil) then
-            log(E_DEBUG,"deviceOff("..devName..")")
+        log(E_DEBUG,"deviceOff("..devName..","..index..") and table[index]="..v)
+        if (v~=0) then
             commandArray[devName]='Off' -- switch off
             table[index]=nil -- store in HP that device was automatically turned ON (and can be turned off)
         else
-            log(E_DEBUG,"deviceOff("..devName..") but table["..index.."]="..v.." => OFF command refused")
+            log(E_DEBUG,"deviceOff("..devName..") but table["..index.."]=nil => OFF command refused")
         end
     end
 end

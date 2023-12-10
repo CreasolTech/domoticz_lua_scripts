@@ -92,6 +92,8 @@ while [ 1 ]; do
 			# Erase the 10 greater files
 			cd /tmp
 			rm `ls -Sr /tmp |tail -n 10`
+			#remove video and pictures
+			rm *.mp4 *.jpg *.png 2>/dev/null
 			# now restart domoticz to free the domoticz.log file and let domoticz write a new log
 			service domoticz restart
 		fi
