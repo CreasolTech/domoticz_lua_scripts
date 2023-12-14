@@ -117,15 +117,16 @@ if (timenow.min==1 or timenow.min==31) then
 	HPZ['t1']=HPZ['t0']
 	-- HPZ['t0']=otherdevices[TempZoneAlwaysOn]
 	HPZ['t0']=HPZ['temp']
-	HPZ['gr']=math.floor((HPZ['t0']-HPZ['t1'])*300+(HPZ['t1']-HPZ['t2'])*150+(HPZ['t2']-HPZ['t3'])*50)/1000
+	HPZ['gr']=math.floor((HPZ['t2']-HPZ['t3'])*50+(HPZ['t1']-HPZ['t2'])*150+(HPZ['t0']-HPZ['t1'])*300)/250
 else
-	HPZ['temp']=math.floor((HPZ['temp']*3+tonumber(otherdevices[TempZoneAlwaysOn]))*25)/100
-	if (HPZ['temp']<tonumber(otherdevices[TempZoneAlwaysOn])) then HPZ['temp']=HPZ['temp']+0.01 end	-- avoid that, if SP is 21.4, average remains to 21.36 forever
+	temp=HPZ['temp']
+	HPZ['temp']=tonumber(string.format('%.3f', (HPZ['temp']*9+tonumber(otherdevices[TempZoneAlwaysOn]))/10))
+	log(E_DEBUG,"Tcucina="..otherdevices[TempZoneAlwaysOn].." Temp="..temp.." -> "..HPZ['temp'])
 end
 tempDerivate=HPZ['gr']
 
-log(E_DEBUG, "HPZ[]=".. HPZ['t4'] .." ".. HPZ['t3'] .." ".. HPZ['t2'] .." ".. HPZ['t1'] .." ".. HPZ['t0'])
-log(E_DEBUG, "tempDerivate=".. (HPZ['t2']-HPZ['t3'])*20 .."+".. (HPZ['t1']-HPZ['t2'])*60 .."+".. (HPZ['t0']-HPZ['t1'])*120 .."=".. tempDerivate) 
+log(E_DEBUG, "HPZ[t.]=".. HPZ['t3'] .." -> ".. HPZ['t2'] .." -> ".. HPZ['t1'] .." -> ".. HPZ['t0'])
+log(E_DEBUG, "tempDerivate=".. string.format('%.3f',(HPZ['t2']-HPZ['t3'])*0.2) .." + ".. string.format('%.3f',(HPZ['t1']-HPZ['t2'])*0.6) .." + ".. string.format('%.3f',(HPZ['t0']-HPZ['t1'])*1.2) .." = ".. tempDerivate) 
 
 
 levelOld=HP['Level']	-- save previous level
@@ -241,7 +242,8 @@ else
 	end
 end
 
-compressorPercOld=HP['CP']
+-- compressorPercOld=HP['CP']	-- get the compressorPerc used before
+compressorPercOld=otherdevices[HPCompressorNow]	-- get current compressor level
 targetPower=0
 CompressorMin=6
 CompressorMax=100
@@ -464,11 +466,11 @@ if (HPlevel~="Off") then
 						if (timenow.hour>=10 and timenow.hour<17) then
 							-- increase power to recover the comfort state
 							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
-							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh (daylight)")
+							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
 						else
 							-- increase power to recover the comfort state
 							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*500)
-							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh")
+							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1")
 						end
 					end
 					
@@ -515,15 +517,24 @@ if (HPlevel~="Off") then
 				if (HPPower<450) then
 					-- Heat pump is not heating/cooling
 					compressorPerc=targetPower/28	-- absolute percentage
+					log(E_DEBUG,"compresorPerc="..compressorPerc.." (set to targetPower/28)")
 				else
 					-- Heat pump is heating/cooling: compute differential value
 					diff=targetPower-HPPower
 					if (diff>0) then
 						compressorPerc=compressorPercOld+diff/80
-						if (compressorPerc>targetPower/25) then compressorPerc=targetPower/25 end
+						log(E_DEBUG,"compresorPerc="..compressorPerc.." (increased by diff/80)")
+						if (compressorPerc>targetPower/25) then 
+							compressorPerc=targetPower/25 
+							log(E_DEBUG,"compresorPerc="..compressorPerc.." (limited to targetPower/25)")
+						end
 					else
 						compressorPerc=compressorPercOld+diff/80
-						if (compressorPerc<targetPower/40) then compressorPerc=targetPower/40 end
+						log(E_DEBUG,"compresorPerc="..compressorPerc.." (decreased by diff/80)")
+						if (compressorPerc<targetPower/40) then 
+							compressorPerc=targetPower/40 
+							log(E_DEBUG,"compresorPerc="..compressorPerc.." (downlimited to targetPower/40)")
+						end
 					end
 				end
 				if (compressorPerc>CompressorMax) then 
@@ -607,7 +618,7 @@ if (HPlevel~="Off") then
 				log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
 				HP['Level']=LEVEL_OFF
 			end
-		elseif (diffMax==0 and peakPower()==false and HP['toff']>=90) then
+		elseif (diffMax>=0 and peakPower()==false and HP['toff']>=90) then
 			log(E_DEBUG,"Start heat pump, because off for more than 90 minutes and peakPower()==false")
 			HP['Level']=LEVEL_ON
 		end
@@ -666,8 +677,7 @@ end
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (HPmode == 'Summer') then
 	devLevel=4
-	compressorPerc=HP['CP']	-- fetch current compressorPerc and modify it to meet the prodPower
-	compressorPerc=compressorPerc+(prodPower-500)/30	-- try have 500W exported
+	compressorPerc=compressorPercOld+(prodPower-500)/30	-- try have 500W exported
 	if (compressorPerc<5) then
 		-- no enough power: set heat pump to minimum, and disable VMC DEHUMIDIFY if enabled
 		compressorPerc=5
@@ -767,11 +777,11 @@ end
 
 -- save variables
 diffMax=string.format("%.2f", diffMax)
-diffMaxText=' diff='..diffMax..'°C'
+diffMaxText=' dT='..diffMax..'°C'
 if (HP['OL']~=0) then diffMaxText=' OverLimit' end
-log(E_INFO,'Level:'..levelOld..'->'..HP['Level']..' GH='..gasHeaterOn..diffMaxText..' TP='..targetPower..'W HP/Grid='..HPPower..'W/'..avgPower..'W Compr='..compressorPercOld..'->'..compressorPerc..'% Out/In='..tempHPout..'/'..tempHPin..'°C Outdoor now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
+log(E_INFO,'L:'..levelOld..'->'..HP['Level']..diffMaxText..' dT/dt='..tempDerivate..' TP='..targetPower..'W HP/Grid='..HPPower..'W/'..avgPower..'W Compr='..compressorPercOld..'->'..compressorPerc..'% Out/In='..tempHPout..'/'..tempHPin..'°C Outdoor now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
 log(E_DEBUG,'------------------------------------------------')
-commandArray['UpdateDevice'] = HPStatusIDX..'|0|Level:'..levelOld..'->'..HP['Level']..diffMaxText.." TP="..targetPower.."W\n Out/In="..tempHPout..'/'..tempHPin..'°C Comp='..compressorPerc..'%'
+commandArray['UpdateDevice'] = HPStatusIDX..'|0|L:'..levelOld..'->'..HP['Level']..diffMaxText.." dT/dt="..tempDerivate.." TP="..targetPower.."W\nOut/In="..tempHPout..'/'..tempHPin..'°C Comp='..compressorPerc..'%'
 HP['CP']=compressorPerc
 commandArray['Variable:zHeatPump']=json.encode(HP)
 commandArray['Variable:zHeatPumpZone']=json.encode(HPZ)
