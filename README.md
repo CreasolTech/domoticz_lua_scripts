@@ -14,11 +14,18 @@ All global variables and functions are stored in the files globalvariables.lua a
 
 For any requests, you can [join DomBus channel on Telegram](https://t.me/DomBus)
 
+## Script script_device_master.lua
+This is a main script called every time a device changes state: it's optimized to 
+* run quickly
+* ignore useless device changes
+* call the appropriate scripts associated to the changed devices: for example if the changed device is named PIR* or MCS* or SIREN* , the *alarm.lua* script will be called, while if the device is named power*, the *power.lua* script will be called.
 
 ## Script POWER 
-File: script_device_power.lua  and  config_power.lua
+File: *power.lua*  and  *config_power.lua*
 
-Destination directory: DOMOTICZ_DIR/scripts/lua
+Destination directory: *DOMOTICZ_DIR/scripts/lua*
+
+Called by *script_device_master.lua* and triggered when a device containing *Power* or *Button* in its name changes state.
 
 Used to check power from energy meter (SDM120, SDM230, ...) and performs the following actions
 
@@ -32,6 +39,8 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
 Files: script_time_heatpump_emmeti.lua and config_heatpump_emmeti.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
+
+Called every minute
 
 This script is designed for radiant systems: 
 * it measures the temperature in each room, computes a derivative of a temperature to states if the house is warming or not (PID control) and
@@ -47,6 +56,8 @@ Files: script_time_heatpump.lua  and  heatpump_conf.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
+Called every minute
+
 This script manages the heat pump, adjusting power and fluid temperature to meet the building demand.
 
 If a photovoltaic system is installed, with a power meter measuring the power exchanged with the electric grid, 
@@ -58,9 +69,11 @@ the external temperature does not permit to get an high efficiency
 
 
 ## Script for alarm system
-Files: script_device_alarm.lua  alarm_config.lua  alarm_sendsnapshot.sh  and  alarmSet.sh
+Files: alarm.lua  alarm_config.lua  alarm_sendsnapshot.sh  and  alarmSet.sh
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
+
+Called by *script_device_master.lua* and triggered when a device with name starting with *PIR* , *MCS* , *SIREN*, *TAMPER*, *ALARM* or *Light*, changes state, or when the variable *alarmLevelNew* is not zero (alarm started or stopped)
 
 Scripts that manages a burglar alarm system: magnetic contact sensors on doors/windows/blinds, PIRs and radars, tampers, sirens.
 
@@ -92,10 +105,38 @@ File: script_time_rainCheck.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
+Called every minute
+
 Silly script that check the raining rate, and if above 8mm/h disable external socket in the garden (connected to the Xmas tree!!)
 
 Also, checks wind speed and direction and disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using
 wood stoves generating bad smoke smell.
+
+Also, it send a buzzers alert the evening when trash bin should be carried out:
+* 1 beep (followed by 4s pause) for paper
+* 2 beeps (followed by 4s pause) for plastic/metal
+* 3 beeps (followed by 4s pause) for unsorted
+* 4 beeps (followed by 4s pause) for glass
+
+It's programmed to work with the [cheap DomBusTH module](https://www.creasol.it/DomBusTH) which can be placed in a blank cover (in a wallbox) and already provide a piezo buzzer output, red+green+white leds, touch sensor (simulating a pushbutton, that can be used to cancel the alarm), other 4 I/Os, temperature and humidity sensors.
+[DomBusTH video](https://www.youtube.com/watch?v=6bJ_igU9jgo)
+
+## Script to compute self-consumption power and percentage, and self-sufficiency percentage
+Files: script_time_selfconsumption.lua config_power.lua globalfunctions.lua globalvariables.lua
+
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
+Called every minute
+
+This is a mandatory script for those who have at least one reneable generation plant in their building.
+
+It manages one or more plants (photovoltaic on the roof, photovoltaic in the garden and or wind turbine, ...) computing the total generated energy/power, total used energy/power, self-consumption energy/power, self-consumption percentage and self-sufficiency percentage.
+
+These are goods indicators to know if the building is optimized or not.
+
+Detailed info are available at [www.creasol.it/SelfConsumption](https://www.creasol.it/SelfConsumption) page.
+
+
 
 ## Script to get data from Fronius inverter
 File: script_time_fronius.lua
