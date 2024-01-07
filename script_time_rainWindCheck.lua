@@ -42,6 +42,9 @@ MOSQUITTO_STOP1=timeofday['SunsetInMinutes']-30		-- stop at Sunset - 30m
 MOSQUITTO_START2=2		-- start at Midnight
 MOSQUITTO_STOP2=120		-- stop at 120=02:00
 
+TRASH_ALERT_TIME=1140			-- time when alert will be sent, in minutes: 19*60=1140
+TRASH_DEV="Living_Buzzer"		-- Buzzer or Led device to turn ON
+
 dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
@@ -301,7 +304,30 @@ if (MOSQUITO_DEV~="") then
 	end
 end
 
-
+	
+if (TRASH_ALERT_TIME~="" and TRASH_ALERT_TIME==minutesNow) then
+	-- custom function checking current date and weekday, and send alert to a led notifying that trash bin should be carried out
+	-- get week number
+	local fd=assert(io.popen("date '+%V'", 'r'))
+	local wnum=tonumber(assert(fd:read('*a')))
+	-- print("wday="..timeNow.wday.." wnum="..wnum)
+	if (timeNow.wday==4) then	-- wday=1 => Sunday, 2 => Monday, ....
+		-- Tuesday: paper bin in odd weeks, plastic bin in even weeks
+		if ((wnum%2)==1) then
+			-- odd week
+			commandArray[TRASH_DEV]="Set Level 10"	-- 1 flash on Led (DomBusTH device
+		else
+			-- even week
+			commandArray[TRASH_DEV]="Set Level 20"
+		end
+	elseif (timeNow.wday==5 and (wnum%2)==2) then
+		-- Thursday, even week
+		commandArray[TRASH_DEV]="Set Level 30"
+	elseif (timeNow.wday==1 and timeNow.day>=14 and timeNow.day<21) then
+		-- Sunday, and next is the 3rd Monday of the Month
+		commandArray[TRASH_DEV]="Set Level 40"
+	end
+end
 
 commandArray['Variable:raining']=tostring(raining)
 commandArray['Variable:zRainWindCheck']=json.encode(RWC)

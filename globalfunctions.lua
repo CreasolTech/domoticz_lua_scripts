@@ -105,3 +105,23 @@ function peakPower()
 	end
 	return false
 end
+
+function getPowerValue(devValue)
+    -- extract the power value from string "POWER;ENERGY...."
+    for str in devValue:gmatch("[^;]+") do
+        return tonumber(str)
+    end
+end
+
+function getEnergyValue(devValue)
+    -- extract the power value from string "POWER;ENERGY...."
+    local i=0
+    for str in devValue:gmatch("[^;]+") do
+        if (i==0) then
+            i=1
+        else
+            return tonumber(str)
+        end
+    end
+end
+

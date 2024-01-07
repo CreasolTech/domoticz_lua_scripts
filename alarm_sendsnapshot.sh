@@ -84,7 +84,7 @@ if [ -n "${ipcamera1}" ]; then
 	if [ $i -eq 0 ]; then
 		log "Error: snapshot1 not received"
 	fi
-	#rm /tmp/alarm_snapshot1_$$.*
+	rm /tmp/alarm_snapshot1_$$.*
 fi
 if [ -n "${ipcamera2}" ]; then
 	#wait for snapshot2

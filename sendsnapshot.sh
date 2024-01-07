@@ -25,7 +25,7 @@ PICTURE_SCALE=800 #width of picture that we should want to get on Telegram
 DOMOTICZ_URL='http://127.0.0.1:8080'
 START_SCENEIDX=8	# Scene that is activated as soon as the button is pressed
 #LIGHT1_IDX=0		# lights disabled: do not turn lights ON before getting snapshot, during the night
-LIGHT1_IDX=32		# idx of the light that must get ON when someone ring the doorbell
+LIGHT1_IDX=1909		# idx of the light that must get ON when someone ring the doorbell (used only to test if already ON or OFF)
 LIGHT1_SCENEIDX=2	# idx of the scene that activates light1 for 300s or so.
 			# Scene must be created by hand: add a scene, assign a name, add the light device and set Off Delay to 300 or other value
 LIGHT2_IDX=34		# idx of additional light that must get ON (set to 0 to disable) 

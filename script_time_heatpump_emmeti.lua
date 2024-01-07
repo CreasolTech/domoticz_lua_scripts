@@ -134,8 +134,8 @@ diffMax=0
 
 for n,v in pairs(zones) do	-- check that temperature setpoint exist
 	-- n=zone name, v=CSV separated by | containing tempsensor and electrovalve device name
-	checkVar('TempSet_'..v[ZONE_NAME],1,21)
-	-- check that devices exist
+	-- checkVar('TempSet_'..v[ZONE_NAME],1,21)
+	-- TODO: create thermostat?
 	if (otherdevices[v[ZONE_TEMP_DEV] ]==nil) then
 		log(E_CRITICAL,'Zone '..v[ZONE_NAME]..': temperature sensor '..v[ZONE_TEMP_DEV]..' does not exist')
 	end
@@ -156,14 +156,13 @@ if (otherdevices[TEMPHPIN_DEV] == nil) then
 	goto mainEnd
 end
 
-fd=io.popen("mbpoll -mrtu -a1 -b9600 -0 -1 -c1 -r8974 -l10 /dev/ttyUSBheatpump|tail -n 2|head -n 1|awk '{print $2}'")	-- read outlet water temperature
-tempHPout=tonumber(fd:read("*a")) 	-- temp * 0.1°C
-io.close(fd)
-if (tempHPout==nil or tempHPout<=50 or tempHPout>500) then
-	log(E_DEBUG,"Error reading outlet water from modbus: read from temperature sensor!")
+-- fd=io.popen("mbpoll -mrtu -a1 -b9600 -0 -1 -c1 -r8974 -l10 /dev/ttyUSBheatpump|tail -n 2|head -n 1|awk '{print $2}'")	-- read outlet water temperature
+-- tempHPout=tonumber(fd:read("*a")) 	-- temp * 0.1°C
+-- io.close(fd)
+tempHPout=tonumber(otherdevices[HPTempOutlet])
+if (tempHPout==nil or tempHPout<=-10 or tempHPout>50) then
+	log(E_DEBUG,"Error reading outlet water from HeatPump plugin!")
 	tempHPout=tonumber(otherdevices[TEMPHPOUT_DEV])
-else
-	tempHPout=tempHPout/10
 end
 tempHPin=tonumber(otherdevices[TEMPHPIN_DEV])
 
@@ -275,6 +274,7 @@ if (HPlevel~="Off") then
 		overlimitPower=500			-- minimum power to start overheating	
 		overlimitDiff=0.2			-- forced diffmax value
 		prodPowerOn=300				-- minimum extra power to turn ON the heatpump
+		gridPowerMin=300			-- minimum power from the grid, even when PV is producing
 		TargetPowerMin=math.floor(510+(890/14)*(7-outdoorTemperature)) -- computed based on heat pump datasheet
 		TargetPowerMax=3000
 	else
@@ -289,6 +289,7 @@ if (HPlevel~="Off") then
 		overlimitPower=2500			-- minimum power to start overheating	
 		overlimitDiff=0.2			-- forced diffmax value
 		prodPowerOn=1000			-- minimum extra power to turn ON the heatpump
+		gridPowerMin=0
 	end
 	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
@@ -327,7 +328,12 @@ if (HPlevel~="Off") then
 		else
 			temp=tonumber(otherdevices[ v[ZONE_TEMP_DEV] ])
 		end
-		realdiff=math.floor((uservariables['TempSet_'..v[ZONE_NAME]]+temperatureOffset-temp)*100)/100;	-- tempSet-temp+temperatureOffsetZone
+		if (otherdevices['SetPoint_'..v[ZONE_NAME] ]) then
+			setpoint=tonumber(otherdevices['SetPoint_'..v[ZONE_NAME] ])
+		else
+			log(E_ERROR,"Please create thermostat with name SetPoint_"..v[ZONE_NAME])
+		end
+		realdiff=math.floor((setpoint+temperatureOffset-temp)*100)/100;	-- tempSet-temp+temperatureOffsetZone
 		diff=realdiff										-- tempSet-temp+temperatureOffsetZone+temperatureOffsetGlobal
 		if (HPmode ~= 'Winter') then
 			-- summer => invert diff
@@ -354,9 +360,9 @@ if (HPlevel~="Off") then
 			valveStateTemp[v[ZONE_VALVE] ]=valveState
 		end
 		if (valveState=='On') then
-			log(E_INFO,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..uservariables['TempSet_'..v[ZONE_NAME]]..'+'..temperatureOffset..' diff='..diff)
+			log(E_INFO,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..setpoint..'+'..temperatureOffset..' diff='..diff)
 		else
-			log(E_DEBUG,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..uservariables['TempSet_'..v[ZONE_NAME]]..'+'..temperatureOffset..' diff='..diff)
+			log(E_DEBUG,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..setpoint..'+'..temperatureOffset..' diff='..diff)
 		end
 		if (v[ZONE_TEMP_DEV]==TempZoneAlwaysOn) then
 			diffZoneAlwaysOn=diff	-- diff calculated on the zone that is always on
@@ -366,7 +372,9 @@ if (HPlevel~="Off") then
 	if (HPforce=="Night") then
 		diffMax=diffMax+1	-- force starting
 	end
-	
+
+	-- diffMax=-0.56 --DEBUG
+
 	log(E_INFO,'tempDerivate='..tempDerivate..' diffMax='..diffMax..' diffMaxTh='..diffMaxTh..' RHMax='..rhMax..' HPforce='..HPforce)
 	if (tempDerivate<0) then
 		diffMax=diffMax-tempDerivate*4	-- if room temperature is decreasing, in winter, it's better to start heater early
@@ -403,6 +411,7 @@ if (HPlevel~="Off") then
 			end
 		else
 			-- during the day, not in peak hours
+			prodPower=prodPower+gridPowerMin -- makes the heat pump using at least gridPowerMin Watt from the grid, even while overheating
 			if (prodPower>2000) then
 				log(E_INFO,"Extra power => extra overlimit")
 				overlimitTemp=overlimitTemp+0.3
@@ -434,7 +443,7 @@ if (HPlevel~="Off") then
 					HP['OL']=HP['OL']+1
 					if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
 					log(E_DEBUG,"HP[OL]="..HP['OL'])
-					if (HP['OL']>15) then -- more than 3 minutes with insufficient power
+					if (HP['OL']>5) then -- more than 3 minutes with insufficient power
 						-- stop overheating
 						HP['OL']=0
 						diffMax=0
@@ -443,7 +452,6 @@ if (HPlevel~="Off") then
 			end
 		end
 		
-		--diffMax=0 --DEBUG
 		if (diffMax>0) then
 			if (EVPOWER_DEV~=nil and EVPOWER_DEV~='') then
 				-- A device measuring electric vehicle charging power exists
@@ -512,6 +520,13 @@ if (HPlevel~="Off") then
 					-- during the Summer
 					-- TODO
 				end
+
+				if (HP['OL']>0) then -- overlimit, but no power available
+					targetPower=HPPower+prodPower
+					log(E_DEBUG,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
+					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end
+				end
+
 			
 				-- set compressorPerc
 				if (HPPower<450) then
@@ -522,11 +537,16 @@ if (HPlevel~="Off") then
 					-- Heat pump is heating/cooling: compute differential value
 					diff=targetPower-HPPower
 					if (diff>0) then
-						compressorPerc=compressorPercOld+diff/80
-						log(E_DEBUG,"compresorPerc="..compressorPerc.." (increased by diff/80)")
+						compressorPerc=compressorPercOld+diff/60
+						log(E_DEBUG,"compresorPerc="..compressorPerc.." (increased by diff/60)")
 						if (compressorPerc>targetPower/25) then 
 							compressorPerc=targetPower/25 
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (limited to targetPower/25)")
+						end
+						if (prodPower>200 and tonumber(otherdevices[HPTempWinterMin])<40 and HPPower>=1000 and (tonumber(otherdevices[HPTempOutletComputed])-tempHPout)<3) then
+							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMinIDX)..'|1|40'}
+							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMaxIDX)..'|1|48'}
+							log(E_DEBUG,"Increase TempWinterMin to 40°C")
 						end
 					else
 						compressorPerc=compressorPercOld+diff/80
@@ -534,6 +554,11 @@ if (HPlevel~="Off") then
 						if (compressorPerc<targetPower/40) then 
 							compressorPerc=targetPower/40 
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (downlimited to targetPower/40)")
+						end
+						if (timeofday['Nighttime'] and tonumber(otherdevices[HPTempWinterMin])>35) then
+							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMinIDX)..'|1|35'}
+							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMaxIDX)..'|1|45'}
+							log(E_DEBUG,"Decrease TempWinterMin to 35°C")
 						end
 					end
 				end
