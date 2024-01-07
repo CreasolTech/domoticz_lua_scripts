@@ -7,9 +7,9 @@ dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"	-- some functions com
 
 -- Some constants
 TEMP_HISTERESIS=0.1
-TEMP_WINTER_HP_MAX=44				-- maximum fluid temperature from HP during the Winter
+TEMP_WINTER_HP_MAX=48 				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
-OVERHEAT=0.8						-- Increase temperature setpoint in case of available power from solar photovoltaic
+OVERHEAT=0.5						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than POWER_MAX
 EVPOWER_DEV='EV Energy'
@@ -17,8 +17,8 @@ EVPOWER_DEV='EV Energy'
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only if PDC is not able to keep the temperature
-powerMeter='PowerMeter'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
-inverterMeter='Inverter - Power'	-- Inverter output power (photovoltaic). Set to '' if not available
+powerMeter='PowerMeter Grid'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
+inverterMeter='PV_PowerMeter'	-- Inverter output power (photovoltaic). Set to '' if not available
 heatpumpMeter='PowerMeter HeatPump'	-- power meter that supply the heat pump ('' if not used)
 TEMPHPOUT_DEV='Temp_HeatPumpFluidOut' 	-- Temperature of water produced by heat pump (before entering coils or underfloor radiant system)
 TEMPHPIN_DEV= 'Temp_HeatPumpFluidIn'	-- Temperature of water that exits from coils and/or underfloor radiant system, and gets into the Heat Pump again
@@ -29,9 +29,16 @@ HPMode='HeatPump_Mode'				-- Selector switch for Off, Winter, Summer
 HPLevel='HeatPump_Level'			-- Selector switch to force a specific power level: Off, 1, 2, 3, ... Auto
 HPStatus='HeatPump_Status'			-- Virtual text device, where to write status data
 HPStatusIDX=1723					-- IDX of the virtual text device HPStatus
-
-HPNightStart=1260					-- Reduce power and noise in the night, starting from 21:00 (21*60 minutes): set to 1440 to disable
-HPNightEnd=450						-- Reduce power and noise in the night, until 7.30 (7*60+30 minutes): set to 0 to disable
+HPCompressor='HeatPump - Compressor max'	-- Device that set the max compressor level (0-100%)
+HPCompressorNow='HeatPump - Compressor now'	-- Device that set the max compressor level (0-100%)
+HPTempOutlet='HeatPump - Temp. outlet'	-- Outlet temperature
+HPTempOutletComputed='HeatPump - Temp. outlet computed'	-- Setpoint for the output temperature
+HPTempWinterMin='HeatPump - Temp min outlet Winter'	-- Device to set minimum outlet temperature for Winter
+HPTempWinterMinIDX=2045
+HPTempWinterMax='HeatPump - Temp max outlet Winter'	-- Device to set maximum outlet temperature for Winter
+HPTempWinterMaxIDX=2046
+HPTempSummerMin='HeatPump - Temp min outlet Summer'	-- Device to set minimum outlet temperature for Summer
+HPTempSummerMax='HeatPump - Temp max outlet Summer'	-- Device to set maximum outlet temperature for Summer
 
 -- fields for the following table
 ZONE_NAME=1
@@ -50,11 +57,7 @@ ZONE_SUMMER_WEIGHT=12
 -- heat pump working level
 LEVEL_OFF=0					-- heat pump is completely OFF
 LEVEL_ON=1					-- On, half power
-LEVEL_WINTER_MAX=2	
-LEVEL_WINTER_MAX_NIGHT=1
 
-LEVEL_SUMMER_MAX=1
-LEVEL_SUMMER_MAX_NIGHT=0
 
 DEVlist={
 	-- deviceName=name of each device involved in heating/cooling
@@ -66,10 +69,10 @@ DEVlist={
 	--'deviceName',				winterLevel,		summerLevel
 	--							start stop			start	stop
 	{'HeatPump',				1, 		255,		1, 		255	},	-- HeatPump input ON/OFF (thermostat input)
-	{'HeatPump_HalfPower',		1,		2,			255, 	255	},	-- HeatPump input HalfPower (if On, works at 50% of nominal power)
+	{'HeatPump_HalfPower',		1,		2,			1, 		2	},	-- HeatPump input HalfPower (if On, works at 50% of nominal power)
 	{'HeatPump_Fancoil',		255,	255,		255,	255	},	-- HeatPump input Fancoil (set point for the fluid temperature: Off=use radiant, On=use coil with extreme temperatures
 	{'HeatPump_Summer',			255,	255,		1,		255	},	-- HeatPump input Summer (if On, the heat pump produce cold fluid) -- LEVEL_WINTER_MAX+1 => Always OFF
-	{'VMC_CaldoFreddo',			255,	255,		1,		255	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
+--	{'VMC_CaldoFreddo',			255,	255,		1,		255	},	-- Ventilation input coil: if On, the coil supplied by heat pump is enabled (to heat/cool air)
 	{'VMC_Deumidificazione',	255,	255,		255,	255	},	-- Ventilation input dryer: if On, the internal ciller is turned on to dehumidify air
 }
 
@@ -92,12 +95,12 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						8,		20,		-0.2,		1,		7,		23,		0.2,	1},	
+	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						4,		20,		-0.2,		1,		7,		23,		0.2,	1},	
 	{'Studio',			'Temp_Studio',		'',                 '',						9,		18,		-0.2,		0.2,	8,		19,		0.5,	0.8},
 	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
-	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.4,	0.5,	13,		23,		0.5,	0.8},	
-	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,		22,		-0.5,	0.3,	13,		23,		0.5,	0.8},	
-	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	13,		22,		-0.5,	0.3,	13,		23,		0.5,	0.3},
+	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.6,	0.5,	10,		23,		0.5,	0.8},	
+	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,		22,		-0.8,	0.3,	13,		23,		0.5,	0.8},	
+	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	13,		22,		-0.8,	0.3,	13,		23,		0.5,	0.3},
 	{'Stireria',		'Temp_Stireria',	'',                 'Valve_Stireria',		13,		18,		-1,		0.3,	8,		20,		1,		0.3},
 }
 
