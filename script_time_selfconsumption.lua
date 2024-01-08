@@ -33,7 +33,7 @@ dofile 'scripts/lua/globalfunctions.lua'
 dofile 'scripts/lua/config_power.lua'
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG		-- verbose log with debugging information
 DEBUG_PREFIX="SelfConsumption: "
 
 function SCinit() 
@@ -56,7 +56,11 @@ local producedEnergy=0
 local producedPower=0
 local exportedEnergy=0
 local importedEnergy=0
+local totalEnergy=0
+local selfPerc=100
+local suffPerc=0
 
+log(E_DEBUG,"===== Calculate SelfConsumption and SelfSufficiency =====")
 for devNum,devName in pairs(POWERMETER_GENS) do
 	energy=getEnergyValue(otherdevices_svalues[devName])
 	power=getPowerValue(otherdevices_svalues[devName])
@@ -84,12 +88,11 @@ exportedEnergy=diff
 
 -- compute self-consumption
 energy=producedEnergy-exportedEnergy -- energy=self consumption
-local perc=100
 if (producedEnergy>0) then 
-	local perc=math.floor(100*energy/producedEnergy + 0.5)
+	selfPerc=math.floor(100*energy/producedEnergy + 0.5)
 end
 commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_SELF].."|0|".. math.floor(energy*60/INTERVAL) ..";"..energy}
-commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[PERCENTAGE_SELF].."|0|".. perc}
+commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[PERCENTAGE_SELF].."|0|".. selfPerc}
 
 -- now compute the imported energy to compute the self-sufficiency
 importedEnergy=getEnergyValue(otherdevices_svalues[PowerMeterImport])
@@ -102,12 +105,12 @@ SC['im']=importedEnergy
 importedEnergy=diff
 
 -- self-sufficiency=self-consumption/(self-consumption+import)
-local totalEnergy=energy+importedEnergy
-local suffPerc=math.floor(100*energy/totalEnergy + 0.5)
-commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_USAGE].."|0|".. math.floor(totalEnergy*60/INTERVAL) ..";"..totalEnergy}
+totalEnergy=energy+importedEnergy	-- total usage energy in the last INTERVAL
+suffPerc=math.floor(100*energy/totalEnergy + 0.5)
+commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_USAGE].."|0|".. math.floor(totalEnergy*60/INTERVAL) ..";"..totalEnergy+getEnergyValue(otherdevices_svalues[POWERMETER_USAGE])}
 commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[PERCENTAGE_SUFF].."|0|".. suffPerc}
 
-log(E_INFO,"TotalConsumption="..totalEnergy.."Wh TotalProduction="..producedEnergy.."Wh SelfConsumption="..energy.."Wh "..perc.."% SelfSufficiency="..suffPerc.."%")
-log(E_DEBUG,"Save zSelfConsumption="..json.encode(SC))
+log(E_INFO,"TotalConsumption="..totalEnergy.."Wh TotalProduction="..producedEnergy.."Wh SelfConsumption="..energy.."Wh "..selfPerc.."% SelfSufficiency="..suffPerc.."%")
+--log(E_DEBUG,"Save zSelfConsumption="..json.encode(SC))
 commandArray['Variable:zSelfConsumption']=json.encode(SC)
 return commandArray
