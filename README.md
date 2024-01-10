@@ -43,10 +43,10 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 Called every minute
 
 This script is designed for radiant systems: 
-* it measures the temperature in each room, computes a derivative of a temperature to states if the house is warming or not (PID control) and
+* it measures the temperature in each room, computes a derivative of a temperature to states if the house is warming or not (PID control) and 
 regulates the heat pump power to satisfy the warming/cooling needs for the best comfort.
 * it's possible to define peak hours where power consumption should be limited, to give your contribution for electricity grid stabilization
-* if photovoltaic or wind generator is available, try to consume most energy from it, improving own consumption
+* if photovoltaic or wind generator is available, **try to consume most energy from renewable production plants**, improving self consumption
 * for each room it's possible to define a period where the set-temperature can be reduced (in Winter, or increased in Summera)
 [![alt Optimized management of Heat Pump EMMETI Mirai](https://images.creasol.it/heatpump_emmeti_modbus_solar_power_tracking.png "Heat pump optimized management with this script")](https://www.creasol.it/DomBusTH)
 
@@ -75,17 +75,20 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 
 Called by *script_device_master.lua* and triggered when a device with name starting with *PIR* , *MCS* , *SIREN*, *TAMPER*, *ALARM* or *Light*, changes state, or when the variable *alarmLevelNew* is not zero (alarm started or stopped)
 
-Scripts that manages a burglar alarm system: magnetic contact sensors on doors/windows/blinds, PIRs and radars, tampers, sirens.
+Scripts that manages a **burglar alarm system**: magnetic contact sensors on doors/windows/blinds, PIRs and radars, tampers, sirens.
 
-Full notifications on Telegram and 3 working modes fully configurable:
+**Full notifications on Telegram** and 3 working modes fully configurable:
 
 * DAY: it shortly activates internal sirens when a door/window opens or a PIR is activated
 * NIGHT: in case of alarm, only activates the internal sirens and turns ON some lights.
 * AWAY: in case of alarm, both internal and external sirens are activated. 
 
-External sirens delay when alarm is activated on some configurable sensors (for example, main door), record short videos when 
-external sensors have been activated (when someone or a cat walk outside), presence light will be managed when AWAY alarm is active, between
-Sunset and Sunrise, to simulate that someone is inside the house.
+Other features:
+
+* External **sirens delay** when alarm is activated on some configurable sensors (for example, main door)
+* **Records short videos when external sensors have been activated** (when someone or a cat walk outside)
+* Recode short **videos to 2x speed**, and sends to **Telegram channel/group**
+* **House presence lights** will be managed when AWAY alarm is active, between Sunset and Sunrise, to simulate that someone is inside the house.
 
 More info at https://www.creasol.it/freeBurglarAlarm
 
@@ -94,10 +97,10 @@ Files: script_time_fireAlarm.lua  config_fireAlarm.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
-LUA script that load the rooms information from config_fireAlarm.lua and for any room
-if Temperature > averageTemperature + deltaT => fire alarm detected => send notification by Telegram
+LUA script that loads the rooms information from config_fireAlarm.lua and for any room
+if Temperature > averageTemperature + deltaT => **fire alarm detected => send notification by Telegram**
 
-More information available at https://www.creasol.it/en/support/domotics-home-automation-and-diy/fire-alarm-detection-with-domoticz-home-automation-system
+More information available at [fire alarm page](https://www.creasol.it/en/support/domotics-home-automation-and-diy/fire-alarm-detection-with-domoticz-home-automation-system)
 
 
 ## Script that check rain and wind
@@ -107,19 +110,23 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 
 Called every minute
 
-Silly script that check the raining rate, and if above 8mm/h disable external socket in the garden (connected to the Xmas tree!!)
+Script that checks the raining rate and wind speed, and performs several functions:
 
-Also, checks wind speed and direction and disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using
-wood stoves generating bad smoke smell.
+* If **raining rate is over 8mm/h, disable external socket in the garden** (connected to the Xmas tree!!).
 
-Also, it send a buzzers alert the evening when trash bin should be carried out:
-* 1 beep (followed by 4s pause) for paper
-* 2 beeps (followed by 4s pause) for plastic/metal
-* 3 beeps (followed by 4s pause) for unsorted
-* 4 beeps (followed by 4s pause) for glass
+* Checks wind speed and direction and **disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using wood stoves generating bad smoke smell**.
 
-It's programmed to work with the [cheap DomBusTH module](https://www.creasol.it/DomBusTH) which can be placed in a blank cover (in a wallbox) and already provide a piezo buzzer output, red+green+white leds, touch sensor (simulating a pushbutton, that can be used to cancel the alarm), other 4 I/Os, temperature and humidity sensors.
+* Send **buzzer alert if a trash bin should be carried out**:
+  * 1 beep (followed by 4s pause) for paper
+  * 2 beeps (followed by 4s pause) for plastic/metal
+  * 3 beeps (followed by 4s pause) for unsorted
+  * 4 beeps (followed by 4s pause) for glass
+  
+  It's programmed to work with the [cheap DomBusTH module](https://www.creasol.it/DomBusTH) which can be placed in a blank cover (in a wallbox) and already provide a piezo buzzer output, red+green+white leds, touch sensor (simulating a pushbutton, that can be used to cancel the alarm), other 4 I/Os, temperature and humidity sensors.
 [DomBusTH video](https://www.youtube.com/watch?v=6bJ_igU9jgo)
+
+* **Enable/Disable gate power supply to reduce energy consumption and improve antitheft security**: check vehicle position to determine if it's approaching (gate should be enabled) or it's moving away (gate should be disabled).
+In any case, the gate power supply is turned OFF when the alarm system is in NIGHT or AWAY mode.
 
 ## Script to compute self-consumption power and percentage, and self-sufficiency percentage
 Files: script_time_selfconsumption.lua config_power.lua globalfunctions.lua globalvariables.lua
@@ -130,7 +137,7 @@ Called every minute
 
 This is a mandatory script for those who have at least one reneable generation plant in their building.
 
-It manages one or more plants (photovoltaic on the roof, photovoltaic in the garden and or wind turbine, ...) computing the total generated energy/power, total used energy/power, self-consumption energy/power, self-consumption percentage and self-sufficiency percentage.
+It manages one or more energy production plants (photovoltaic on the roof, photovoltaic in the garden and or wind turbine, ...) **computing the total generated energy/power, total used energy/power, self-consumption energy/power, self-consumption percentage and self-sufficiency percentage**.
 
 These are goods indicators to know if the building is optimized or not.
 

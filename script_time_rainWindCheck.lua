@@ -350,8 +350,8 @@ if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
 		-- vehicle is moving away
 		log(E_INFO,"Vehicle is moving away, from "..RWC['cd'].." to "..carDistance.."km")
 		-- turn off gate power supply?
-		if (otherdevices[GATE_SUPPLY]=='On') then
-			log(E_INFO,"carDistance increasing and gate power==On => turn Off")
+		if (otherdevices[GATE_SUPPLY]=='On') then  -- gate supply is OFF when alarmLevel is NIGHT or AWAY
+			log(E_INFO,"carDistance increasing and gate power==On => turn Off") 
 			commandArray[GATE_SUPPLY]='Off'
 		end
 
