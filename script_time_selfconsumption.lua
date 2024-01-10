@@ -74,7 +74,7 @@ for devNum,devName in pairs(POWERMETER_GENS) do
 	producedPower=producedPower+power
 	log(E_DEBUG,devName..": "..otherdevices_svalues[devName].." Energy="..diff.."Wh Power=".. power .."W")
 end
-commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_PROD].."|0|".. producedPower ..";"..producedEnergy}
+commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_PROD].."|0|".. producedPower ..";"..producedEnergy+getEnergyValue(otherdevices[POWERMETER_PROD])}
 
 -- now compute the exported energy
 exportedEnergy=getEnergyValue(otherdevices_svalues[PowerMeterExport])
@@ -91,7 +91,7 @@ energy=producedEnergy-exportedEnergy -- energy=self consumption
 if (producedEnergy>0) then 
 	selfPerc=math.floor(100*energy/producedEnergy + 0.5)
 end
-commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_SELF].."|0|".. math.floor(energy*60/INTERVAL) ..";"..energy}
+commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[POWERMETER_SELF].."|0|".. math.floor(energy*60/INTERVAL) ..";"..energy+getEnergyValue(otherdevices[POWERMETER_SELF])}
 commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[PERCENTAGE_SELF].."|0|".. selfPerc}
 
 -- now compute the imported energy to compute the self-sufficiency

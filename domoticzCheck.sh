@@ -7,7 +7,7 @@ TIME_DOMOTICZ_UNAVAILABLE=5			#minutes: restart domoticz if unavailable since 5 
 CHECK_PLUGINS=1						#check that all python plugins are running correctly
 DOMOTICZ_LOG=/var/log/domoticz.log	#domoticz log file
 DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
-DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly)'	#TODO: Hyundai/Kia plugin stops working in case of internet connection down
+DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly)'	#TODO: old Hyundai/Kia plugin stops working in case of internet connection down
 
 count=0
 loglinesold=0
