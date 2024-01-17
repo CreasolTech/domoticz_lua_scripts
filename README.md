@@ -37,7 +37,7 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
      green LED flashes 1..M times if photovoltaic produces up to 1..M kW 
 
 
-## Script to compute self-consumption power and percentage, and self-sufficiency percentage
+## Script to computes self-consumption power and percentage, and self-sufficiency percentage
 Files: script_time_selfconsumption.lua config_power.lua globalfunctions.lua globalvariables.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
@@ -53,7 +53,7 @@ These are goods indicators to know if the building is optimized or not.
 Detailed info are available at [www.creasol.it/SelfConsumption](https://www.creasol.it/SelfConsumption) page.
 
 
-## Script that, every time a power meter changes, compute the sum of 2 or more power meters and feed that value to the DomBusEVSE virtual device
+## Script that, every time a power meter changes, computes the sum of 2 or more power meters and feeds that value to the DomBusEVSE virtual device
 Files: script_device_evsegridpower.lua
 
 This simple script is meant to compute the total power from the grid and feed it to the DomBusEVSE module, EV charging system that must know the total power from the grid, to prevent
