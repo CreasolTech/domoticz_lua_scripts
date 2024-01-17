@@ -51,7 +51,7 @@ end
 
 -- Function called when alarm is activated in Away mode
 function alarmAwayOn()
-	commandArray['Power_Apricancello']='Off AFTER 120 SECONDS'
+	commandArray['Power_Apricancello']='Off AFTER 600 SECONDS'
 	lightsCheck()
 	lightsNext()
 end

@@ -71,6 +71,11 @@ function updateValves()
 	end 
 end
 
+function setOutletTemp(tempMin)
+	commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMinIDX)..'|1|'.. tempMin}
+	commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMaxIDX)..'|1|'.. tempMin+10}
+end
+
 monthnow = tonumber(os.date("%m"))
 timenow = os.date("*t")
 minutesnow = timenow.min + timenow.hour * 60
@@ -428,8 +433,10 @@ if (HPlevel~="Off") then
 			-- overlimit is ON
 			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or peakPower()) then
 				-- EV is charging => disable overlimit now
+				log(E_INFO,"Peak time or EV is charging => disable heat pump OverLimit")
 				HP['OL']=0
 				diffMax=0
+				setOutletTemp(35)
 			else
 				-- EV not charging
 				if (diffMax+overlimitTemp>0 and prodPower>0) then
@@ -443,10 +450,15 @@ if (HPlevel~="Off") then
 					HP['OL']=HP['OL']+1
 					if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
 					log(E_DEBUG,"HP[OL]="..HP['OL'])
-					if (HP['OL']>5) then -- more than 3 minutes with insufficient power
+					if (HP['OL']>=4 and prodPower<100 and tonumber(otherdevices[HPTempWinterMin])>30) then 
+						log(E_INFO,"Reduce min outlet temperature because there is not enough power in overlimit mode")
+						setOutletTemp(tonumber(otherdevices[HPTempWinterMin]-1)) 
+					end
+					if (HP['OL']>10) then -- more than 10 minutes with insufficient power
 						-- stop overheating
 						HP['OL']=0
 						diffMax=0
+						setOutletTemp(35)
 					end
 				end
 			end
@@ -544,8 +556,7 @@ if (HPlevel~="Off") then
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (limited to targetPower/25)")
 						end
 						if (prodPower>200 and tonumber(otherdevices[HPTempWinterMin])<40 and HPPower>=1000 and (tonumber(otherdevices[HPTempOutletComputed])-tempHPout)<3) then
-							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMinIDX)..'|1|40'}
-							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMaxIDX)..'|1|48'}
+							setOutletTemp(40)
 							log(E_DEBUG,"Increase TempWinterMin to 40°C")
 						end
 					else
@@ -556,8 +567,7 @@ if (HPlevel~="Off") then
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (downlimited to targetPower/40)")
 						end
 						if (timeofday['Nighttime'] and tonumber(otherdevices[HPTempWinterMin])>35) then
-							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMinIDX)..'|1|35'}
-							commandArray[#commandArray+1]={['UpdateDevice']=tostring(HPTempWinterMaxIDX)..'|1|45'}
+							setOutletTemp(35)
 							log(E_DEBUG,"Decrease TempWinterMin to 35°C")
 						end
 					end

@@ -259,7 +259,6 @@ if (WINDGURU_USER ~= nil and WINDGURU_USER ~= '') then
 	end
 end
 
-
 -- If ATTIC_FAN_DEV is defined, manage cooling the attic during the Summer or heat during the Winter
 if (ATTIC_FAN_DEV~="") then
 	atticTemp=tonumber(otherdevices[ATTIC_TEMP_DEV])
@@ -311,7 +310,7 @@ if (TRASH_ALERT_TIME~="" and TRASH_ALERT_TIME==minutesNow) then
 	-- get week number
 	local fd=assert(io.popen("date '+%V'", 'r'))
 	local wnum=tonumber(assert(fd:read('*a')))
-	print("wday="..timeNow.wday.." wnum="..wnum)
+--	print("wday="..timeNow.wday.." wnum="..wnum)
 	if (timeNow.wday==3) then	-- wday=1 => Sunday, 2 => Monday, ....
 		-- Tuesday: paper bin in odd weeks, plastic bin in even weeks
 		if ((wnum%2)==1) then
@@ -336,11 +335,12 @@ VEHICLE_ENGINE='Kia - eNiro engine ON'			-- Vehicle engine On/Off
 VEHICLE_UPDATEREQ='Kia - eNiro update req.'		-- Command to force vehicle update
 GATE_SUPPLY='Power_Apricancello'				-- Gate power supply On/Off
 local carDistance=tonumber(otherdevices[VEHICLE_DISTANCE])  -- actual vehicle distance from house
-if (timeNow.day>=1 and timeNow.day<=3 and (minutesNow==820 or minutesNow==1030 or minutesNow==1090) and carDistance>5) then
+if (timeNow.wday>=2 and timeNow.wday<=4 and (minutesNow==820 or minutesNow==1030 or minutesNow==1090) and carDistance>5) then
+	log(E_DEBUG,"GeoFence: Request vehicle update")
 	-- working days, time to come back home => force vehicle tracking
 	commandArray[VEHICLE_UPDATEREQ]='On'
 	if (uservariables['alarmLevel']<=2) then 	-- alarm=OFF or alarm=DAY
-		log(E_INFO,"Working day => turn gate power ON anyway")
+		log(E_INFO,"GeoFence: Working day => turn gate power ON anyway")
 		commandArray[GATE_SUPPLY]='On'
 	end
 end	
@@ -348,20 +348,20 @@ if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
 	-- vehicle is moving
 	if (carDistance>RWC['cd']) then
 		-- vehicle is moving away
-		log(E_INFO,"Vehicle is moving away, from "..RWC['cd'].." to "..carDistance.."km")
+		log(E_INFO,"GeoFence: Vehicle is moving away, from "..RWC['cd'].." to "..carDistance.."km")
 		-- turn off gate power supply?
-		if (otherdevices[GATE_SUPPLY]=='On') then  -- gate supply is OFF when alarmLevel is NIGHT or AWAY
-			log(E_INFO,"carDistance increasing and gate power==On => turn Off") 
-			commandArray[GATE_SUPPLY]='Off'
-		end
+--		if (otherdevices[GATE_SUPPLY]=='On') then  -- gate supply is OFF when alarmLevel is NIGHT or AWAY
+--			log(E_INFO,"GeoFence: carDistance increasing and gate power==On => turn Off") 
+--			commandArray[GATE_SUPPLY]='Off'
+--		end
 
 	else
 		-- vehicle is approaching house
-		log(E_INFO,"Vehicle is approaching, from "..RWC['cd'].." to "..carDistance.."km")
+		log(E_INFO,"GeoFence: Vehicle is approaching, from "..RWC['cd'].." to "..carDistance.."km")
 		if (carDistance<5 and otherdevices[VEHICLE_ENGINE]=='On') then
 			-- vehicle is approaching, and is near house
 			if (otherdevices[GATE_SUPPLY]=='Off') then
-				log(E_INFO,"carDistance<5km and gate power==Off => turn On")
+				log(E_INFO,"GeoFence: carDistance<5km and gate power==Off => turn On")
 				commandArray[GATE_SUPPLY]='On'
 			end
 		end
@@ -369,8 +369,8 @@ if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
 	RWC['cd']=carDistance
 else
 	-- vehicle is not moving
-	if (carDistance<0.5 and timeNow.hour>=19 and otherdevices[GATE_SUPPLY]=='On') then
-		log(E_INFO,"Car at home, time>=19:00 and gate power==On => turn Off")
+	if (carDistance<0.5 and timeNow.hour==21 and timeNow.minutes==0 and otherdevices[GATE_SUPPLY]=='On') then
+		log(E_INFO,"GeoFence: Car at home, time>=19:00 and gate power==On => turn Off")
 		commandArray[GATE_SUPPLY]='Off'
 	end
 end

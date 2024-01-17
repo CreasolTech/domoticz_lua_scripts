@@ -20,6 +20,7 @@ This is a main script called every time a device changes state: it's optimized t
 * ignore useless device changes
 * call the appropriate scripts associated to the changed devices: for example if the changed device is named PIR* or MCS* or SIREN* , the *alarm.lua* script will be called, while if the device is named power*, the *power.lua* script will be called.
 
+
 ## Script POWER 
 File: *power.lua*  and  *config_power.lua*
 
@@ -35,8 +36,33 @@ Used to check power from energy meter (SDM120, SDM230, ...) and performs the fol
   4. Show on DomBusTH LEDs red and green the produced/consumed power: red LED flashes 1..N times if power consumption is greater than 1..N kW; 
      green LED flashes 1..M times if photovoltaic produces up to 1..M kW 
 
+
+## Script to compute self-consumption power and percentage, and self-sufficiency percentage
+Files: script_time_selfconsumption.lua config_power.lua globalfunctions.lua globalvariables.lua
+
+Destination directory: DOMOTICZ_DIR/scripts/lua
+
+Called every minute
+
+This is a mandatory script for those who have at least one reneable generation plant in their building.
+
+It manages one or more energy production plants (photovoltaic on the roof, photovoltaic in the garden and or wind turbine, ...) **computing the total generated energy/power, total used energy/power, self-consumption energy/power, self-consumption percentage and self-sufficiency percentage**.
+
+These are goods indicators to know if the building is optimized or not.
+
+Detailed info are available at [www.creasol.it/SelfConsumption](https://www.creasol.it/SelfConsumption) page.
+
+
+## Script that, every time a power meter changes, compute the sum of 2 or more power meters and feed that value to the DomBusEVSE virtual device
+Files: script_device_evsegridpower.lua
+
+This simple script is meant to compute the total power from the grid and feed it to the DomBusEVSE module, EV charging system that must know the total power from the grid, to prevent
+overloads and manage solar charging.
+In case of 2 or 3 meters are used (for example, a meter for the house, a meter for the electric car, and another meter for the garage, it computes the total power.
+
+
 ## Script to control the EMMETI Mirai heat pump in a smart way
-Files: script_time_heatpump_emmeti.lua and config_heatpump_emmeti.lua
+Files: heatpump.lua (script_time_heatpump_emmeti.lua) and config_heatpump_emmeti.lua
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -69,7 +95,7 @@ the external temperature does not permit to get an high efficiency
 
 
 ## Script for alarm system
-Files: alarm.lua  alarm_config.lua  alarm_sendsnapshot.sh  and  alarmSet.sh
+Files: alarm.lua (script_device_alarm.lua) alarm_config.lua  alarm_sendsnapshot.sh  and  alarmSet.sh
 
 Destination directory: DOMOTICZ_DIR/scripts/lua
 
@@ -116,6 +142,8 @@ Script that checks the raining rate and wind speed, and performs several functio
 
 * Checks wind speed and direction and **disable ventilation when wind speed is zero or wind comes from south or west, where there are few building using wood stoves generating bad smoke smell**.
 
+* Sends weather telemetry to WindGuru
+
 * Send **buzzer alert if a trash bin should be carried out**:
   * 1 beep (followed by 4s pause) for paper
   * 2 beeps (followed by 4s pause) for plastic/metal
@@ -127,23 +155,6 @@ Script that checks the raining rate and wind speed, and performs several functio
 
 * **Enable/Disable gate power supply to reduce energy consumption and improve antitheft security**: check vehicle position to determine if it's approaching (gate should be enabled) or it's moving away (gate should be disabled).
 In any case, the gate power supply is turned OFF when the alarm system is in NIGHT or AWAY mode.
-
-## Script to compute self-consumption power and percentage, and self-sufficiency percentage
-Files: script_time_selfconsumption.lua config_power.lua globalfunctions.lua globalvariables.lua
-
-Destination directory: DOMOTICZ_DIR/scripts/lua
-
-Called every minute
-
-This is a mandatory script for those who have at least one reneable generation plant in their building.
-
-It manages one or more energy production plants (photovoltaic on the roof, photovoltaic in the garden and or wind turbine, ...) **computing the total generated energy/power, total used energy/power, self-consumption energy/power, self-consumption percentage and self-sufficiency percentage**.
-
-These are goods indicators to know if the building is optimized or not.
-
-Detailed info are available at [www.creasol.it/SelfConsumption](https://www.creasol.it/SelfConsumption) page.
-
-
 
 ## Script to get data from Fronius inverter
 File: script_time_fronius.lua
