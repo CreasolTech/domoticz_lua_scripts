@@ -16,15 +16,18 @@
 
 RAINTIMEOUT=30					-- Wait 30 minutes after rainCounter stops incrementing and rainRate returns to zero, before determining that the rain is over.
 
-VENTILATION_START_WINTER=212	-- Start ventilation 3.5 hours after SunRise (Winter)
+VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winter)
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
 VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
+VENTILATION_TIME_ADD_SUNNY=60	-- adding time, in minutes, in weather is good
 VENTILATION_TIME_ADD=40	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 --VENTILATION_START_NIGHT=210	-- start at night to renew air in the bedroom. Set to 1400 or more to disable
 VENTILATION_START_NIGHT=1400
 VENTILATION_STOP_NIGHT=270
+
+CLOUDS_TODAY_DEV="Clouds_today"	-- weather forecast for today: percentage of clouds
 
 -- This section is used to enable one or two fans in the attic for cooling, heating or drying.
 -- A virtual "Selector Switch" named as ATTIC_SELECTOR_DEV variable should be create, with state "Off", "On", "Winter", "Summer" used to enable these function modes
@@ -60,7 +63,7 @@ function RWCinit()
 end
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="RainWindCheck: "
 commandArray={}
 
@@ -148,6 +151,10 @@ end
 if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
 	RWC['time']=0
 	RWC['maxtime']=VENTILATION_TIME
+	if (CLOUDS_TODAY_DEV~='' and tonumber(otherdevices[CLOUDS_TODAY_DEV])<20) then 
+		RWC['maxtime']=RWC['maxtime']+VENTILATION_TIME_ADD_SUNNY 
+		log(E_INFO,"Today ventilation time="..RWC['maxtime'].." increased because it's Sunny!")
+	end
 	RWC['auto']=0	-- 0=ventilation OFF, 1=ventilation ON by this script, 2=ventilation ON by this script, but disabled manually, 3=forced ON
 end
 
