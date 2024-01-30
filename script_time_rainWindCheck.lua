@@ -327,7 +327,7 @@ if (TRASH_ALERT_TIME~="" and TRASH_ALERT_TIME==minutesNow) then
 			-- even week
 			commandArray[TRASH_DEV]="Set Level 20"
 		end
-	elseif (timeNow.wday==5 and (wnum%2)==2) then
+	elseif (timeNow.wday==5 and (wnum%2)==0) then
 		-- Thursday, even week
 		commandArray[TRASH_DEV]="Set Level 30"
 	elseif (timeNow.wday==1 and timeNow.day>=14 and timeNow.day<21) then
