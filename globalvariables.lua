@@ -19,6 +19,9 @@ HEATPUMP_DEV=""         -- heat pump device On/Off state
 WINDGURU_USER=''        -- windguru station UID, if you want to publish your wind data on WindGuru website, else '' . 
 WINDGURU_PASS='' 		-- windguru station password
 
+MQTT_OWNER='user'
+MQTT_PASSWORD='password'
+
 -- Debug levels
 E_CRITICAL=0
 E_ERROR=1

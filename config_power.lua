@@ -35,6 +35,11 @@ EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 DOMBUSEVSE_GRIDPOWER={'Grid Power','dombus2 - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 
+HOYMILES_ID='116493522530'	-- Serial number of hoymiles inverter. '' to disable this function
+--HOYMILES_ID=''				-- Hoymiles inverter limit disabled
+HOYMILES_LIMIT_MAX=1600		-- Max power in watt
+HOYMILES_TARGET_POWER=-6000		-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
+
 -- Output device: use any name of your choice
 ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
 -- ledsRed={'Led_Cucina_Red','Living_Led_Red','BagnoPT_LedR' }		-- red LEDs that show power usage

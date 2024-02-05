@@ -28,6 +28,7 @@ function HPinit()
 	if (HP['trc']==nil) then HP['trc']=0 end		-- disable the Valve_Radiant_Coil after 3 minutes from HeatPump going OFF
 	if (HP['OL']==nil) then HP['OL']=0 end			-- OverLimit: used to overheat or overcool
 	if (HP['toff']==nil) then HP['toff']=0 end		-- time the heat pump is in OFF state
+	if (HP['EV']==nil) then HP['EV']=0 end			-- >0 while charging, decreased when EV stops charging
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -241,7 +242,7 @@ else
 	if (HPlevel=='Dehum' and HPmode~='Summer') then
 		-- Dehumidification selected in Winter mode
 		-- cannot dry in Winter mode => cancel dehumidification level
-		commandArray[HPLevel]='Off'
+		commandArray[#commandArray +1]={[HPLevel]='Set Level: 0'}	-- 0=Off
 		HPlevel="Off"
 	end
 end
@@ -251,6 +252,23 @@ compressorPercOld=otherdevices[HPCompressorNow]	-- get current compressor level
 targetPower=0
 CompressorMin=6
 CompressorMax=100
+
+if (EVSTATE_DEV~='') then
+	if (otherdevices[EVSTATE_DEV]=='Ch') then -- charging
+		if (HP['EV']<2) then
+			HP['EV']=HP['EV']+1
+		end
+	else -- not charging
+		if (HP['EV']>0) then
+			HP['EV']=HP['EV']-1
+			if (HP['EV']==0 and HPlevel=='Off') then 
+				log(E_INFO,"EV: Enable Heat Pump because EV has finished charging")
+				commandArray[#commandArray +1]={[HPLevel]='Set Level: 10'}	-- 10=Auto
+				HPlevel='Auto'
+			end
+		end
+	end
+end
 
 if (HPlevel~="Off") then
 	-- Auto or Dehum
@@ -708,6 +726,15 @@ else
 	HP['Level']=LEVEL_OFF
 end 
 
+if (HP['EV']>=2 and HPlevel~='Off') then
+	if (diffMax<0.15 or HP['OL']~=0) then 
+		log(E_INFO,"EV: Disable Heat Pump because EV charging terminated")
+		commandArray[#commandArray +1]={[HPLevel]='Set Level: 0'}	-- 0=Off
+		HPlevel='Off'
+	else
+		HP['EV']=1 --retry next minut
+	end
+end
 
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (HPmode == 'Summer') then

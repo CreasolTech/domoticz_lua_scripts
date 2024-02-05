@@ -22,7 +22,7 @@ function PowerInit()
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
 	if (Power['EV']==nil) then Power['EV']=0 end	-- EV Charge power
-
+	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- current limit value
 	--if (PowerAux==nil) then PowerAux={} end
 end	
 
@@ -212,7 +212,6 @@ function powerDisconnect(forced,msg)
 	end
 end
 
-log(E_DEBUG,"========================= "..DEBUG_PREFIX.." ===========================")
 currentPower=10000000 -- dummy value (10MW)
 HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
 if (HPmode==nil) then 
@@ -224,19 +223,28 @@ getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (
 
 for devName,devValue in pairs(devicechanged) do
 	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
-	if (devName==PowerMeter) then
-		if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
-			powerValue=getPowerValue(devValue)
-			for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do
-				commandArray[name]=tostring(powerValue)..';0'
-				log(E_INFO,"Update "..name.."="..powerValue)
-			end
-		end
-	end
 	if (PowerMeter~='') then
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
 		if (devName==PowerMeter) then
 			currentPower=getPowerValue(devValue)
+			if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
+				for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do
+					commandArray[name]=tostring(currentPower)..';0'
+					log(E_DEBUG,"Update "..name.."="..currentPower)
+				end
+			end
+			if (HOYMILES_ID~='') then
+				local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+				if (newlimit>HOYMILES_LIMIT_MAX) then
+					newlimit=HOYMILES_LIMIT_MAX
+				elseif (newlimit<0) then
+					newlimit=0
+				end
+				if (newlimit~=Power['HL'] or timeNow.min==0 and timeNow.sec>45) then
+					log(E_WARNING,"HOYMILES: transmit newlimit="..newlimit)
+					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t solar/'..HOYMILES_ID..'/cmd/limit_nonpersistent_absolute -m '..newlimit)
+				end
+			end
 		end
 	else
 		-- use PowerMeterImport and PowerMeterExport (if available)
@@ -889,6 +897,7 @@ if (currentPower>-20000 and currentPower<20000) then
 			end
 		end
 	end	-- currentPower has a right value
+
 	-- save variables in Domoticz, in a json variable Power
 	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
 	commandArray['Variable:zPower']=json.encode(Power)

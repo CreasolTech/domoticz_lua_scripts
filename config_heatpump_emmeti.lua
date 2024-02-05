@@ -13,6 +13,7 @@ OVERHEAT=0.5						-- Increase temperature setpoint in case of available power fr
 OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than POWER_MAX
 EVPOWER_DEV='EV Energy'
+EVSTATE_DEV="EV State"      		-- EV state, used to know if vehicle is in charging state or not: "Dis", "Con", "Ch"
 
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
@@ -117,7 +118,7 @@ GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 DEBUG_PREFIX="HeatPump: "
 
