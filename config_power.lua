@@ -14,39 +14,38 @@ DEBUG_LEVEL=E_WARNING
 DEBUG_PREFIX="Power: "
 
 -- PLEASE NOTE THAT EVERY INPUT DEVICE MUST CONTAINS "Power" in its name!
-PowerMeter='PowerMeter Grid'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
+PowerMeter=''			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
 --PowerMeter=''	-- uses PowerMeterImport and PowerMeterExport devices (defined below)
-PowerMeterImport='PowerMeter Import'				-- Alternative devices to measure import and export energy, in case that two different devices are used. Set to '' if you have a powermeter that measure negative power in case of exporting
+PowerMeterImport=''				-- Alternative devices to measure import and export energy, in case that two different devices are used. Set to '' if you have a powermeter that measure negative power in case of exporting
 --PowerMeterImport=''
-PowerMeterExport='PowerMeter Export'
+PowerMeterExport=''
 --PowerMeterExport=''
 POWERMETER_GENS={'PV_PowerMeter', 'PV_Garden'}	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
 
--- The following 5 devices have to be created manually, and will be filled by the script
-POWERMETER_USAGE='Power_Used'					-- Electric+Counter virtual device (to be created manually)
-POWERMETER_PROD='Power_Produced'					-- Electric+Counter virtual device (to be created manually)
-POWERMETER_SELF='Power_SelfConsumption'			-- Electric+Counter virtual device (to be created manually)
-PERCENTAGE_SELF='Perc_SelfConsumption'			-- Percentage virtual device (to be created manually)
+-- The following 5 virtual devices have to be created manually, and will be filled by the script
+POWERMETER_USAGE='Power_Used'				-- Electrici Instant+Counter virtual device (to be created manually)
+POWERMETER_PROD='Power_Generated'				-- Electric Instant+Counter virtual device (to be created manually)
+POWERMETER_SELF='Power_SelfConsumption'			-- Electric Instant+Counter virtual device (to be created manually)
+PERCENTAGE_SELF='Perc_SelfConsumption'				-- Percentage virtual device (to be created manually)
 PERCENTAGE_SUFF='Perc_SelfSufficiency'			-- Percentage virtual device (to be created manually)
 
-blackoutDevice='PowerSupply_HeatPump'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
-EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
---DOMBUSEVSE_GRIDPOWER={'dombus2 - (ffe3.c) Grid Power'}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
+blackoutDevice=''			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
+EVPowerMeter=''	-- Device measuring EV charging power, if available
+DOMBUSEVSE_GRIDPOWER={}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 --DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
-DOMBUSEVSE_GRIDPOWER={'Grid Power','dombus2 - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
-
-HOYMILES_ID='116493522530'	-- Serial number of hoymiles inverter. '' to disable this function
---HOYMILES_ID=''				-- Hoymiles inverter limit disabled
-HOYMILES_LIMIT_MAX=1600		-- Max power in watt
-HOYMILES_TARGET_POWER=-6000		-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
+--DOMBUSEVSE_GRIDPOWER={'Grid Power','dombus2 - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 
 -- Output device: use any name of your choice
-ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
--- ledsRed={'Led_Cucina_Red','Living_Led_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
-ledsRed={'Led_Cucina_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
-ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Buzzer_Camera','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
-ledsWhiteSelector={'Led_Cucina_White','BagnoPT_LedW'}		-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
-HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heating), Summer (cooling) 
+ledsGreen={}
+--ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
+ledsRed={}
+--ledsRed={'Led_Cucina_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
+ledsWhite={}
+--ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Buzzer_Camera','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
+ledsWhiteSelector={}
+--ledsWhiteSelector={'Led_Cucina_White','BagnoPT_LedW'}		-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
+HPMode=''
+--HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heating), Summer (cooling) 
 
 EVLedStatus={''}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}
 PowerThreshold={
@@ -55,14 +54,6 @@ PowerThreshold={
 	4800,	-- send alert after 4800s (80minutes) . Imported power can stay at TH[2] for 90min, then must be below TH[1] for at least 90 minutes
 	60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s)
 }
---[[	-- DEBUG: reduce power and time threshold to test script
-PowerThreshold={ --DEBUG values
-	4000,  	-- available power (Italy: power+10%)
-	5000,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
-	80,		-- send alert after 4800s (80minutes)
-	60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
-}
-]]
 
 PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very high and the script can't disable any load to reduce usage power
 	--buzzer device   OFF_command  ON_command
@@ -72,36 +63,11 @@ PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very hi
 
 -- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)
 overloadDisconnect={ -- syntax: device name, command to disable, command to enable
-	{'HeatPump_HalfPower','On','Off'},	-- heat pump: Off => full power, On => half power
-	{'HeatPump_Fancoil','Off','On'},	-- heat pump, high temperature
 	{'HeatPump','Off','On'},			-- heat pump (general)
 	{'Irrigazione','Off FOR 30 MINUTES','On'},			-- garden watering pump
-	{'KEV Mode','Off','Solar'},	-- electric car charging socket
+	{'EV Mode','Off','Solar'},	-- electric car charging socket
 }
 
--- list of electric vehicles
--- 3rd field is the battery level device name or variable name containing the battery charge level%: if not available, set to '' (will be set to 50%)
--- 4th and 5th fields refers to virtual selector switches (to be added manually) configured with some battery levels, e.g. Off, 25, 50, 80, 90, 100 (%)
---   These selector switches will be used to set the min battery level (if battery state is below, charge EV anyway) and max battery level 
---   (if battery state of charge between min and max level, charge only using energy from photovoltaic)
-eVehicles={ 
-	-- on/off device, 	power	battery level % 		Min battery level			Max battery level			DistanceDev				SpeedDev			Charge mode pushbutton		Charging mode 				Range
-	-- Please note that pushbutton and chargingMode device names must contain the "Power" word
-	-- {'Kia eNiro - Contactor', 	2500,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - PowerButton charge', 'Kia eNiro - PowerCharging mode', 'Kia eNiro - Range'},
-}
-
-
-EVChargingModeNames={'Off', 'Min0', 'Min50', 'Min50_Max100', 'On'}
-EVChargingModeConf={
-	-- MinLevel, value,	MaxLevel, value
-	-- MinLevel: 0=0%, 10=50%, 20=65%, 30=80%, 40=90%, 50=100%
-	-- MaxLevel: 0=0%, 10=60%, 20=70%, 30=80%, 40=90%, 50=100%
-	{	0, 	0,		0, 	0	},
-	{	0, 	0,		30, 80	},
-	{	10,	50, 	30,	80	},
-	{	10,	50, 	50, 100	},
-	{	50,	100,	50, 100	},
-}
 
 EVSE_CURRENT_DEV='EVSE Current'		-- device used to set the charging current. Set to '' to disable EVSE management
 EVSE_STATE_DEV='EVSE State'			-- EVSE status: Disconnected, Connected, Charging, ....

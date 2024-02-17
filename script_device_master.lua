@@ -19,7 +19,7 @@ for devName,devValue in pairs(devicechanged) do	-- scan all changed devices
 		run_testdombus=1
 	end
 end
-if (run_alarm==0 and run_power==0 and run_pushbuttons==0) then return commandArray end
+if (run_alarm==0 and run_power==0 and run_pushbuttons==0 and run_testdombus==0) then return commandArray end
 
 dofile "scripts/lua/globalvariables.lua"  -- load some variables common to all scripts
 dofile "scripts/lua/globalfunctions.lua"  -- load some functions common to all scripts
@@ -34,6 +34,10 @@ end
 
 if (run_pushbuttons==1) then
 	dofile "scripts/lua/pushbuttons.lua"
+end
+
+if (run_testdombus==1) then
+	dofile "scripts/lua/testdombus.lua"
 end
 
 return commandArray

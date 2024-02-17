@@ -291,6 +291,11 @@ if (HPlevel~="Off") then
 			diffMaxTh=diffMaxTh+0.1
 			log(E_INFO,"Morning or Night: diffMaxTh increased to "..diffMaxTh)
 		end
+		if (timenow.hour<9 and timenow.yday>=41 and tonumber(otherdevices['Clouds_today'])<=50) then
+			-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
+			diffMaxTh=diffMaxTh+0.15
+			log(E_INFO,"Night, after 10 Feb and Sunny => increase diffMaxTh to "..diffMaxTh) 
+		end
 		if (diffMaxTh<0.05) then diffMaxTh=0.05 end
 
 		overlimitTemp=OVERHEAT		-- max overheat temperature
@@ -499,16 +504,16 @@ if (HPlevel~="Off") then
 				if (HPmode == 'Winter') then
 					-- targetPower computed based on outdoor temperature min and max
 					targetPower=math.floor(((12-HP['otmin'])^1.5)*22 + ((24-HP['otmax'])^1.6)*4)
-					log(E_DEBUG,"targetPower="..targetPower.." computed based on otmin and otmax")
+					log(E_INFO,"targetPower="..targetPower.." computed based on otmin and otmax")
 					if (diffMax>diffMaxTh+0.1) then
 						if (timenow.hour>=10 and timenow.hour<17) then
 							-- increase power to recover the comfort state
 							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
-							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
+							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
 						else
 							-- increase power to recover the comfort state
 							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*500)
-							log(E_DEBUG,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1")
+							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1")
 						end
 					end
 					
@@ -516,33 +521,37 @@ if (HPlevel~="Off") then
 					if (tonumber(otherdevices['Clouds_today'])<=50 and diffMax<diffMaxTh and timenow.hour<14) then
 						-- Sunny !!
 						targetPower=targetPower-300 -- Try to use energy from photovoltaic, reducing power during the night
-						log(E_DEBUG,"targetPower-=300 because it is Sunny and diffMax is low")
+						log(E_INFO,"targetPower-=300 because it is Sunny and diffMax is low")
 						if (peakPower()) then -- try to export power
-							log(E_DEBUG,"targetPower-=300 peakPower()")
+							log(E_INFO,"targetPower-=300 peakPower()")
 							targetPower=targetPower-300 
 						end
 					end 
 					
 					-- between 10 and 17 increase power by 300 + k*diffMax²
 					if (timenow.hour>=10 and timenow.hour<17) then
-						log(E_DEBUG,"targetPower+=300 between 10 and 17")
+						log(E_INFO,"targetPower+=300 between 10 and 17")
 						targetPower=targetPower+300
 						if (timenow.hour>=12) then 
 							targetPower=targetPower+math.floor(diffMax*diffMax*1000)	-- Adjust targetPower based on diffMax value
-							log(E_DEBUG,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
+							log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 						end
 					elseif (timenow.hour<8 or timenow.hour>=20) then	-- during the night reduce power if diffMax near zero
 						if (diffMax<diffMaxTh and tempDerivate>=0) then
 							--rooms almost in temperature, in the night
 							targetPower=TargetPowerMin
-							log(E_DEBUG,"targetPower="..targetPower.." reduced because rooms almost in temperature")
+							log(E_INFO,"targetPower="..targetPower.." reduced because rooms almost in temperature")
+						else
+							targetPower=math.floor(targetPower*0.8)
+							log(E_INFO,"targetPower="..targetPower.." reduced by 20% because night time")
 						end
+
 					end
 
 					-- use all available power from photovoltaic
-					if (targetPower<HPPower+prodPower) then --more power available
+					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
 						targetPower=HPPower+prodPower -- increase targetPower because there more power is available from photovoltaic
-						log(E_DEBUG,"targetPower="..targetPower.." increased due to available prodPower")
+						log(E_INFO,"targetPower="..targetPower.." increased due to available prodPower")
 					end
 					-- verify that targetPower is >= TargetPowerMin (or the heat pump will switch off)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end -- avoid heatpump going off
@@ -553,7 +562,7 @@ if (HPlevel~="Off") then
 
 				if (HP['OL']>0) then -- overlimit, but no power available
 					targetPower=HPPower+prodPower
-					log(E_DEBUG,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
+					log(E_INFO,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end
 				end
 
