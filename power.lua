@@ -221,6 +221,13 @@ end
 
 getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (coded in JSON format)
 
+if (otherdevices['116493522530']~=nil) then 
+	print("DEVICE '116493522530' EXISTS")
+end
+if (otherdevices[116493522530]~=nil) then 
+	print("DEVICE 116493522530 EXISTS")
+end
+
 for devName,devValue in pairs(devicechanged) do
 	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
 	if (PowerMeter~='') then
@@ -242,7 +249,7 @@ for devName,devValue in pairs(devicechanged) do
 				end
 				if (newlimit~=Power['HL'] or timeNow.min==0 and timeNow.sec>45) then
 					log(E_WARNING,"HOYMILES: transmit newlimit="..newlimit)
-					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t solar/'..HOYMILES_ID..'/cmd/limit_nonpersistent_absolute -m '..newlimit)
+					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
 				end
 			end
 		end

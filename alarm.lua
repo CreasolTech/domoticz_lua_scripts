@@ -236,19 +236,29 @@ end
 
 function checkDoorsWindowsBlindsOpen()  
 	-- check if any MCS is open
-	MCSopen=""
+	MCS1open=""
+	MCS2open=""
 	for mcs,mcsRow in pairs(MCSlist) do
 		if (mcsRow[1]~='' and (otherdevices[mcsRow[1]]=='On' or otherdevices[mcsRow[1]]=='Open')) then
-			MCSopen=MCSopen..mcsRow[1].."\n"
+			MCS1open=MCS1open..mcsRow[1].."\n"	-- windows, doors
 		end
 		if (mcsRow[2]~='' and (otherdevices[mcsRow[2]]=='On' or otherdevices[mcsRow[2]]=='Open')) then
-			MCSopen=MCSopen..mcsRow[2].."\n"
+			MCS2open=MCS2open..mcsRow[2].."\n"	-- shutters, covers
 		end
 	end
-	if (MCSopen~='') then
-		log(E_WARNING,ALARMlist[alarmLevel][1].." enabled: Doors/Windows/Blinds open:\n"..MCSopen)
-	else
+	if (MCS1open=='' and MCS2open=='') then
 		log(E_WARNING,ALARMlist[alarmLevel][1].." enabled")
+	else
+		-- blinds and/or doors/windows are open. If doors/windows are open => send two telegram messages because normally the must be closed!
+		if (MCS2open~='') then
+			log(E_WARNING,ALARMlist[alarmLevel][1].." enabled: Blinds/Covers open:\n"..MCS2open)
+		elseif (MCS1open~='') then
+			log(E_WARNING,ALARMlist[alarmLevel][1].." enabled: Blinds/Covers are closed")	-- stupid message to get totally two telegram messages
+		end
+		if (MCS1open~='') then
+			os.execute("sleep 2")
+			log(E_WARNING,ALARMlist[alarmLevel][1].." enabled: Doors/Windows open:\n"..MCS1open)
+		end
 	end
 end
 

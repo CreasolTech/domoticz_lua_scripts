@@ -166,6 +166,7 @@ end
 -- tempHPout=tonumber(fd:read("*a")) 	-- temp * 0.1°C
 -- io.close(fd)
 tempHPout=tonumber(otherdevices[HPTempOutlet])
+tempHPoutComputed=tonumber(otherdevices[HPTempOutletComputed])
 if (tempHPout==nil or tempHPout<=-10 or tempHPout>50) then
 	log(E_DEBUG,"Error reading outlet water from HeatPump plugin!")
 	tempHPout=tonumber(otherdevices[TEMPHPOUT_DEV])
@@ -248,7 +249,7 @@ else
 end
 
 -- compressorPercOld=HP['CP']	-- get the compressorPerc used before
-compressorPercOld=otherdevices[HPCompressorNow]	-- get current compressor level
+compressorPercOld=tonumber(otherdevices[HPCompressorNow])	-- get current compressor level
 targetPower=0
 CompressorMin=6
 CompressorMax=100
@@ -291,10 +292,12 @@ if (HPlevel~="Off") then
 			diffMaxTh=diffMaxTh+0.1
 			log(E_INFO,"Morning or Night: diffMaxTh increased to "..diffMaxTh)
 		end
-		if (timenow.hour<9 and timenow.yday>=41 and tonumber(otherdevices['Clouds_today'])<=50) then
-			-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
-			diffMaxTh=diffMaxTh+0.15
-			log(E_INFO,"Night, after 10 Feb and Sunny => increase diffMaxTh to "..diffMaxTh) 
+		if (timenow.yday>=41 and timenow.yday<320 and timenow.hour<9) then
+			if (tonumber(otherdevices['Clouds_today'])<=60) then
+				-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
+				diffMaxTh=diffMaxTh+0.15
+				log(E_INFO,"Night, after 10 Feb and Sunny => increase diffMaxTh to "..diffMaxTh) 
+			end
 		end
 		if (diffMaxTh<0.05) then diffMaxTh=0.05 end
 
@@ -431,11 +434,16 @@ if (HPlevel~="Off") then
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (peakPower()) then
-			log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
-			if ((timenow.month>=11 or timenow.month<3)) then
-				diffMax=diffMax-0.2	-- in Winter
+			if (prodPower>inverterPower) then	-- check that I'm not exporting more power than photovoltaic on the roof
+				prodPower=prodPower-inverterPower	-- use only power from secondary PV system
+				log(E_INFO,"Use only power from secondary PV")
 			else
-				diffMax=diffMax-0.3 -- in Summer
+				log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
+				if ((timenow.month>=11 or timenow.month<3)) then
+					diffMax=diffMax-0.2	-- in Winter
+				else
+					diffMax=diffMax-0.3 -- in Summer
+				end
 			end
 		else
 			-- during the day, not in peak hours
@@ -582,10 +590,6 @@ if (HPlevel~="Off") then
 							compressorPerc=targetPower/25 
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (limited to targetPower/25)")
 						end
-						if (prodPower>200 and tonumber(otherdevices[HPTempWinterMin])<40 and HPPower>=1000 and (tonumber(otherdevices[HPTempOutletComputed])-tempHPout)<3) then
-							setOutletTemp(40)
-							log(E_DEBUG,"Increase TempWinterMin to 40°C")
-						end
 					else
 						compressorPerc=compressorPercOld+diff/80
 						log(E_DEBUG,"compresorPerc="..compressorPerc.." (decreased by diff/80)")
@@ -598,6 +602,10 @@ if (HPlevel~="Off") then
 							log(E_DEBUG,"Decrease TempWinterMin to 35°C")
 						end
 					end
+				end
+				if (prodPower>500 and tonumber(otherdevices[HPTempWinterMin])<40 and HPPower>=500 and (tempHPoutComputed-tempHPout)<3) then
+					setOutletTemp(40)
+					log(E_DEBUG,"Increase TempWinterMin to 40°C")
 				end
 				if (compressorPerc>CompressorMax) then 
 					compressorPerc=CompressorMax 
@@ -850,7 +858,7 @@ end
 diffMax=string.format("%.2f", diffMax)
 diffMaxText=' dT='..diffMax..'°C'
 if (HP['OL']~=0) then diffMaxText=' OverLimit' end
-log(E_INFO,'L:'..levelOld..'->'..HP['Level']..diffMaxText..' dT/dt='..tempDerivate..' TP='..targetPower..'W HP/Grid='..HPPower..'W/'..avgPower..'W Compr='..compressorPercOld..'->'..compressorPerc..'% Out/In='..tempHPout..'/'..tempHPin..'°C Outdoor now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
+log(E_INFO,'L:'..levelOld..'->'..HP['Level']..diffMaxText..' dT/dt='..tempDerivate..' TP='..targetPower..'W HP/Grid='..HPPower..'W/'..avgPower..'W Compr='..compressorPercOld..'->'..compressorPerc..'% Out/In='..tempHPout..'->'..tempHPoutComputed..'/'..tempHPin..'°C Now/min/max='..outdoorTemperature..'/'..HP['otmin']..'/'..HP['otmax']..'°C')
 log(E_DEBUG,'------------------------------------------------')
 commandArray['UpdateDevice'] = HPStatusIDX..'|0|L:'..levelOld..'->'..HP['Level']..diffMaxText.." dT/dt="..tempDerivate.." TP="..targetPower.."W\nOut/In="..tempHPout..'/'..tempHPin..'°C Comp='..compressorPerc..'%'
 HP['CP']=compressorPerc

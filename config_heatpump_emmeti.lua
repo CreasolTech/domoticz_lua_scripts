@@ -118,7 +118,7 @@ GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 DEBUG_PREFIX="HeatPump: "
 

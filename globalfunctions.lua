@@ -2,7 +2,7 @@
 -- Written by Paolo Subiaco - https://www.creasol.it
 --
 function telegramNotify(msg)
-    os.execute('curl -m 1 --data chat_id='..TELEGRAM_CHATID..' --data-urlencode "text='..msg..'"  "https://api.telegram.org/bot'..TELEGRAM_TOKEN..'/sendMessage" ')
+    os.execute('curl -m 1 --data chat_id='..TELEGRAM_CHATID..' --data-urlencode "text='..msg..'"  "https://api.telegram.org/bot'..TELEGRAM_TOKEN..'/sendMessage" &')
 end
 
 function log(level, msg)
