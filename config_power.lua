@@ -35,6 +35,8 @@ EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 DOMBUSEVSE_GRIDPOWER={'Grid Power','dombus2 - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 
+-- Hoymiles inverter using OpenDTU monitoring device: automatically update the output power limit to get a Grid power corresponding to the specified HOYMILES_TARGET_POWER
+-- In this example, I can export max 6000W and have two inverters connected to my house. Hoymiles inverter (1600W, in my case) will limit the production power to export max 6000W to the grid
 HOYMILES_ID='solar/116493522530/cmd/limit_nonpersistent_absolute'	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 --HOYMILES_ID=''	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 HOYMILES_LIMIT_MAX=1600		-- Max power in watt
