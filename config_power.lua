@@ -9,10 +9,6 @@
 --      green LED flashes 1..M times if photovoltaic produces up to 1..M kWatt
 --
 
-DEBUG_LEVEL=E_WARNING
---DEBUG_LEVEL=E_DEBUG
-DEBUG_PREFIX="Power: "
-
 -- PLEASE NOTE THAT EVERY INPUT DEVICE MUST CONTAINS "Power" in its name!
 PowerMeter='PowerMeter Grid'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
 --PowerMeter=''	-- uses PowerMeterImport and PowerMeterExport devices (defined below)

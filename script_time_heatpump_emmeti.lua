@@ -14,6 +14,11 @@
 -- Emmeti Mirai heatpump: verify that:
 -- * 16436 = 140 (14°C) = minimum fluid temperature for cooling using the radiant system
 --
+
+DEBUG_LEVEL=E_WARNING
+--DEBUG_LEVEL=E_DEBUG
+DEBUG_PREFIX="Power: "
+
 commandArray={}
 dofile "/home/pi/domoticz/scripts/lua/config_heatpump_emmeti.lua"
 
@@ -250,6 +255,7 @@ end
 
 -- compressorPercOld=HP['CP']	-- get the compressorPerc used before
 compressorPercOld=tonumber(otherdevices[HPCompressorNow])	-- get current compressor level
+compressorPerc=compressorPercOld
 targetPower=0
 CompressorMin=6
 CompressorMax=100
@@ -295,8 +301,13 @@ if (HPlevel~="Off") then
 		if (timenow.yday>=41 and timenow.yday<320 and timenow.hour<9) then
 			if (tonumber(otherdevices['Clouds_today'])<=60) then
 				-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
-				diffMaxTh=diffMaxTh+0.15
-				log(E_INFO,"Night, after 10 Feb and Sunny => increase diffMaxTh to "..diffMaxTh) 
+				diffMaxTh=diffMaxTh+0.2
+				log(E_INFO,"Night, from 10 Feb to 15 Nov, and Sunny => increase diffMaxTh to "..diffMaxTh)
+			end
+			if (timenow.yday>=71 and timenow.yday<305) then
+				-- during night, between 10 Mar and 1 Nov => do not start heatpump in the night
+				diffMaxTh=diffMaxTh+0.3
+				log(E_INFO,"Night, from 10 Mar to 1 Nov => increase diffMaxTh to "..diffMaxTh)
 			end
 		end
 		if (diffMaxTh<0.05) then diffMaxTh=0.05 end
@@ -420,17 +431,23 @@ if (HPlevel~="Off") then
 	if (otherdevices[powerMeter]~=nil) then
 		-- power meter exists, returning value "usagePower;totalEnergy"
 		-- Also, script_device_power.lua is writing the user variable avgPower with average consumed power in the minute
+		inverterPower=0
 		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
 			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
 			for p in otherdevices[inverterMeter]:gmatch("[^;]+") do
-				inverterPower=tonumber(p)
+				inverterPower=math.floor(tonumber(p))
 				break
 			end
-			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
-		else
-			inverterPower=0
-			log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W")
 		end
+		if (inverter2Meter ~= '' and otherdevices[inverter2Meter]~=nil) then
+			-- inverter2Meter device exists: extract power (skip energy or other values, separated by ;)
+			for p in otherdevices[inverter2Meter]:gmatch("[^;]+") do
+				inverterPower=inverterPower+math.floor(tonumber(p))
+				break
+			end
+		end
+		log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
+
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (peakPower()) then
@@ -560,6 +577,12 @@ if (HPlevel~="Off") then
 					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
 						targetPower=HPPower+prodPower -- increase targetPower because there more power is available from photovoltaic
 						log(E_INFO,"targetPower="..targetPower.." increased due to available prodPower")
+						if (timenow.yday>=75 and timenow.yday<310) then
+							if (targetPower>1500) then
+								targetPower=1500
+								log(E_INFO,"targetPower="..targetPower.." limited to 1500 in Autumn and Spring")
+							end
+						end
 					end
 					-- verify that targetPower is >= TargetPowerMin (or the heat pump will switch off)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end -- avoid heatpump going off
@@ -620,8 +643,7 @@ if (HPlevel~="Off") then
 						HP['Level']=LEVEL_ON
 					else -- Day
 						-- diffMax>0, some power available (from grid or solar) => should I turn ON heating/cooling?
-						log(E_DEBUG,"diffMax="..diffMax.." diffMaxTh="..diffMaxTh.." prodPower="..prodPower.." prodPowerOn="..prodPowerOn)
-						if (diffMax>=diffMaxTh or prodPower>targetPower) then
+						if (diffMax>=diffMaxTh or (timenow.hour>=9 and prodPower>targetPower)) then
 							HP['Level']=LEVEL_ON
 						end
 					end
@@ -695,6 +717,7 @@ if (HPlevel~="Off") then
 	else
 		log(E_DEBUG,'No power meter installed')
 	end
+	log(E_DEBUG,"diffMax="..diffMax.." diffMaxTh="..diffMaxTh.." prodPower="..prodPower.." prodPowerOn="..prodPowerOn)
 
 	if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and HPmode == 'Winter') then
 		-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMax>=GHdiffMax
@@ -770,8 +793,8 @@ else
 end	
 if (HP['OL']~=0 and heatingCoolingEnabled~=0) then
 	-- overlimit on : track power
-	-- compressorPerc=HP['CP']+(prodPower-500)/30
-	log(E_DEBUG,"OverLimit ON: compressorPerc="..compressorPerc.." HP[CP]="..HP['CP'].." deltaCP="..prodPower/30)
+	compressorPerc=math.floor(compressorPercOld+(prodPower-500)/30)
+	log(E_DEBUG,"OverLimit ON: compressorPerc="..compressorPerc.." Old="..compressorPercOld)
 	if (HP['Level']==0 and otherdevices[HPLevel]~='Off') then HP['Level']=LEVEL_ON end
 end
 
