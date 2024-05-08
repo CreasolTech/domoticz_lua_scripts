@@ -48,8 +48,8 @@ MOSQUITTO_STOP2=120		-- stop at 120=02:00
 TRASH_ALERT_TIME=1140			-- time when alert will be sent, in minutes: 19*60=1140
 TRASH_DEV="Living_Buzzer"		-- Buzzer or Led device to turn ON
 
-dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"  -- some variables common to all scripts
-dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
+dofile "scripts/lua/globalvariables.lua"  -- some variables common to all scripts
+dofile "scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
 function RWCinit()
 	-- check or initialize the RWC table of variables, that will be saved, coded in JSON, into the zRainWindCheck Domoticz variable
@@ -341,7 +341,11 @@ VEHICLE_DISTANCE='Kia - eNiro distance'			-- Vehicle distance in Km
 VEHICLE_ENGINE='Kia - eNiro engine ON'			-- Vehicle engine On/Off
 VEHICLE_UPDATEREQ='Kia - eNiro update req.'		-- Command to force vehicle update
 GATE_SUPPLY='Power_Apricancello'				-- Gate power supply On/Off
-local carDistance=tonumber(otherdevices[VEHICLE_DISTANCE])  -- actual vehicle distance from house
+
+local carDistance=0  -- actual vehicle distance from house
+if (VEHICLE_DISTANCE~='' and otherdevices[VEHICLE_DISTANCE]~=nil) then
+	carDistance=tonumber(otherdevices[VEHICLE_DISTANCE])  -- actual vehicle distance from house
+end
 if (timeNow.wday>=2 and timeNow.wday<=4 and (minutesNow==820 or minutesNow==1030 or minutesNow==1090) and carDistance>5) then
 	log(E_DEBUG,"GeoFence: Request vehicle update")
 	-- working days, time to come back home => force vehicle tracking

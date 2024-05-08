@@ -316,8 +316,8 @@ function lightsNext()
 end
 
 function lightsCheck() -- check that zAlarmLights exists, if not init it and init lights[] dict
-	timenow=os.date("*t")
-	secondsnow = timenow.sec + timenow.min*60 + timenow.hour*3600
+	timeNow=os.date("*t")
+	secondsnow = timeNow.sec + timeNow.min*60 + timeNow.hour*3600
 	json=require("dkjson")
 	if (uservariables['zAlarmLights']==nil) then
 		lightsInit()	-- init lights table

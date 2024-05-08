@@ -37,13 +37,17 @@ HOYMILES_ID='solar/116493522530/cmd/limit_nonpersistent_absolute'	-- MQTT name t
 --HOYMILES_ID=''	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 HOYMILES_LIMIT_MAX=1600		-- Max power in watt
 HOYMILES_TARGET_POWER=-6000		-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
+HOYMILES_LIMIT_PERC_DEV='PVgarden_Limit'
+HOYMILES_PRODUCING_DEV='PVgarden_InverterProducing'
+HOYMILES_RESTART_DEV='PVgarden_RestartInverter'
 
 -- Output device: use any name of your choice
 ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
 -- ledsRed={'Led_Cucina_Red','Living_Led_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
 ledsRed={'Led_Cucina_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
-ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Buzzer_Camera','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
+ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
 ledsWhiteSelector={'Led_Cucina_White','BagnoPT_LedW'}		-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
+blackoutBuzzers={'Buzzer_Camera'}			-- Audio alert in case of power outage
 HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heating), Summer (cooling) 
 
 EVLedStatus={''}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}

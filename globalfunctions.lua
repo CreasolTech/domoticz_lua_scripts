@@ -91,14 +91,14 @@ end
 
 function peakPower()
 	if (monthnow==nil) then monthnow = tonumber(os.date("%m")) end
-	if (timenow==nil) then timenow = os.date("*t") end
+	if (timeNow==nil) then timeNow = os.date("*t") end
 	if ((monthnow>=11 or monthnow<=3)) then
-		if ((timenow.hour>=7 and timenow.hour<10) or (timenow.hour>=17 and timenow.hour<21)) then 
+		if ((timeNow.hour>=7 and timeNow.hour<10) or (timeNow.hour>=17 and timeNow.hour<21)) then 
 			-- tonumber(otherdevices['Clouds_today'])<70)
 			return true
 		end
 	else -- from April to October
-		if ((timenow.hour>=7 and timenow.hour<10) or (timenow.hour>=18 and timenow.hour<22)) then 
+		if ((timeNow.hour>=7 and timeNow.hour<10) or (timeNow.hour>=18 and timeNow.hour<22)) then 
 			-- tonumber(otherdevices['Clouds_today'])<70)
 			return true
 		end

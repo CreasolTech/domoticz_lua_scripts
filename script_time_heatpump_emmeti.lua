@@ -20,7 +20,7 @@ DEBUG_LEVEL=E_WARNING
 DEBUG_PREFIX="Power: "
 
 commandArray={}
-dofile "/home/pi/domoticz/scripts/lua/config_heatpump_emmeti.lua"
+dofile "scripts/lua/config_heatpump_emmeti.lua"
 
 -- Initialize the HP domoticz variable (json coded, within several state variables)
 function HPinit()
@@ -83,8 +83,8 @@ function setOutletTemp(tempMin)
 end
 
 monthnow = tonumber(os.date("%m"))
-timenow = os.date("*t")
-minutesnow = timenow.min + timenow.hour * 60
+timeNow = os.date("*t")
+minutesnow = timeNow.min + timeNow.hour * 60
 
 -- check variables
 json=require("dkjson")
@@ -120,7 +120,7 @@ else
 	HPZinit()	-- check that all variables in HP table are initialized
 end
 
-if (timenow.min==1 or timenow.min==31) then
+if (timeNow.min==1 or timeNow.min==31) then
 	-- shift temperatures in HPZ['tn'] and compute new tempDerivate
 	HPZ['t4']=HPZ['t3']
 	HPZ['t3']=HPZ['t2']
@@ -207,6 +207,9 @@ else
 end
 avgPower=math.floor(avgPower)
 prodPower=0-avgPower
+if (GRID_VOLTAGE~='') then
+	gridVoltage=tonumber(otherdevices[GRID_VOLTAGE])
+end
 
 if (heatpumpMeter~='' and otherdevices[heatpumpMeter]~=nil) then
 	-- heat pump power meter exists, returning value "usagePower;totalEnergy"
@@ -265,6 +268,10 @@ if (EVSTATE_DEV~='') then
 		if (HP['EV']<2) then
 			HP['EV']=HP['EV']+1
 		end
+		-- Also, if EVUPDATE_DEV lastupdate is older than 24minutes, issue a EVUPDATE to refresh EV information
+		if (EVUPDATE_DEV~=nil and otherdevices_lastupdate[EVUPDATE_DEV]~=nil and timedifference(otherdevices_lastupdate[EVUPDATE_DEV])>1440) then
+			commandArray[EVUPDATE_DEV]='On'
+		end
 	else -- not charging
 		if (HP['EV']>0) then
 			HP['EV']=HP['EV']-1
@@ -293,20 +300,20 @@ if (HPlevel~="Off") then
 	 	-- diffMaxTh=0.1	-- if diffMax<diffMaxTh, temperature is near the set point
 		-- reduce diffMaxTh if outdoor temperature is low (to use higher temperatures to heat the building)
 		diffMaxTh=((HP['otmin']-4)/40)+HP['otmax']/160
-		if (timenow.hour<3 or timenow.hour>=20) then
+		if (timeNow.hour<3 or timeNow.hour>=20) then
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
 			diffMaxTh=diffMaxTh+0.1
 			log(E_INFO,"Morning or Night: diffMaxTh increased to "..diffMaxTh)
 		end
-		if (timenow.yday>=41 and timenow.yday<320 and timenow.hour<9) then
+		if (timeNow.yday>=41 and timeNow.yday<320 and timeNow.hour<9) then
 			if (tonumber(otherdevices['Clouds_today'])<=60) then
 				-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
 				diffMaxTh=diffMaxTh+0.2
 				log(E_INFO,"Night, from 10 Feb to 15 Nov, and Sunny => increase diffMaxTh to "..diffMaxTh)
 			end
-			if (timenow.yday>=71 and timenow.yday<305) then
+			if (timeNow.yday>=71 and timeNow.yday<305) then
 				-- during night, between 10 Mar and 1 Nov => do not start heatpump in the night
-				diffMaxTh=diffMaxTh+0.3
+				diffMaxTh=diffMaxTh+0.5
 				log(E_INFO,"Night, from 10 Mar to 1 Nov => increase diffMaxTh to "..diffMaxTh)
 			end
 		end
@@ -317,6 +324,7 @@ if (HPlevel~="Off") then
 		overlimitDiff=0.2			-- forced diffmax value
 		prodPowerOn=300				-- minimum extra power to turn ON the heatpump
 		gridPowerMin=300			-- minimum power from the grid, even when PV is producing
+		if (timeNow.yday>=41 and timeNow.yday<320) then gridPowerMin=0 end	-- don't use power from grid in Spring and Autumn!
 		TargetPowerMin=math.floor(510+(890/14)*(7-outdoorTemperature)) -- computed based on heat pump datasheet
 		TargetPowerMax=3000
 	else
@@ -354,7 +362,7 @@ if (HPlevel~="Off") then
 		--
 		-- check temperature offset defined for each zone (used to reduce temperature during the night
 		temperatureOffset=0
-		if (timenow.hour < v[zone_start] or timenow.hour >= v[zone_stop]) then
+		if (timeNow.hour < v[zone_start] or timeNow.hour >= v[zone_stop]) then
 			-- night: reduce the temperature setpoint
 			temperatureOffset=v[zone_offset]
 		end
@@ -456,12 +464,15 @@ if (HPlevel~="Off") then
 				log(E_INFO,"Use only power from secondary PV")
 			else
 				log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
-				if ((timenow.month>=11 or timenow.month<3)) then
+				if ((timeNow.month>=11 or timeNow.month<3)) then
 					diffMax=diffMax-0.2	-- in Winter
 				else
 					diffMax=diffMax-0.3 -- in Summer
 				end
 			end
+		elseif (timeNow.yday>=71 and timeNow.yday<305 and timeNow.hour<9) then
+			diffMax=diffMax-0.3
+			log(E_INFO,"Night, from 10 Mar to 1 Nov => reduce diffMax to "..diffMax)
 		else
 			-- during the day, not in peak hours
 			prodPower=prodPower+gridPowerMin -- makes the heat pump using at least gridPowerMin Watt from the grid, even while overheating
@@ -531,7 +542,7 @@ if (HPlevel~="Off") then
 					targetPower=math.floor(((12-HP['otmin'])^1.5)*22 + ((24-HP['otmax'])^1.6)*4)
 					log(E_INFO,"targetPower="..targetPower.." computed based on otmin and otmax")
 					if (diffMax>diffMaxTh+0.1) then
-						if (timenow.hour>=10 and timenow.hour<17) then
+						if (timeNow.hour>=10 and timeNow.hour<17) then
 							-- increase power to recover the comfort state
 							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
@@ -543,7 +554,7 @@ if (HPlevel~="Off") then
 					end
 					
 					-- if sunny, in the morning, reduce target power (then increase if photovoltaic produce more than house usage)
-					if (tonumber(otherdevices['Clouds_today'])<=50 and diffMax<diffMaxTh and timenow.hour<14) then
+					if (tonumber(otherdevices['Clouds_today'])<=50 and diffMax<diffMaxTh and timeNow.hour<14) then
 						-- Sunny !!
 						targetPower=targetPower-300 -- Try to use energy from photovoltaic, reducing power during the night
 						log(E_INFO,"targetPower-=300 because it is Sunny and diffMax is low")
@@ -554,14 +565,14 @@ if (HPlevel~="Off") then
 					end 
 					
 					-- between 10 and 17 increase power by 300 + k*diffMax²
-					if (timenow.hour>=10 and timenow.hour<17) then
+					if (timeNow.hour>=10 and timeNow.hour<17) then
 						log(E_INFO,"targetPower+=300 between 10 and 17")
 						targetPower=targetPower+300
-						if (timenow.hour>=12) then 
+						if (timeNow.hour>=12) then 
 							targetPower=targetPower+math.floor(diffMax*diffMax*1000)	-- Adjust targetPower based on diffMax value
 							log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 						end
-					elseif (timenow.hour<8 or timenow.hour>=20) then	-- during the night reduce power if diffMax near zero
+					elseif (timeNow.hour<8 or timeNow.hour>=20) then	-- during the night reduce power if diffMax near zero
 						if (diffMax<diffMaxTh and tempDerivate>=0) then
 							--rooms almost in temperature, in the night
 							targetPower=TargetPowerMin
@@ -577,10 +588,14 @@ if (HPlevel~="Off") then
 					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
 						targetPower=HPPower+prodPower -- increase targetPower because there more power is available from photovoltaic
 						log(E_INFO,"targetPower="..targetPower.." increased due to available prodPower")
-						if (timenow.yday>=75 and timenow.yday<310) then
-							if (targetPower>1500) then
-								targetPower=1500
-								log(E_INFO,"targetPower="..targetPower.." limited to 1500 in Autumn and Spring")
+						if (timeNow.yday>=75 and timeNow.yday<310) then
+							if (targetPower>1800) then
+								if (gridVoltage<245) then
+									targetPower=1800
+									log(E_INFO,"targetPower="..targetPower.." limited to 1800 in Autumn and Spring")
+								else
+									log(E_INFO,"targetPower="..targetPower.." NOT limited due to high grid voltage="..gridVoltage)
+								end
 							end
 						end
 					end
@@ -643,7 +658,7 @@ if (HPlevel~="Off") then
 						HP['Level']=LEVEL_ON
 					else -- Day
 						-- diffMax>0, some power available (from grid or solar) => should I turn ON heating/cooling?
-						if (diffMax>=diffMaxTh or (timenow.hour>=9 and prodPower>targetPower)) then
+						if (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower)) then
 							HP['Level']=LEVEL_ON
 						end
 					end

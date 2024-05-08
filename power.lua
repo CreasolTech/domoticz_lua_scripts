@@ -9,6 +9,10 @@
 --
 
 -- At least a device with "Power" in its name has changed: let's go!
+
+DEBUG_LEVEL=E_WARNING
+--DEBUG_LEVEL=E_DEBUG
+
 dofile "scripts/lua/config_power.lua"		-- configuration file
 timeNow=os.date("*t")
 
@@ -23,6 +27,7 @@ function PowerInit()
 	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
 	if (Power['EV']==nil) then Power['EV']=0 end	-- EV Charge power
 	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- current limit value
+	if (Power['HS']==nil and HOYMILES_ID~='') then Power['HS']=0 end	-- Inverter producing status (0=Off, 1=On) 
 	--if (PowerAux==nil) then PowerAux={} end
 end	
 
@@ -241,15 +246,36 @@ for devName,devValue in pairs(devicechanged) do
 				end
 			end
 			if (HOYMILES_ID~='') then
+				-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
 				local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+				-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
 				if (newlimit>HOYMILES_LIMIT_MAX) then
 					newlimit=HOYMILES_LIMIT_MAX
-				elseif (newlimit<0) then
-					newlimit=0
+				elseif (newlimit<100) then
+					newlimit=100	-- avoid turning off the inverter completely
 				end
+				if (tonumber(otherdevices[VOLTAGE_MAINS])>=250) then 
+					log(E_WARNING,"HOYMILES: reduce max limit due to overvoltage")
+					newlimit=newlimit/2
+				end
+				local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
 				if (newlimit~=Power['HL'] or timeNow.min==0 and timeNow.sec>45) then
-					log(E_WARNING,"HOYMILES: transmit newlimit="..newlimit)
+					log(E_INFO,"HOYMILES: currentPower="..currentPower.." target="..HOYMILES_TARGET_POWER.." => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
 					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+					Power['HL']=newlimit
+					commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
+				end
+				-- Now check that inverter is producing
+				if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
+					-- inverter not producing
+					if (Power['HS']==1 and tonumber(otherdevices[VOLTAGE_MAINS])>=240) then
+						-- inverter not producing due to overvoltage => restart it
+						log(E_WARNING,"HOYMILES: inverter not producing => restart now")
+						commandArray[HOYMILES_RESTART_DEV]='On'
+					end
+					Power['HS']=0
+				else
+					Power['HS']=1
 				end
 			end
 		end
@@ -397,6 +423,11 @@ for devName,devValue in pairs(devicechanged) do
 					Power['BLS_'..k]='On'	-- store in a variable that this led was activated by blackout check
 				end
 			end
+			for k,buzzer in pairs(blackoutBuzzers) do
+				if (otherdevices_svalues[buzzer]~=nil) then
+					commandArray[buzzer]="On for 10"
+				end
+			end
 		else -- power restored
 			for k,led in pairs(ledsWhite) do
 				if (otherdevices[led]~=nil and otherdevices[led]~='0ff' and (Power['BL_'..k]==nil or Power['BL_'..k]=='On')) then
@@ -408,6 +439,11 @@ for devName,devValue in pairs(devicechanged) do
 				if (otherdevices_svalues[led]~=nil and otherdevices_svalues[led]~='0' and (Power['BLS_'..k]==nil or Power['BLS_'..k]=='On')) then
 					commandArray[led]="Set Level 0"
 					Power['BLS_'..k]=nil
+				end
+			end
+			for k,buzzer in pairs(blackoutBuzzers) do
+				if (otherdevices_svalues[buzzer]~=nil) then
+					commandArray[buzzer]="Off"
 				end
 			end
 		end

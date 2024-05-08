@@ -2,8 +2,8 @@
 -- Written by Creasol, https://creasol.it - linux@creasol.it
 --
 
-dofile "/home/pi/domoticz/scripts/lua/globalvariables.lua"	-- some variables common to all scripts
-dofile "/home/pi/domoticz/scripts/lua/globalfunctions.lua"	-- some functions common to all scripts
+dofile "scripts/lua/globalvariables.lua"	-- some variables common to all scripts
+dofile "scripts/lua/globalfunctions.lua"	-- some functions common to all scripts
 
 -- Some constants
 TEMP_HISTERESIS=0.1
@@ -18,6 +18,7 @@ EVSTATE_DEV="EV State"      		-- EV state, used to know if vehicle is in chargin
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only if PDC is not able to keep the temperature
+GRID_VOLTAGE='Inverter - AC Voltage'	-- Device measuring house voltage: if above 248V, heatpump can consume all available power
 powerMeter='PowerMeter Grid'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
 inverterMeter='PV_PowerMeter'	-- Inverter output power (photovoltaic). Set to '' if not available
 inverter2Meter='PV_Garden'		-- Inverter for the 2nd renewable energy source. Set to '' if not available
@@ -119,7 +120,7 @@ GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 TELEGRAM_LEVEL=E_CRITICAL
 DEBUG_PREFIX="HeatPump: "
 

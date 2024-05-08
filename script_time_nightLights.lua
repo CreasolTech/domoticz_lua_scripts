@@ -1,6 +1,6 @@
 
-dofile("/home/pi/domoticz/scripts/lua/globalvariables.lua") -- some variables common to all scripts
-dofile("/home/pi/domoticz/scripts/lua/globalfunctions.lua") -- some functions common to all scripts
+dofile("scripts/lua/globalvariables.lua") -- some variables common to all scripts
+dofile("scripts/lua/globalfunctions.lua") -- some functions common to all scripts
 
 LightOnDeviceNames={'LightOut_Portico','LightOut_NordOvest','LightOut_Portico_Sud','LightOut_Est','LightOut_Nord'}	-- device names of lights that should be turned on after sunset
 LightOffDeviceNames={'LightOut_Terrazzo','LightOut_NordOvest','LightOut1','LightOut_Portico','LightOut_Portico_Sud','LightOut_Est','LightOut2','LightOut3','LightOut_Nord'}	-- device names of lights that should be turned off at sunrise
@@ -22,8 +22,8 @@ function setMinutesOn()
 	commandArray['Variable:vNightLightsOn'] = tostring(newvalue)
 end
 
-timenow = os.date("*t")
-minutesnow = timenow.min + timenow.hour * 60
+timeNow = os.date("*t")
+minutesnow = timeNow.min + timeNow.hour * 60
 if (uservariables['vNightLightsOn'] == nil) then 
 	telegramNotify('Error: variable vNightLightsOn not defined')
 	setMinutesOn() 
@@ -64,7 +64,7 @@ elseif (minutesnow == minutesOff) then
 end
 ----------------------------- custom rules ------------------------
 -- turn on the light outside bedroom when alarm is activated during the night
-if (otherdevices['LightOut_Terrazzo']=='Off' and uservariables['alarmLevel']>1 and (timenow.hour>=23 or timenow.hour<4)) then
+if (otherdevices['LightOut_Terrazzo']=='Off' and uservariables['alarmLevel']>1 and (timeNow.hour>=23 or timeNow.hour<4)) then
 	commandArray['LightOut_Terrazzo']='On'
 end
 
