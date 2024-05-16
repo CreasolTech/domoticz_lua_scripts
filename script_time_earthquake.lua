@@ -10,8 +10,9 @@
 -- 	Sends notifications by Telegram
 
 commandArray={}
+
 local timeNow=os.date('*t')
---if ((timeNow.min % 5)~=0) then return commandArray end	-- exec script every 5 minutes
+if ((timeNow.min % 5)~=0) then return commandArray end	-- exec script every 5 minutes
 
 dofile "scripts/lua/globalvariables.lua"
 dofile "scripts/lua/globalfunctions.lua"
@@ -26,7 +27,6 @@ MINMAGNITUDE=2.5			-- Min Richter magnitude
 TELEGRAMMAGNITUDE=3			-- Min magnitude to send notification on smartphone
 LATITUDE=45.88				-- Your latitude
 LONGITUDE=12.18				-- Your longitude
-
 
 --globalvariables
 -- Set to your environment and preference
