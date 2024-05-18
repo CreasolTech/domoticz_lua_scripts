@@ -18,7 +18,7 @@ dofile "scripts/lua/globalvariables.lua"
 dofile "scripts/lua/globalfunctions.lua"
 
 DEBUG_LEVEL=E_WARNING
-DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="EarthQuake: "
 EARTHQUAKE_DEV="EarthQuake"	-- Create this text device by yourself!
 MAXRADIUS=4					-- used to restrict data from the earthquake source
@@ -27,6 +27,7 @@ MINMAGNITUDE=2.5			-- Min Richter magnitude
 TELEGRAMMAGNITUDE=3			-- Min magnitude to send notification on smartphone
 LATITUDE=45.88				-- Your latitude
 LONGITUDE=12.18				-- Your longitude
+MAXAGE=48					-- Remove quakes earthquakes older than MAXAGE hours
 
 --globalvariables
 -- Set to your environment and preference
@@ -86,40 +87,46 @@ day=tonumber(qTimeString:sub(9,10)),
 hour=tonumber(qTimeString:sub(12,13)), 
 min=tonumber(qTimeString:sub(15,16)), 
 sec=tonumber(qTimeString:sub(18,19))}
--- local atLocalTime = os.date('%H:%M %a %d %B %Y', t + lTimediff) 
--- local atUTCtime = os.date('%H:%M %a %d %B %Y', t)
-local atLocalTime = os.date('%d-%m-%Y %H:%M ', t + lTimediff) 
-local atUTCtime = os.date('%d-%m-%Y %H:%M ', t)
--- %d-%m-%Y  %H:%M 
-qRegion = string.gsub(qRegion, "(%a)([%w_']*)", titleCase)
 
-local distance = calculateDistance(LATITUDE, LONGITUDE, qLat, qLon)
--- Round the distance to the nearest kilometer
-local roundedDistance = math.floor(distance + 0.5)
+if ((os.time()-t)<MAXAGE*3600) then
+	-- local atLocalTime = os.date('%H:%M %a %d %B %Y', t + lTimediff) 
+	-- local atUTCtime = os.date('%H:%M %a %d %B %Y', t)
+	local atLocalTime = os.date('%d-%m-%Y %H:%M ', t + lTimediff) 
+	local atUTCtime = os.date('%d-%m-%Y %H:%M ', t)
+	-- %d-%m-%Y  %H:%M 
+	qRegion = string.gsub(qRegion, "(%a)([%w_']*)", titleCase)
 
---Set and format the new alertText
-local alertText = tostring(  atLocalTime .. ' ' .. qRegion .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. roundedDistance .."km.\n"..'Location: <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new">Map</a>')
+	local distance = calculateDistance(LATITUDE, LONGITUDE, qLat, qLon)
+	-- Round the distance to the nearest kilometer
+	local roundedDistance = math.floor(distance + 0.5)
+	
+	--Set and format the new alertText
+	local alertText = tostring(  atLocalTime .. ' ' .. qRegion .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. roundedDistance .."km.\n"..'Location: <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new">Map</a>')
 
---[[
---Set and format the new mail message				
-local message = tostring('Location: ' .. qRegion .. '<br>' ..
-'Magnitude: ' .. qMag .. '<br>' ..
-'Depth: ' .. qDepth .. 'km<br>' ..
-'UTC Time: ' .. atUTCtime .. '<br>' ..
-'Locale Time: ' .. atLocalTime .. '<br>' ..
-'Distance: ' .. roundedDistance .. 'km.<br>'..
-'Coordinates: ' .. qLat .. ','.. qLon .. '<br>' ..
-'<a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '">Location</a>' .. '<br>' ..
-'<a href="https://www.seismicportal.eu/">Source</a>' .. '<br>')
-]]
+	--[[
+	--Set and format the new mail message				
+	local message = tostring('Location: ' .. qRegion .. '<br>' ..
+	'Magnitude: ' .. qMag .. '<br>' ..
+	'Depth: ' .. qDepth .. 'km<br>' ..
+	'UTC Time: ' .. atUTCtime .. '<br>' ..
+	'Locale Time: ' .. atLocalTime .. '<br>' ..
+	'Distance: ' .. roundedDistance .. 'km.<br>'..
+	'Coordinates: ' .. qLat .. ','.. qLon .. '<br>' ..
+	'<a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '">Location</a>' .. '<br>' ..
+	'<a href="https://www.seismicportal.eu/">Source</a>' .. '<br>')
+	]]
 
--- Only update and sent message when info has changed. and 
-if (alertText ~= lastalertText and roundedDistance <= MAXDISTANCE) then
-	commandArray['UpdateDevice']=otherdevices_idx[EARTHQUAKE_DEV]..'|'.. math.floor(qMag-1) ..'|'..alertText
-	local priority=E_INFO
-	if (qMag>=TELEGRAMMAGNITUDE) then
-		priority=E_CRITICAL
+	-- Only update and sent message when info has changed. and 
+	if (alertText ~= lastalertText and roundedDistance <= MAXDISTANCE) then
+		commandArray['UpdateDevice']=otherdevices_idx[EARTHQUAKE_DEV]..'|'.. math.floor(qMag-1) ..'|'..alertText
+		local priority=E_INFO
+		if (qMag>=TELEGRAMMAGNITUDE) then
+			priority=E_CRITICAL
+		end
+		log(priority,"Mag="..qMag.." Dist="..roundedDistance.."km "..qRegion.."\nhttps://maps.google.com/?q=" .. qLat .. ',' .. qLon )
 	end
-	log(priority,"Mag="..qMag.." Dist="..roundedDistance.."km "..qRegion.."\nhttps://maps.google.com/?q=" .. qLat .. ',' .. qLon )
+elseif (otherdevices[EARTHQUAKE]~='Nothing') then
+	-- event age is older than MAXAGE => remove it
+	commandArray['UpdateDevice']=otherdevices_idx[EARTHQUAKE_DEV]..'|0|Nothing'
 end			
 return commandArray
