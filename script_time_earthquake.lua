@@ -18,13 +18,13 @@ dofile "scripts/lua/globalvariables.lua"
 dofile "scripts/lua/globalfunctions.lua"
 
 DEBUG_LEVEL=E_WARNING
---DEBUG_LEVEL=E_DEBUG
+--DEBUG_LEVEL=E_DEBUG		-- uncomment to get more messages in the log
 DEBUG_PREFIX="EarthQuake: "
 EARTHQUAKE_DEV="EarthQuake"	-- Create this text device by yourself!
-MAXRADIUS=4					-- used to restrict data from the earthquake source
-MAXDISTANCE=600				-- Max distance in km
+MAXRADIUS=4					-- used to restrict data from the earthquake source (default 4)
+MAXDISTANCE=600				-- Max distance in km (default 600km)
 MINMAGNITUDE=2.5			-- Min Richter magnitude
-TELEGRAMMAGNITUDE=3			-- Min magnitude to send notification on smartphone
+TELEGRAMMAGNITUDE=3.5		-- Min magnitude to send notification on smartphone
 LATITUDE=45.88				-- Your latitude
 LONGITUDE=12.18				-- Your longitude
 MAXAGE=48					-- Remove quakes earthquakes older than MAXAGE hours
@@ -101,7 +101,7 @@ if ((os.time()-t)<MAXAGE*3600) then
 	local roundedDistance = math.floor(distance + 0.5)
 	
 	--Set and format the new alertText
-	local alertText = tostring(  atLocalTime .. ' ' .. qRegion .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. roundedDistance .."km.\n"..'Location: <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new">Map</a>')
+	local alertText = tostring(  atLocalTime .. ' ' .. qRegion .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. roundedDistance ..'km. <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new" style="color: blue;">Map</a>')
 
 	--[[
 	--Set and format the new mail message				
