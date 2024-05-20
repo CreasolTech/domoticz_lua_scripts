@@ -163,6 +163,16 @@ Destination directory: DOMOTICZ_DIR/scripts/lua
 
 Simple script that every minute fetch data, by http, from Fronius solar inverter.
 
+
+
+## Script that show earthquakes alert and send Telegram notifications
+
+File *script_time_earthquake.lua* , together with *globalvariables.lua* and *globalfunctions.lua*, can be used to get earthquakes alert on Domoticz and, if magnitude is stronger than a certain threshold, also sends alert on a Telegram channel or group.
+
+![alt Show earthquakes alert on Domoticz home automation systems and telegram channel/group](https://images.creasol.it/earthquake_20240520.webp "Show earthquakes alert on Domoticz home automation systems and telegram channel/group")
+
+
+
 ***
 
 ## Example of a domotic system managing lights, door bell, alarm, heat pump, ventilation, irrigation, ...
