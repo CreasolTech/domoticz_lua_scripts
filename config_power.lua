@@ -37,9 +37,10 @@ HOYMILES_ID='solar/116493522530/cmd/limit_nonpersistent_absolute'	-- MQTT name t
 --HOYMILES_ID=''	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 HOYMILES_LIMIT_MAX=1600		-- Max power in watt
 HOYMILES_TARGET_POWER=-6000		-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
-HOYMILES_LIMIT_PERC_DEV='PVgarden_Limit'
-HOYMILES_PRODUCING_DEV='PVgarden_InverterProducing'
-HOYMILES_RESTART_DEV='PVgarden_RestartInverter'
+HOYMILES_VOLTAGE_DEV='PVGarden_Voltage'
+HOYMILES_LIMIT_PERC_DEV='PVGarden_Limit'
+HOYMILES_PRODUCING_DEV='PVGarden_InverterProducing'
+HOYMILES_RESTART_DEV='PVGarden_RestartInverter'
 
 -- Output device: use any name of your choice
 ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production

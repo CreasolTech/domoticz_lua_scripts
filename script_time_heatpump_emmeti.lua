@@ -645,14 +645,6 @@ if (HPlevel~="Off") then
 					setOutletTemp(40)
 					log(E_DEBUG,"Increase TempWinterMin to 40°C")
 				end
-				if (compressorPerc>CompressorMax) then 
-					compressorPerc=CompressorMax 
-				elseif (compressorPerc<CompressorMin) then 
-					compressorPerc=CompressorMin 
-				else
-					compressorPerc=math.floor(compressorPerc)
-				end
-
 				if (HP['Level']==LEVEL_OFF) then -- HP['Level']=LEVEL_OFF => Heat pump is OFF
 					if (HPforce=="Night") then -- force heat pump ON, if diffTime>0
 						HP['Level']=LEVEL_ON
@@ -816,8 +808,17 @@ end
 if (compressorPerc==nil) then compressorPerc=10 end
 --return commandArray --DEBUG
 
-if (HP['Level']~=LEVEL_OFF and compressorPerc~=compressorPercOld) then
-	commandArray[HPCompressor]="Set Level "..tostring(compressorPerc)
+if (HP['Level']~=LEVEL_OFF) then 
+	if (compressorPerc>CompressorMax) then 
+		compressorPerc=CompressorMax 
+	elseif (compressorPerc<CompressorMin) then 
+		compressorPerc=CompressorMin 
+	else
+		compressorPerc=math.floor(compressorPerc)
+	end
+	if (compressorPerc~=compressorPercOld) then
+		commandArray[HPCompressor]="Set Level "..tostring(compressorPerc)
+	end
 end
 
 for n,v in pairs(DEVlist) do

@@ -11,6 +11,7 @@
 -- At least a device with "Power" in its name has changed: let's go!
 
 DEBUG_LEVEL=E_WARNING
+DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG
 
 dofile "scripts/lua/config_power.lua"		-- configuration file
@@ -248,19 +249,33 @@ for devName,devValue in pairs(devicechanged) do
 			if (HOYMILES_ID~='') then
 				-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
 				local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+				local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
 				-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
 				if (newlimit>HOYMILES_LIMIT_MAX) then
 					newlimit=HOYMILES_LIMIT_MAX
 				elseif (newlimit<100) then
 					newlimit=100	-- avoid turning off the inverter completely
 				end
-				if (tonumber(otherdevices[VOLTAGE_MAINS])>=250) then 
-					log(E_WARNING,"HOYMILES: reduce max limit due to overvoltage")
-					newlimit=newlimit/2
+				if (hoymilesVoltage>=251.5) then 
+					log(E_WARNING,"HOYMILES: voltage>251.5V => limit inverter power")
+					if (newlimit>Power['HL']/2) then
+						newlimit=Power['HL']/2
+					end
+				else
+					if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
+						log(E_INFO,"HOYMILES: voltage<251.5V => increase inverter power")
+						newlimit=Power['HL']*1.35
+					end
+				end
+				newlimit=math.floor(newlimit)
+				if (newlimit>HOYMILES_LIMIT_MAX) then
+					newlimit=HOYMILES_LIMIT_MAX
+				elseif (newlimit<100) then
+					newlimit=100	-- avoid turning off the inverter completely
 				end
 				local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
-				if (newlimit~=Power['HL'] or timeNow.min==0 and timeNow.sec>45) then
-					log(E_INFO,"HOYMILES: currentPower="..currentPower.." target="..HOYMILES_TARGET_POWER.." => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
+				if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
+					log(E_INFO,"HOYMILES: Voltage="..hoymilesVoltage.."V currentPower="..currentPower.."W target="..HOYMILES_TARGET_POWER.."W => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
 					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
 					Power['HL']=newlimit
 					commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
@@ -268,9 +283,12 @@ for devName,devValue in pairs(devicechanged) do
 				-- Now check that inverter is producing
 				if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
 					-- inverter not producing
-					if (Power['HS']==1 and tonumber(otherdevices[VOLTAGE_MAINS])>=240) then
+					if (Power['HS']==1 and hoymilesVoltage>=240) then
 						-- inverter not producing due to overvoltage => restart it
-						log(E_WARNING,"HOYMILES: inverter not producing => restart now")
+						newlimit=100	-- start inverter from 100W only to prevent overvoltage
+						os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+						Power['HL']=newlimit
+						log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
 						commandArray[HOYMILES_RESTART_DEV]='On'
 					end
 					Power['HS']=0
