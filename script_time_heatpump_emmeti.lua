@@ -420,7 +420,7 @@ if (HPlevel~="Off") then
 	end
 	diffMax=math.floor(diffMax*100)/100
 	if (HPforce=="Night") then
-		diffMax=diffMax+1	-- force starting
+		diffMax=diffMax+2	-- force starting
 	end
 
 	-- diffMax=-0.56 --DEBUG
@@ -785,18 +785,21 @@ end
 
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
 if (HPmode == 'Summer') then
-	devLevel=4
+	if (otherdevices[HPSummer]~='On') then
+		commandArray[HPSummer]='On'
+	end
+	devLevel=4	-- used to select the proper column in DEVlist structure
 	compressorPerc=compressorPercOld+(prodPower-500)/30	-- try have 500W exported
 	if (compressorPerc<5) then
 		-- no enough power: set heat pump to minimum, and disable VMC DEHUMIDIFY if enabled
 		compressorPerc=5
 		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 	end
-	if (minutesnow>=HPNightStart or minutesnow<HPNightEnd) then
+	if (minutesnow>=timeofday['SunsetInMinutes'] or minutesnow<timeofday['SunriseInMinutes']) then
 		if (compressorPerc>30) then compressorPerc=30 end	-- avoid too noise in the night
 	end
 else
-	devLevel=2	-- default: Winter
+	devLevel=2	-- default: Winter. Column in DEVlist structure
 end	
 if (HP['OL']~=0 and heatingCoolingEnabled~=0) then
 	-- overlimit on : track power
@@ -845,7 +848,7 @@ updateValves() -- enable/disable the valve for each zone
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 
-if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1 and otherdevices[HPLevel]~='Dehum') or GasHeaterOn==1) then
+if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1 and otherdevices[HPLevel]~='Dehum' and otherdevices[HPLevel]~='DehumNight') or GasHeaterOn==1) then
 	if (otherdevices['Valve_Radiant_Coil']~='On') then
 		commandArray['Valve_Radiant_Coil']='On'
 		HP['trc']=0

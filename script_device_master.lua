@@ -30,6 +30,7 @@ end
 
 if (run_power==1) then
 	dofile "scripts/lua/power.lua"
+--	dofile "scripts/lua/power2p1.lua"
 end
 
 if (run_pushbuttons==1) then
