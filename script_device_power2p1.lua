@@ -1,12 +1,18 @@
--- scripts/lua/script_device_power2p1.lua - Called by script_device_master.lua
+-- scripts/lua/script_device_power2p1.lua 
 -- Written by Creasol, https://creasol.it linux@creasol.it
 -- Used to fill a virtual P1 meter with import and export power/energy. P1 meter is used by the Energy Dashboard
 -- You have to create, in Domoticz -> Setup -> Hardware, a virtual P1 meter and update the 4 variables below.
+-- Also, it groups several energy sources (photovoltaic1, photovoltaic2, wind, ...) into a single renewable generator virtual device, used by the Energy Dashboard
+-- The virtual device (name is written in GENERATOR_SUM_DEV below) should be created manually: see below.
 
 GRID_DEV="PowerMeter Grid"		-- source used to measure the grid power (negative when producing)
 P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that should be feed by this script
 TARIFF1_START=420				-- minutes since midnight when TARIFF1 starts (420=7:00)
 TARIFF1_STOP=1360				-- minutes since midnight when TARIFF2 stops  (1360=23:00)
+
+--GENERATOR_SUM_DEV=''	-- If Empty, skip the function that sums more generators into a single generator
+GENERATOR_SUM_DEV='PowerMeter_Renewable'		-- Virtual kWh meter that must be created manually from Setup -> Hardware : it will be used to sum the generator power
+GENERATOR_DEVS={'PV_PowerMeter', 'PV_Garden'}	-- Empty => skip the function that sums prod
 
 commandArray={}
 if (devicechanged[GRID_DEV]~=nil) then
@@ -84,6 +90,21 @@ if (devicechanged[GRID_DEV]~=nil) then
 	commandArray[0]={['UpdateDevice']=otherdevices_idx[P1_DEV].."|0|"..str}
 	commandArray['Variable:zP1Energy']=tostring(energy)
 	-- print('Power2P1: energy='..energy..'Wh energyOld='..energyOld..'Wh energyDiff='..energyDiff..'Wh => Update P1 meter with values '..str)
+	
+	if (GENERATOR_SUM_DEV~='') then
+		if (otherdevices[GENERATOR_SUM_DEV]==nil) then
+			print('Power2P1: please create a Electric Instant+Counter device from Setup -> Hardware, named '..GENERATOR_SUM_DEV..', and set it in "Computed" mode')
+		else
+			powerout=0
+			for i,devName in pairs(GENERATOR_DEVS) do
+				for str in otherdevices_svalues[devName]:gmatch("[^;]+") do
+            		powerout=powerout+tonumber(str)
+					break
+				end
+			end
+			commandArray[#commandArray+1]={['UpdateDevice']=otherdevices_idx[GENERATOR_SUM_DEV].."|0|"..powerout..';0'}
+		end
+	end
 end
 return commandArray
 
