@@ -174,11 +174,11 @@ File *script_time_earthquake.lua* , together with *globalvariables.lua* and *glo
 
 ## Script that update a virtual P1 meter from an existing general kWh meter measuring grid power
 
-File *script_device_power2p1.lua* can be used to update a virtual P1 meter (that you have to create by yourself from Setup -> Hardware menu), writing the current power and energy (usage and return).
+File *script_device_power2p1.lua* is a LUA script for Domoticz useful for the Energy Dashboard. 
+It can be used to update a virtual P1 meter (that you have to create by yourself from Setup -> Hardware menu), writing the current power and energy (usage and return).
+Also, the script can handle more generators (photovoltaic on roof, photovoltaic in the garden, wind generator, ...) compute the sum of the power to a virtual device, used by the Energy Dashboard.
 
-This script can be useful to use the Domoticz Energy Dashboard, showing the imported and exported energy from/to grid.
-
-Just copy this script in *scripts/lua* folder and update the 4 variables at the top of file.
+Just copy this script in *scripts/lua* folder and update the 6 variables at the top of file.
 
 ![alt Example of a Domoticz Energy Dashboard](https://images.creasol.it/domoticz_energy_dashboard.png "Example of a Domoticz Energy Dashboard using the script_device_power2p1.lua script to update the virtual P1 meter")
 
