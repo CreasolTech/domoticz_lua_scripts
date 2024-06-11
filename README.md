@@ -172,6 +172,18 @@ File *script_time_earthquake.lua* , together with *globalvariables.lua* and *glo
 ![alt Show earthquakes alert on Domoticz home automation systems and telegram channel/group](https://images.creasol.it/earthquake_20240520.webp "Show earthquakes alert on Domoticz home automation systems and telegram channel/group")
 
 
+## Script that update a virtual P1 meter from an existing general kWh meter measuring grid power
+
+File *script_device_power2p1.lua* can be used to update a virtual P1 meter (that you have to create by yourself from Setup -> Hardware menu), writing the current power and energy (usage and return).
+
+This script can be useful to use the Domoticz Energy Dashboard, showing the imported and exported energy from/to grid.
+
+Just copy this script in *scripts/lua* folder and update the 4 variables at the top of file.
+
+
+
+
+
 
 ***
 
