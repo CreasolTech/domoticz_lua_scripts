@@ -1,6 +1,7 @@
 -- scripts/lua/script_device_power2p1.lua - Called by script_device_master.lua
 -- Written by Creasol, https://creasol.it linux@creasol.it
 -- Used to fill a virtual P1 meter with import and export power/energy. P1 meter is used by the Energy Dashboard
+-- You have to create, in Domoticz -> Setup -> Hardware, a virtual P1 meter and update the 4 variables below.
 
 GRID_DEV="PowerMeter Grid"		-- source used to measure the grid power (negative when producing)
 P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that should be feed by this script
