@@ -180,7 +180,7 @@ This script can be useful to use the Domoticz Energy Dashboard, showing the impo
 
 Just copy this script in *scripts/lua* folder and update the 4 variables at the top of file.
 
-
+![alt Example of a Domoticz Energy Dashboard](https://images.creasol.it/domoticz_energy_dashboard.png "Example of a Domoticz Energy Dashboard using the script_device_power2p1.lua script to update the virtual P1 meter")
 
 
 
