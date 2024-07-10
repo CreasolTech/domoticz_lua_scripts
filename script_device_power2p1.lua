@@ -5,14 +5,14 @@
 -- Also, it groups several energy sources (photovoltaic1, photovoltaic2, wind, ...) into a single renewable generator virtual device, used by the Energy Dashboard
 -- The virtual device (name is written in GENERATOR_SUM_DEV below) should be created manually: see below.
 
-GRID_DEV="PowerMeter Grid"		-- source used to measure the grid power (negative when producing)
-P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that should be feed by this script
+GRID_DEV="PowerMeter Grid"		-- existing meter used to measure the grid power (negative when producing)
+P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that is managed/updated by this script
 TARIFF1_START=420				-- minutes since midnight when TARIFF1 starts (420=7:00)
 TARIFF1_STOP=1360				-- minutes since midnight when TARIFF2 stops  (1360=23:00)
 
---GENERATOR_SUM_DEV=''	-- If Empty, skip the function that sums more generators into a single generator
-GENERATOR_SUM_DEV='PowerMeter_Renewable'		-- Virtual kWh meter that must be created manually from Setup -> Hardware : it will be used to sum the generator power
-GENERATOR_DEVS={'PV_PowerMeter', 'PV_Garden'}	-- Empty => skip the function that sums prod
+--GENERATOR_SUM_DEV=''	-- uncomment to disable the function that sums more generators into a single virtual generator
+GENERATOR_SUM_DEV='PowerMeter_Renewable'		-- Virtual kWh meter that must be created manually from Setup -> Hardware : it will be used to sum the generators power in case that more than one power source is available, for example two photovoltaic inverters, wind turbine, .... Comment and enable previous line in case you have only one generator
+GENERATOR_DEVS={'PV_PowerMeter', 'PV_Garden'}	-- Empty => no generators available (photovoltaic, wind, ...).  {'Inverter_Power'} => only one generator named 'Inverter_Power'
 
 commandArray={}
 if (devicechanged[GRID_DEV]~=nil) then

@@ -22,6 +22,10 @@ dofile "scripts/lua/config_hotwater.lua"
 --   after 13:00, ON
 
 setPoint=tonumber(otherdevices[HW_SETPOINT])
+if (setPoint==nil) then
+	log(E_WARNING,"Hardware disabled: exit!")
+	goto hotwaterEnd
+end
 setPointNew=setPoint
 if (HW_MODE=='' or otherdevices[HW_MODE]==nil) then
 	log(E_ERROR, "Please create a selector switch with Off, On, Auto states")
@@ -90,6 +94,8 @@ end
 if (setPointNew ~= setPoint) then
 	commandArray[1]={['UpdateDevice']=tostring(otherdevices_idx[HW_SETPOINT])..'|1|'.. setPointNew}
 end
+
+::hotwaterEnd::
 return commandArray
 
 

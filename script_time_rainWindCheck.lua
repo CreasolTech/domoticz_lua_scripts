@@ -337,9 +337,9 @@ if (TRASH_ALERT_TIME~="" and TRASH_ALERT_TIME==minutesNow) then
 end
 
 -- track car distance, and activate/deactivate power to the gate
-VEHICLE_DISTANCE='Kia - eNiro distance'			-- Vehicle distance in Km
-VEHICLE_ENGINE='Kia - eNiro engine ON'			-- Vehicle engine On/Off
-VEHICLE_UPDATEREQ='Kia - eNiro update req.'		-- Command to force vehicle update
+VEHICLE_DISTANCE='eNiro: distance'			-- Vehicle distance in Km
+VEHICLE_ENGINE='eNiro: engine ON'			-- Vehicle engine On/Off
+VEHICLE_UPDATEREQ='eNiro: update req.'		-- Command to force vehicle update
 GATE_SUPPLY='Power_Apricancello'				-- Gate power supply On/Off
 
 local carDistance=0  -- actual vehicle distance from house

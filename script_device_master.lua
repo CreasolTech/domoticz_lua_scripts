@@ -37,6 +37,7 @@ if (run_pushbuttons==1) then
 	dofile "scripts/lua/pushbuttons.lua"
 end
 
+run_testdombus=0	--DEBUG: ignore testdombus!
 if (run_testdombus==1) then
 	dofile "scripts/lua/testdombus.lua"
 end

@@ -32,16 +32,19 @@ HPMode='HeatPump_Mode'				-- Selector switch for Off, Winter, Summer
 HPLevel='HeatPump_Level'			-- Selector switch to force a specific power level: Off, 1, 2, 3, ... Auto
 HPStatus='HeatPump_Status'			-- Virtual text device, where to write status data
 HPStatusIDX=1723					-- IDX of the virtual text device HPStatus
+HPStatus2IDX=2370                   -- IDX of the virtual text device used in Energy Dashboard
 HPCompressor='HeatPump - Compressor max'	-- Device that set the max compressor level (0-100%)
 HPCompressorNow='HeatPump - Compressor now'	-- Device that set the max compressor level (0-100%)
 HPTempOutlet='HeatPump - Temp. outlet'	-- Outlet temperature
 HPTempOutletComputed='HeatPump - Temp. outlet computed'	-- Setpoint for the output temperature
-HPTempWinterMin='HeatPump - Temp min outlet Winter'	-- Device to set minimum outlet temperature for Winter
+HPTempWinterMin='HeatPump - Temp min outlet Winter'	-- Device to set minimum outlet temperature for Winter (35°C)
 HPTempWinterMinIDX=2045
-HPTempWinterMax='HeatPump - Temp max outlet Winter'	-- Device to set maximum outlet temperature for Winter
+HPTempWinterMax='HeatPump - Temp max outlet Winter'	-- Device to set maximum outlet temperature for Winter (40°C)
 HPTempWinterMaxIDX=2046
-HPTempSummerMin='HeatPump - Temp min outlet Summer'	-- Device to set minimum outlet temperature for Summer
-HPTempSummerMax='HeatPump - Temp max outlet Summer'	-- Device to set maximum outlet temperature for Summer
+HPTempSummerMin='HeatPump - Temp min outlet Summer'	-- Device to set minimum outlet temperature for Summer (15°C)
+HPTempSummerMinIDX=2047
+HPTempSummerMax='HeatPump - Temp max outlet Summer'	-- Device to set maximum outlet temperature for Summer (17°C)
+HPTempSummerMaxIDX=2048
 
 -- fields for the following table
 ZONE_NAME=1
@@ -118,9 +121,4 @@ GHoutdoorHumidityMin=88		-- Minimum outdoor humidity to start GasHeater, else st
 GHtimeMin=300				-- Minutes from midnight when GasHeater will be enabled (or heatpump, if outdoor humidity is not high)
 GHtimeMax=480				-- Minutes from midnight when GasHeater will be disabled
 GHdevicesToEnable={}		-- Device to enable when gas heater is ON {'devicename1','devicename2'}
-
-DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG
-TELEGRAM_LEVEL=E_CRITICAL
-DEBUG_PREFIX="HeatPump: "
 
