@@ -13,6 +13,7 @@ TARIFF1_STOP=1360				-- minutes since midnight when TARIFF2 stops  (1360=23:00)
 --GENERATOR_SUM_DEV=''	-- uncomment to disable the function that sums more generators into a single virtual generator
 GENERATOR_SUM_DEV='PowerMeter_Renewable'		-- Virtual kWh meter that must be created manually from Setup -> Hardware : it will be used to sum the generators power in case that more than one power source is available, for example two photovoltaic inverters, wind turbine, .... Comment and enable previous line in case you have only one generator
 GENERATOR_DEVS={'PV_PowerMeter', 'PV_Garden'}	-- Empty => no generators available (photovoltaic, wind, ...).  {'Inverter_Power'} => only one generator named 'Inverter_Power'
+DOMOTICZ_URL='http://127.0.0.1:8080'		-- Replace 8080 with the port used by Domoticz. Also, verify in Setup -> Settings -> Security that 127.0.0.1 is permitted to access Domoticz
 
 commandArray={}
 if (devicechanged[GRID_DEV]~=nil) then
@@ -25,7 +26,7 @@ if (devicechanged[GRID_DEV]~=nil) then
 	local i=0
 	for str in devValue:gmatch("[^;]+") do
         if (i==0) then
-            power=tonumber(str)
+            power=math.floor(tonumber(str))
 			i=1
         else
             energy=tonumber(str)

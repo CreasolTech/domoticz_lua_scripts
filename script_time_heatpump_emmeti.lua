@@ -820,7 +820,6 @@ if (HP['EV']>=2 and HPlevel~='Off') then
 end
 
 -- now scan DEVlist and enable/disable all devices based on the current level HP['Level']
-log(E_DEBUG,"HPmode="..HPmode)
 if (HPmode == 'Summer') then
 	if (otherdevices[HPSummer]~='On' and HP['Level']>0) then
 		commandArray[HPSummer]='On'
@@ -902,7 +901,7 @@ elseif (HPmode=='Summer') then
 	-- Summer, and Level~=0
 	if (HP['Level']>=1) then
 		if (prodPower+evsolar>800) then deviceOn(VENTILATION_COIL_DEV,HP,'DC') end
-		if (tempHPout<=17 and tempHPin<=17 and prodPower+evsolar>1800) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+		if (tempHPout<=17 and (tempHPin<=17 or (tempHPin<20 and (HPlevel=='Auto' or HPlevel=='Night'))) and prodPower+evsolar>1800) then	-- activate chiller only if fluid temperature from heat pump is cold enough
 			deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') 
 		elseif (tempHPout>=18) then
 			-- if (otherdevices[HPLevel]~='Dehum') then deviceOff(VENTILATION_COIL_DEV,HP,'DC') end
