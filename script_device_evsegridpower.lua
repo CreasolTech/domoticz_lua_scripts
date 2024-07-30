@@ -1,8 +1,10 @@
 -- LUA script for Domoticz, writing the DomBusEVSE virtual device "Grid power" with the sum of 1 or more power meters
 -- More scripts in https://github.com/CreasolTech/domoticz_lua_scripts
 
-GRIDMETERS={"Home Consumption", "EV Consumption"}			-- List of meters which power should be summed (1 or more meters can be specified)
-EVSEGRIDMETER="dombus - (1.c) Grid Power"					-- Name of the virtual device on DomBusEVSE
+GRIDMETER="Power from grid"						-- Main meter measuring the power from the electricity grid (negative if power is exported to grid)
+BATTERYMETER="Power to battery"					-- Device measuring the power to the battery (negative if power is fetched from battery to the inverter)
+--BATTERYMETER=""								-- If battery does not exist: uncomment this line and ignore/comment the previous line!
+EVSEGRIDMETER="dombus - (1.c) Grid Power"		-- Name of the virtual device on DomBusEVSE
 
 commandArray={}
 
@@ -13,22 +15,16 @@ function getPowerValue(devValue)
     end
 end
 
--- scan the list of devices that has changed
-for devName,devValue in pairs(devicechanged) do
-	for j,name in pairs(GRIDMETERS) do
-		print("devName="..devName.." name="..name)
-		if (devName == name) then
-			-- one of the GRIDMETERS value has changed
-			totalPower=0
-			for k,meter in pairs(GRIDMETERS) do
-				totalPower=totalPower + getPowerValue(otherdevices[meter])
-				print("totalPower="..totalPower)
-			end
-			commandArray[EVSEGRIDMETER]=tostring(totalPower)..';0'
-			return commandArray
-		end
+if (devicechanged[GRIDMETER]~=nil) then
+	-- mains energy meter changed => update the EVSE GridPower virtual meter
+	local batteryPower=0
+	if (BATTERYMETER~="" and otherdevices[BATTERYMETER]~=nil) then
+		batteryPower=getPowerValue(otherdevices[BATTERYMETER])		-- example: batteryPower=1000 => 1000W from Inverter to Battery
 	end
+	local power=getPowerValue(otherdevices[GRIDMETER])-batteryPower	-- example: 4000W to the grid (-4000) and 1000W to the battery (1000) => power=-5000
+	commandArray[EVSEGRIDMETER]=tostring(power)..';0'
 end
+
 return commandArray
 
 

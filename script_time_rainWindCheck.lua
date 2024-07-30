@@ -40,8 +40,8 @@ ATTIC_DELTA_STOP=5
 
 MOSQUITO_DEV="Socket_GarageVerde"	-- power outlet used to supply the mosquito killer ("" if not used) - DomBus31 in the laundry
 MOSQUITTO_SELECTOR_DEV="Mosquitto_Killer_Active" -- Virtual selector switch to be created manually with levels "Off" and "On"
-MOSQUITTO_START1=timeofday['SunsetInMinutes']-90	-- start at Sunset - 2h
-MOSQUITTO_STOP1=timeofday['SunsetInMinutes']-30		-- stop at Sunset - 30m
+MOSQUITTO_START1=timeofday['SunsetInMinutes']-60	-- start at Sunset - 2h
+MOSQUITTO_STOP1=1380	-- stop at Sunset - 30m
 MOSQUITTO_START2=2		-- start at Midnight
 MOSQUITTO_STOP2=120		-- stop at 120=02:00
 

@@ -502,6 +502,7 @@ for devName,devValue in pairs(devicechanged) do
 					if (otherdevices[devName]=='Open') then
 						if (otherdevices['Light_Garage']=='On') then
 							commandArray['Light_Garage']='Off'
+							if (otherdevices['LightOut3']~='Off') then commandArray['LightOut3']='Off' end
 						else
 							commandArray['Light_Garage']='On FOR 3 MINUTES'
 						end
@@ -509,6 +510,7 @@ for devName,devValue in pairs(devicechanged) do
 						-- door has been closed
 						if (timedifference(otherdevices_lastupdate[devName])>6 and otherdevices['Light_Garage']=='On') then
 							commandArray['Light_Garage']='Off'
+							if (otherdevices['LightOut3']~='Off') then commandArray['LightOut3']='Off' end
 						end
 					end
 				end
