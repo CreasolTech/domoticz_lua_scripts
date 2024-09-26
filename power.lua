@@ -257,13 +257,13 @@ for devName,devValue in pairs(devicechanged) do
 					newlimit=100	-- avoid turning off the inverter completely
 				end
 				if (hoymilesVoltage>=251.5) then 
-					log(E_WARNING,"HOYMILES: voltage>251.5V => limit inverter power")
+					log(E_WARNING,"HOYMILES: Reduce inverter power")
 					if (newlimit>Power['HL']/2) then
 						newlimit=Power['HL']/2
 					end
 				else
 					if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
-						log(E_INFO,"HOYMILES: voltage<251.5V => increase inverter power")
+						log(E_INFO,"HOYMILES: Increase inverter power")
 						newlimit=Power['HL']*1.35
 					end
 				end

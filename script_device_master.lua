@@ -15,11 +15,12 @@ for devName,devValue in pairs(devicechanged) do	-- scan all changed devices
 		run_pushbuttons=1
 	elseif (run_pushbuttons==0 and (devName:sub(1,8)=='PULSANTE' or devName:sub(1,4)=='VMC_')) then
 		run_pushbuttons=1
-	elseif (run_testdombus==0 and (devName:sub(1,7)=='esplab_' or devName:sub(1,13)=='dombus2 - (ff')) then -- cancel these two lines: not needed! Only for testing
-		run_testdombus=1
+--	elseif (run_testdombus==0 and (devName:sub(1,7)=='esplab_' or devName:sub(1,13)=='dombus2 - (ff')) then -- cancel these two lines: not needed! Only for testing
+--		run_testdombus=1
 	end
 end
 if (run_alarm==0 and run_power==0 and run_pushbuttons==0 and run_testdombus==0) then return commandArray end
+
 
 dofile "scripts/lua/globalvariables.lua"  -- load some variables common to all scripts
 dofile "scripts/lua/globalfunctions.lua"  -- load some functions common to all scripts
@@ -37,7 +38,6 @@ if (run_pushbuttons==1) then
 	dofile "scripts/lua/pushbuttons.lua"
 end
 
---run_testdombus=0	--DEBUG: ignore testdombus!
 if (run_testdombus==1) then
 	dofile "scripts/lua/testdombus.lua"
 end

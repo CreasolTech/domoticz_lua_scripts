@@ -43,7 +43,8 @@ HOYMILES_PRODUCING_DEV='PVGarden_InverterProducing'
 HOYMILES_RESTART_DEV='PVGarden_RestartInverter'
 
 -- Output device: use any name of your choice
-ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
+--ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
+ledsGreen={'Led_Cucina_Green','BagnoPT_LedG'}	-- green LEDs that show power production
 -- ledsRed={'Led_Cucina_Red','Living_Led_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
 ledsRed={'Led_Cucina_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
 ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches

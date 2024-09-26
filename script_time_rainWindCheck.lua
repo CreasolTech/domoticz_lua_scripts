@@ -16,15 +16,15 @@
 
 RAINTIMEOUT=30					-- Wait 30 minutes after rainCounter stops incrementing and rainRate returns to zero, before determining that the rain is over.
 
-VENTILATION_START_WINTER=210	-- Start ventilation 3.5 hours after SunRise (Winter)
+VENTILATION_START_WINTER=270	-- Start ventilation 4.5 hours after SunRise (Winter)
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
-VENTILATION_STOP=-30	-- normally stop ventilation 30 minutes before Sunset
+VENTILATION_STOP=-60	-- normally stop ventilation 60 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
 VENTILATION_TIME_ADD_SUNNY=60	-- adding time, in minutes, in weather is good
 VENTILATION_TIME_ADD=40	-- additional time (in minutes) when ventilation is forced ON (this works even after SunSet+VENTILATION_STOP)
 --VENTILATION_TIME_ADD=300	-- very long time (in minutes), useful when dining with friends
 --VENTILATION_START_NIGHT=210	-- start at night to renew air in the bedroom. Set to 1400 or more to disable
-VENTILATION_START_NIGHT=1400
+VENTILATION_START_NIGHT=1500	-- set to 1440 or more to disable
 VENTILATION_STOP_NIGHT=270
 
 CLOUDS_TODAY_DEV="Clouds_today"	-- weather forecast for today: percentage of clouds
@@ -142,7 +142,7 @@ else
 end
 
 -- at start time, reset ventilation time (ventilation active for TIME minutes) and set auto=0
-if (timeNow.month>=10 or timeNow.month<=5) then
+if (timeNow.month>=10 or timeNow.month<=5 or (timeNow.month==9 and timeNow.day>=10)) then
 	VENTILATION_START=VENTILATION_START_WINTER
 else
 	VENTILATION_START=VENTILATION_START_SUMMER

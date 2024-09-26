@@ -18,8 +18,8 @@
 
 commandArray={}
 dofile "scripts/lua/config_heatpump_emmeti.lua"
-DEBUG_LEVEL=E_WARNING
-DEBUG_LEVEL=E_DEBUG
+DEBUG_LEVEL=E_INFO
+--DEBUG_LEVEL=E_DEBUG
 DEBUG_PREFIX="HeatPump: "
 
 -- Initialize the HP domoticz variable (json coded, within several state variables)
@@ -356,7 +356,8 @@ if (HPlevel~="Off") then
 		prodPowerOn=1000			-- minimum extra power to turn ON the heatpump
 		gridPowerMin=0
 		TargetPowerMin=math.floor(510+(890/14)*(outdoorTemperature-25)) -- computed based on heat pump datasheet
-		TargetPowerMax=3000
+		TargetPowerMax=1500
+		CompressorMax=50
 	end
 	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
@@ -646,12 +647,13 @@ if (HPlevel~="Off") then
 					log(E_INFO,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end
 				end
+				if (targetPower>TargetPowerMax) then targetPower=TargetPowerMax end
 
 			
 				-- set compressorPerc
 				if (HPPower<450) then
 					-- Heat pump is not heating/cooling
-					compressorPerc=targetPower/28	-- absolute percentage
+					compressorPerc=math.floor(targetPower/28)	-- absolute percentage
 					log(E_DEBUG,"compresorPerc="..compressorPerc.." (set to targetPower/28)")
 				else
 					-- Heat pump is heating/cooling: compute differential value
