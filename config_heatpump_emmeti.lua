@@ -14,7 +14,7 @@ OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power f
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than POWER_MAX
 EVPOWER_DEV='EV Energy'
 EVSTATE_DEV="EV State"      		-- EV state, used to know if vehicle is in charging state or not: "Dis", "Con", "Ch"
-
+CLOUDS_TODAY="Clouds_Today"			-- Device returning the percentange of clouds 
 
 --GasHeater='GasHeater'				-- Activate gas heater instead of heat pump when external temperature very low: set to '' if a boiler does not exist
 GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only if PDC is not able to keep the temperature
@@ -45,6 +45,9 @@ HPTempSummerMin='HeatPump - Temp min outlet Summer'	-- Device to set minimum out
 HPTempSummerMinIDX=2047
 HPTempSummerMax='HeatPump - Temp max outlet Summer'	-- Device to set maximum outlet temperature for Summer (17°C)
 HPTempSummerMaxIDX=2048
+HPValveRadiantCoil="Valve_Radiant_Coil"				-- 3-way valve that should be activated to enable radiant system (if disabled coil system will be enabled)
+HPValveGeneral="Valve_P1"							-- general valve
+HPRelay="Relay_HeatPump"							-- Relay to enable power supply to the heat pump (used to remove power supply limiting the standby energy when heat pump is not used)
 
 -- fields for the following table
 ZONE_NAME=1
@@ -101,7 +104,7 @@ zones={
 	--
 	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						4,		20,		-0.2,		1,		7,		23,		0.2,	1},	
+	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						8,		20,		-0.2,		1,		7,		23,		0.2,	1},	
 	{'Studio',			'Temp_Studio',		'',                 '',						9,		18,		-0.2,		0.2,	8,		19,		0.5,	0.8},
 	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
 	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.6,	0.5,	10,		23,		0.5,	0.8},	

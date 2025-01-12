@@ -147,78 +147,25 @@ function powerMeterAlert(on)
 	end
 end
 
-function scanDEVauxlist()
-	devOn=''	-- used to find a ON-device that can be turned off if forced==1
-	devPower=0
-	-- extract the name of the last device in Heaters that is ON
-	for k,loadRow in pairs(DEVauxfastlist) do
-		if (otherdevices[loadRow[1]]=='On') then
-			devAuto=0
-			devKey='f'..k
-			if (PowerAux[devKey]~=nil) then
-				devAuto=1
-				devOn=loadRow[1]
-				devPower=loadRow[4]
-				log(E_INFO,"devOn="..devOn.." devPower="..devPower.." devAuto="..devAuto)
-				return
-			else
-				-- current device was enabled manually, not enabled from script_device_power.lua
-				log(E_INFO,"Aux fastload "..loadRow[1].." enabled manually, power="..loadRow[4])
-				if (devOn=='') then
-					devOn=loadRow[1]
-					devPower=loadRow[4]
-				end
-			end
-		end
-	end
-	for k,loadRow in pairs(DEVauxlist) do
-		if (otherdevices[loadRow[1]]=='On') then
-			devAuto=0
-			devKey='a'..k
-			if (PowerAux[devKey]~=nil) then
-				devAuto=1
-				devOn=loadRow[1]
-				devPower=loadRow[4]
-				log(E_INFO,"devOn="..devOn.." devPower="..devPower.." devAuto="..devAuto)
-				return
-			else
-				-- current device was enabled manually, not enabled from script_device_power.lua
-				log(E_INFO,"Aux load "..loadRow[1].." enabled manually, power="..loadRow[4])
-				if (devOn=='') then
-					devOn=loadRow[1]
-					devPower=loadRow[4]
-				end
-			end
-		end
-	end
-end
-
-function powerDisconnect(forced,msg) 
+function powerDisconnect() 
 	-- disconnect the last device in Heater table, that is ON. Return 0 in case that no devices have been disconnected
-	scanDEVauxlist()
-	if (devOn=='') then
-		if (forced~=0) then
-			-- TODO: try to disable overloadDisconnect devices
-			for k,loadRow in pairs(overloadDisconnect) do
-				if (otherdevices[ loadRow[1] ]==loadRow[3]) then
-					log(E_WARNING, msg..': disconnect '..loadRow[1])
-					commandArray[ loadRow[1] ]=loadRow[2]
-					Power['disc']=os.time()
-					return 1
-				end
-			end
+	disc=0	-- number of devices that will be disconnected
+	for k,f in pairs(DeviceToDisconnect) do
+		-- log(E_WARNING,"Device "..f[1].." = "..otherdevices[ f[1] ])
+		if (otherdevices[ f[1] ]~=f[2]) then
+			log(E_CRITICAL, "Potenza="..currentPower..": Disconnesso "..f[1])
+			commandArray[ f[1] ]=f[2]
+			disc=1
+			break
 		end
-		return 0
-	elseif (devAuto~=0 or forced~=0) then
-		log(E_WARNING, msg..': disconnect '..devOn..' to save '..devPower..'W')
-		commandArray[devOn]='Off'
-		PowerAux[devKey]=nil
-		Power['disc']=os.time()
-		return 1
 	end
+	if (disc==0) then
+		log(E_ERROR, "No loads available for disconnection")
+	end
+	return disc
 end
 
-currentPower=10000000 -- dummy value (10MW)
+currentPower=10000000 -- dummy value (10MW) used to determine if currentPower has changed or not
 HPmode=otherdevices[HPMode]	-- 'Off', 'Winter' or 'Summer'
 if (HPmode==nil) then 
 	HPmode='Off' 
@@ -240,62 +187,6 @@ for devName,devValue in pairs(devicechanged) do
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
 		if (devName==PowerMeter) then
 			currentPower=getPowerValue(devValue)
-			if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
-				for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do
-					commandArray[name]=tostring(currentPower)..';0'
-					log(E_DEBUG,"Update "..name.."="..currentPower)
-				end
-			end
-			if (HOYMILES_ID~='') then
-				-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
-				local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
-				local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
-				-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
-				if (newlimit>HOYMILES_LIMIT_MAX) then
-					newlimit=HOYMILES_LIMIT_MAX
-				elseif (newlimit<100) then
-					newlimit=100	-- avoid turning off the inverter completely
-				end
-				if (hoymilesVoltage>=251.5) then 
-					log(E_WARNING,"HOYMILES: Reduce inverter power")
-					if (newlimit>Power['HL']/2) then
-						newlimit=Power['HL']/2
-					end
-				else
-					if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
-						log(E_INFO,"HOYMILES: Increase inverter power")
-						newlimit=Power['HL']*1.35
-					end
-				end
-				newlimit=math.floor(newlimit)
-				if (newlimit>HOYMILES_LIMIT_MAX) then
-					newlimit=HOYMILES_LIMIT_MAX
-				elseif (newlimit<100) then
-					newlimit=100	-- avoid turning off the inverter completely
-				end
-				local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
-				if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
-					log(E_INFO,"HOYMILES: Voltage="..hoymilesVoltage.."V currentPower="..currentPower.."W target="..HOYMILES_TARGET_POWER.."W => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
-					os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
-					Power['HL']=newlimit
-					commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
-				end
-				-- Now check that inverter is producing
-				if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
-					-- inverter not producing
-					if (Power['HS']==1 and hoymilesVoltage>=240) then
-						-- inverter not producing due to overvoltage => restart it
-						newlimit=100	-- start inverter from 100W only to prevent overvoltage
-						os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
-						Power['HL']=newlimit
-						log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
-						commandArray[HOYMILES_RESTART_DEV]='On'
-					end
-					Power['HS']=0
-				else
-					Power['HS']=1
-				end
-			end
 		end
 	else
 		-- use PowerMeterImport and PowerMeterExport (if available)
@@ -306,6 +197,7 @@ for devName,devValue in pairs(devicechanged) do
 			end
 		end
 	end
+
 	if (EVPowerMeter ~= '') then
 		-- get actual EV charging power
 		if (devName==EVPowerMeter) then
@@ -468,6 +360,16 @@ for devName,devValue in pairs(devicechanged) do
 	end
 end
 
+-- check that main powermeter is really working...
+if (PowerMeter~="" and otherdevices_lastupdate[PowerMeter]~=nil and timedifference(otherdevices_lastupdate[PowerMeter])>60) then
+	-- power meter is not working !!!!! Use PowerMeterImport and PowerMeterExport as backup grid power meter
+	if (PowerMeterImport~='' and PowerMeterExport~='' and (devicechanged[PowerMeterImport]~=nil or devicechanged[PowerMeterExport]~=nil)) then
+		currentPower=getPowerValue(otherdevices[PowerMeterImport])-getPowerValue(otherdevices[PowerMeterExport]) -- use PowerMeterImport and PowerMeterExport to determine current grid power
+		log(E_WARNING, "Main power meter is broken: get grid power from PowerMeterImport-PowerMeterExport")
+	end
+end
+
+
 
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
@@ -522,11 +424,68 @@ if (currentPower>-20000 and currentPower<20000) then
 		toleratedUsagePower=300	-- from October to March, activate electric heaters even if the usage power will be >0W but <300W
 	end
 
+	if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid
+		for k,name in pairs(DOMBUSEVSE_GRIDPOWER) do
+			commandArray[name]=tostring(currentPower)..';0'
+			log(E_DEBUG,"Update "..name.."="..currentPower)
+		end
+	end
+	if (HOYMILES_ID~='') then
+		-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
+		local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+		local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
+		-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
+		if (newlimit>HOYMILES_LIMIT_MAX) then
+			newlimit=HOYMILES_LIMIT_MAX
+		elseif (newlimit<100) then
+			newlimit=100	-- avoid turning off the inverter completely
+		end
+		if (hoymilesVoltage>=251.5) then 
+			log(E_WARNING,"HOYMILES: Reduce inverter power")
+			if (newlimit>Power['HL']/2) then
+				newlimit=Power['HL']/2
+			end
+		else
+			if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
+				log(E_INFO,"HOYMILES: Increase inverter power")
+				newlimit=Power['HL']*1.35
+			end
+		end
+		newlimit=math.floor(newlimit)
+		if (newlimit>HOYMILES_LIMIT_MAX) then
+			newlimit=HOYMILES_LIMIT_MAX
+		elseif (newlimit<100) then
+			newlimit=100	-- avoid turning off the inverter completely
+		end
+		local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
+		if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
+			log(E_INFO,"HOYMILES: Voltage="..hoymilesVoltage.."V currentPower="..currentPower.."W target="..HOYMILES_TARGET_POWER.."W => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
+			os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+			Power['HL']=newlimit
+			commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
+		end
+		-- Now check that inverter is producing
+		if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
+			-- inverter not producing
+			if (Power['HS']==1 and hoymilesVoltage>=240) then
+				-- inverter not producing due to overvoltage => restart it
+				newlimit=100	-- start inverter from 100W only to prevent overvoltage
+				os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+				Power['HL']=newlimit
+				log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
+				commandArray[HOYMILES_RESTART_DEV]='On'
+			end
+			Power['HS']=0
+		else
+			Power['HS']=1
+		end
+	end
+
+
+
 	if (currentPower<PowerThreshold[1]) then
 		log(E_DEBUG,"currentPower="..currentPower.." < PowerThreshold[1]="..PowerThreshold[1])
 		-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
-		Power['th1']=0
-		Power['th2']=0
 		if (incMinute==1 or Power['ev']==1) then --Power['ev'] used to force EV management now
 			Power['ev']=0
 			for k,evRow in pairs(eVehicles) do
@@ -724,16 +683,7 @@ if (currentPower>-20000 and currentPower<20000) then
 
 		--	currentPower=-1200
 		limit=toleratedUsagePower+100
-		if (currentPower>limit) then
-			-- disconnect only if power remains high for more than 5*2s
-			if (Power['above']>=2) then 
-				powerDisconnect(0,"currentPower>"..limit.." for more than 10 seconds") 
-				Power['above']=0
-			else
-				Power['above']=Power['above']+1
-				log(E_DEBUG, "currentPower > toleratedUsagePower+100 for "..(Power['above']*5).."s")
-			end
-		else
+		if (currentPower<limit) then
 			-- usage power < than first threshold
 			Power['above']=0
 			if (HPmode=='Winter') then
@@ -922,42 +872,47 @@ if (currentPower>-20000 and currentPower<20000) then
 	end
 
 	if (currentPower>PowerThreshold[1]) then
+		Power['th1']=Power['th1']+POWERMETER_INTERVAL
 		if (currentPower<PowerThreshold[2]) then
 			-- power consumption a little bit more than available power => long intervention time, before disconnecting
-			if (Power['th1']==0) then Power['th1']=os.time() end
-			time=(os.time()-Power['th1'])
-			log(E_WARNING, "Power>"..PowerThreshold[1].." for "..time.."s")
-			Power['th2']=0
-			if (time>PowerThreshold[3]) then
-				-- can I disconnect anything?
-				time=os.time()-Power['disc']	-- disconnect devices every 50s
-				if (powerDisconnect(1,"currentPower>"..PowerThreshold[1].." for more than "..PowerThreshold[3].."s")==0) then
-					-- nothing to disconnect
-					powerMeterAlert(1)	-- send alert
-				else
-					powerMeterAlert(0)
-				end
-			end
+			if (Power['th2']>=POWERMETER_INTERVAL) then Power['th2']=Power['th2']-POWERMETER_INTERVAL else Power['th2']=0 end
 		else -- very high power consumption : short time to disconnect some loads
-			time=(os.time()-Power['th2'])
-			log(E_WARNING, "Power>"..PowerThreshold[2].." for "..time.."s")
-			if (Power['th2']==0) then
-				Power['th2']=os.time()
-			elseif (time>PowerThreshold[4]) then
+			Power['th2']=Power['th2']+POWERMETER_INTERVAL
+			log(E_WARNING, "Power>"..PowerThreshold[2].." for "..Power['th2'].."/"..PowerThreshold[4].."s")
+			if (Power['th2']>=PowerThreshold[4]) then
 				-- can I disconnect anything?
 				-- very high power consumption: short intervention time before power outage
-				time=os.time()-Power['disc']	-- disconnect devices every 50s
-				if (powerDisconnect(1,"currentPower>"..PowerThreshold[2].." for more than "..PowerThreshold[4].."s")==0) then
+				time=os.time()-Power['disc']	-- disconnect devices every 20s
+				if (time>=20 and powerDisconnect()==0) then
 					-- nothing to disconnect
 					powerMeterAlert(1)  -- send alert
-					if ((time%20)==0) then log(E_CRITICAL,"Too much power consumption, and nothing to disconnect") end -- send alert by Telegram
+					log(E_CRITICAL,"Potenza assorbita="..currentPower.."W: Pericolo di disconnessione. Spegnere elettrodomestici!") -- send alert by Telegram
 				else
+					-- one device has been disconnected
 					powerMeterAlert(0)
+					Power['disc']=os.time()
 				end
-
 			end
 		end
-	end	-- currentPower has a right value
+		log(E_WARNING, "Power>"..PowerThreshold[1].." for "..Power['th1'].."/"..PowerThreshold[3].."s")
+		if (Power['th1']>=PowerThreshold[3]) then
+			-- can I disconnect anything?
+			time=os.time()-Power['disc']	-- disconnect devices every 60s
+			if (time>=60 and powerDisconnect()==0) then
+				-- nothing to disconnect
+				powerMeterAlert(1)	-- send alert
+				log(E_CRITICAL,"Potenza assorbita="..currentPower.."W: Pericolo di disconnessione. Spegnere elettrodomestici!") -- send alert by Telegram
+			else
+				powerMeterAlert(0)
+				Power['disc']=os.time()
+			end
+		end
+	else	
+		-- currentPower has a right value
+		if (Power['th1']>=POWERMETER_INTERVAL) then Power['th1']=Power['th1']-POWERMETER_INTERVAL else Power['th1']=0 end
+		if (Power['th2']>=POWERMETER_INTERVAL) then Power['th2']=Power['th2']-POWERMETER_INTERVAL else Power['th2']=0 end
+	end
+
 
 	-- save variables in Domoticz, in a json variable Power
 	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))

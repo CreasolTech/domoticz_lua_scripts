@@ -81,12 +81,17 @@ io.close(fd)
 -- response = json data with list of earthquakes
 json=require("dkjson")
 local q=json.decode(response)
+if (q==nil) then 
+	log(ERROR,"Error: empty response from the seismicportal.eu website")
+	return commandArray
+end
 local qMag = tonumber(q.features[1].properties.mag)
 local qRegion = tostring(q.features[1].properties.flynn_region)
 local qTimeString = tostring(q.features[1].properties.time)
 local qLat = tonumber(q.features[1].properties.lat)
 local qLon = tonumber(q.features[1].properties.lon)
 local qDepth = tonumber(q.features[1].properties.depth)
+local qUnid = tostring(q.features[1].properties.unid)
 
 local checkText=qTimeString..qLat..qLon..qDepth..qMag
 -- create a Domoticz variable if zEarthQuake does not exist
@@ -120,7 +125,7 @@ if ((os.time()-t)<MAXAGE*3600) then
 	if (string.len(address)<6) then address=qRegion end
 	
 	--Set and format the new alertText
-	local alertText = tostring(  atLocalTime .. ' ' .. address .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. distance ..'km. <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new" style="color: blue;">Map</a>')
+	local alertText = tostring(  atLocalTime .. ' ' .. address .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. distance ..'km. <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new" style="color: blue;">Map</a> <a href="https://www.seismicportal.eu/eventdetails.html?unid=' .. qUnid .. '" target="new" style="color: blue;">Detail</a>')
 
 	-- Only update and sent message when info has changed. and 
 	if (DEBUG~=0 or (alertText ~= lastalertText and distance <= MAXDISTANCE)) then

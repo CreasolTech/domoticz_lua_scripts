@@ -55,6 +55,7 @@ function RWCinit()
 	-- check or initialize the RWC table of variables, that will be saved, coded in JSON, into the zRainWindCheck Domoticz variable
 	if (RWC==nil) then RWC={} end
 	if (RWC['time']==nil) then RWC['time']=0 end	-- minutes the RWC was ON, today
+	if (RWC['toff']==nil) then RWC['toff']=0 end	-- minutes the RWC is OFF (used to disable power supply after 30 minutes)
 	if (RWC['maxtime']==nil) then RWC['maxtime']=VENTILATION_TIME end	-- minutes the CMV was ON, today
 	if (RWC['maxtime']<0) then RWC['maxtime']=0 end
 	if (RWC['auto']==nil) then RWC['auto']=0 end	-- 1 of CMV has been started automatically by this script
@@ -148,10 +149,10 @@ else
 	VENTILATION_START=VENTILATION_START_SUMMER
 end
 
-if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START)) then
+if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START) and (timeNow.month~=1 or timeNow.day~=6)) then	-- eclude ventilation on Jan 6!
 	RWC['time']=0
 	RWC['maxtime']=VENTILATION_TIME
-	if (CLOUDS_TODAY_DEV~='' and tonumber(otherdevices[CLOUDS_TODAY_DEV])<20) then 
+	if (CLOUDS_TODAY_DEV~='' and otherdevices[CLOUDS_TODAY_DEV]~=nil and tonumber(otherdevices[CLOUDS_TODAY_DEV])<20) then 
 		RWC['maxtime']=RWC['maxtime']+VENTILATION_TIME_ADD_SUNNY 
 		log(E_INFO,"Today ventilation time="..RWC['maxtime'].." increased because it's Sunny!")
 	end
@@ -162,6 +163,14 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 	log(E_INFO,"Ventilation "..otherdevices[VENTILATION_DEV]..": RWC['auto']="..RWC['auto'].." time="..RWC['time'].."/"..RWC['maxtime'].." windSpeed=".. (windSpeed/10) .."m/s windDirection="..windDirection.."°")
 	if (otherdevices[VENTILATION_DEV]=='Off') then
 		-- ventilation was OFF
+		-- disable VMC power supply after some minutes to reduce standby energy consumption
+		if (otherdevices[VENTILATION_COIL_DEV]=='Off') then -- VMC completely OFF
+			RWC['toff']=RWC['toff']+1
+			if (RWC['toff']>=1000) then RWC['toff']=999 end
+			if (RWC['toff']==30 and otherdevices[VENTILATION_RELAY_DEV]~='Off') then 
+				commandArray[VENTILATION_RELAY_DEV]='Off'
+			end
+		end
 		if (RWC['auto']==1 or RWC['auto']==3) then
 			-- ventilation was ON by this script, but was forced OFF manually
 			RWC['auto']=2
@@ -174,8 +183,9 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 			RWC['auto']=1	-- ON
 			RWC['time']=0
 			RWC['maxtime']=VENTILATION_STOP_NIGHT-VENTILATION_START_NIGHT
-			deviceOn(VENTILATION_DEV,RWC,'d1')
 			commandArray[VENTILATION_ATT_DEV]="On"
+			deviceOn(VENTILATION_DEV,RWC,'d1')
+			if (otherdevices[VENTILATION_RELAY_DEV]~='On') then commandArray[VENTILATION_RELAY_DEV]='On' end	-- activate relay to supply VMC
 
 			-- elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime'] and windSpeed>=3 and (windDirection<160 or windSpeed>20)) then
 		elseif (RWC['auto']==0 and RWC['time']<RWC['maxtime']) then -- do not check wind direction
@@ -184,9 +194,7 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 			-- enable ventilation only in a specific time range		if (minutesNow>=(timeofday['SunriseInMinutes']+VENTILATION_START) and minutesNow<(timeofday['SunsetInMinutes']+VENTILATION_STOP)) then
 			log(E_INFO,"Ventilation ON: windSpeed=".. (windSpeed/10) .." ms/s, windDirection="..windDirection .."°")
 			RWC['auto']=1	-- ON
-			--commandArray[VENTILATION_DEV]='On'
 			deviceOn(VENTILATION_DEV,RWC,'d1')
-			--		end
 		end
 	else
 		-- ventilation is ON
@@ -207,17 +215,22 @@ if (otherdevices[VENTILATION_DEV]~=nil) then
 			if (minutesNow==VENTILATION_STOP_NIGHT or (RWC['maxtime']==VENTILATION_TIME and minutesNow==(timeofday['SunsetInMinutes']+VENTILATION_STOP))) then
 				log(E_INFO,"Ventilation OFF: reached the stop time. Duration="..RWC['time'].." minutes")
 				RWC['auto']=0
-				deviceOff(VENTILATION_DEV,RWC,'d1')
 				commandArray[VENTILATION_ATT_DEV]='Off'
+				deviceOff(VENTILATION_DEV,RWC,'d1')
 			-- elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and (windSpeed==0 or (windDirection>160 and windSpeed<20)))) then
 			elseif (RWC['time']>=RWC['maxtime']) then -- do not check for windDirection (smoke)
 --			elseif (RWC['time']>=RWC['maxtime'] or (otherdevices['HeatPump_Mode']=='Winter' and ((windDirection>160 and windSpeed<20)))) then -- during the Winter
 --			elseif (RWC['time']>=RWC['maxtime'] or ((windDirection>210 or windDirection<45))) then -- avoid Smoke from Belluno
 				log(E_INFO,"Ventilation OFF: duration="..RWC['time'].." minutes, windSpeed=".. (windSpeed/10) .." m/s, windDirection=".. windDirection .."°")
 				RWC['auto']=0
-				-- commandArray[VENTILATION_DEV]='Off'
 				deviceOff(VENTILATION_DEV,RWC,'d1')
 			end
+		end
+	end
+	if ((otherdevices[VENTILATION_DEV]=='On' or otherdevices[VENTILATION_COIL_DEV]=='On')) then
+		RWC['toff']=0
+		if (otherdevices[VENTILATION_RELAY_DEV]~='On') then 
+			commandArray[VENTILATION_RELAY_DEV]='On' -- activate relay to supply VMC
 		end
 	end
 end
@@ -340,7 +353,6 @@ end
 VEHICLE_DISTANCE='eNiro: distance'			-- Vehicle distance in Km
 VEHICLE_ENGINE='eNiro: engine ON'			-- Vehicle engine On/Off
 VEHICLE_UPDATEREQ='eNiro: update req.'		-- Command to force vehicle update
-GATE_SUPPLY='Power_Apricancello'				-- Gate power supply On/Off
 
 local carDistance=0  -- actual vehicle distance from house
 if (VEHICLE_DISTANCE~='' and otherdevices[VEHICLE_DISTANCE]~=nil) then
@@ -352,7 +364,7 @@ if (timeNow.wday>=2 and timeNow.wday<=4 and (minutesNow==820 or minutesNow==1030
 	commandArray[VEHICLE_UPDATEREQ]='On'
 	if (uservariables['alarmLevel']<=2) then 	-- alarm=OFF or alarm=DAY
 		log(E_INFO,"GeoFence: Working day => turn gate power ON anyway")
-		commandArray[GATE_SUPPLY]='On'
+		commandArray[RELAY_GATE_DEV]='On'
 	end
 end	
 if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
@@ -361,9 +373,9 @@ if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
 		-- vehicle is moving away
 		log(E_INFO,"GeoFence: Vehicle is moving away, from "..RWC['cd'].." to "..carDistance.."km")
 		-- turn off gate power supply?
---		if (otherdevices[GATE_SUPPLY]=='On') then  -- gate supply is OFF when alarmLevel is NIGHT or AWAY
+--		if (otherdevices[RELAY_GATE_DEV]=='On') then  -- gate supply is OFF when alarmLevel is NIGHT or AWAY
 --			log(E_INFO,"GeoFence: carDistance increasing and gate power==On => turn Off") 
---			commandArray[GATE_SUPPLY]='Off'
+--			commandArray[RELAY_GATE_DEV]='Off'
 --		end
 
 	else
@@ -371,18 +383,18 @@ if (carDistance~=RWC['cd']) then --RWC['cd']=previous vehicle distance
 		log(E_INFO,"GeoFence: Vehicle is approaching, from "..RWC['cd'].." to "..carDistance.."km")
 		if (carDistance<5 and otherdevices[VEHICLE_ENGINE]=='On') then
 			-- vehicle is approaching, and is near house
-			if (otherdevices[GATE_SUPPLY]=='Off') then
+			if (otherdevices[RELAY_GATE_DEV]=='Off') then
 				log(E_INFO,"GeoFence: carDistance<5km and gate power==Off => turn On")
-				commandArray[GATE_SUPPLY]='On'
+				commandArray[RELAY_GATE_DEV]='On'
 			end
 		end
 	end
 	RWC['cd']=carDistance
 else
 	-- vehicle is not moving
-	if (carDistance<0.5 and timeNow.hour==21 and timeNow.minutes==0 and otherdevices[GATE_SUPPLY]=='On') then
+	if (carDistance<0.5 and timeNow.hour==21 and timeNow.minutes==0 and otherdevices[RELAY_GATE_DEV]=='On') then
 		log(E_INFO,"GeoFence: Car at home, time>=19:00 and gate power==On => turn Off")
-		commandArray[GATE_SUPPLY]='Off'
+		commandArray[RELAY_GATE_DEV]='Off'
 	end
 end
 

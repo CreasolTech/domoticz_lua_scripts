@@ -7,7 +7,8 @@ commandArray={}
 local zona=Nord
 
 function prelevaPun () 
-	
+https://www.mercatoelettrico.org/It/MenuBiblioteca/Documenti
+blob:https://gme.mercatoelettrico.org/645c3f15-c3f2-42cd-bf11-5e617dd6c07b
 
 end
 

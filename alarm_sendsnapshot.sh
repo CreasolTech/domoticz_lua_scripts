@@ -44,7 +44,13 @@ if [ -n "${ipcamera1}" ]; then
 		rm /tmp/alarm_snapshot1_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
 		#ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 200 /tmp/alarm_snapshot1_$$.mp4 && touch /tmp/alarm_snapshot1_$$.done &
 		# 2x speed  (0.50): set to 0.25 to get 4x speed
-		( ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 ; touch /tmp/alarm_snapshot1_$$.done ) >>/tmp/alarm_snapshot1.log 2>&1 &
+		if [ a$DEBUG == a1 ]; then
+			log "exec ffmpeg for camera1: ffmpeg -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 ; touch /tmp/alarm_snapshot1_$$.done"
+			( ffmpeg -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 ; touch /tmp/alarm_snapshot1_$$.done ) >>/tmp/alarm_snapshot1.log 2>&1 &
+			log "end of ffmpeg for camera1"
+		else
+			( ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL1} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot1_$$.mp4 ; touch /tmp/alarm_snapshot1_$$.done ) >>/tmp/alarm_snapshot1.log 2>&1 &
+		fi
 	fi
 fi
 
@@ -58,7 +64,13 @@ if [ -n ${ipcamera2} ]; then
 		rm /tmp/alarm_snapshot2_$$.*	2>/dev/null #remove done file, if exists, start ffmpeg to get the snapshot from media stream, then write file .done to mark snapshot available
 		#ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 200 /tmp/alarm_snapshot2_$$.mp4 && touch /tmp/alarm_snapshot2_$$.done &
 		# 2x speed  (0.50): set to 0.25 to get 4x speed
-		( ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot2_$$.mp4 ; touch /tmp/alarm_snapshot2_$$.done )  >>/tmp/alarm_snapshot2.log 2>&1 &
+		if [ a$DEBUG == a1 ]; then
+			log "exec ffmpeg for camera2"
+			( ffmpeg -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot2_$$.mp4 ; touch /tmp/alarm_snapshot2_$$.done )  >>/tmp/alarm_snapshot2.log 2>&1 &
+			log "end of ffmpeg for camera2"
+		else
+			( ffmpeg -loglevel quiet -rtsp_transport tcp -y -i rtsp://${IPCAM_USER}:${IPCAM_PASS}@${MEDIAURL2} -frames 120 -filter:v "setpts=0.50*PTS" /tmp/alarm_snapshot2_$$.mp4 ; touch /tmp/alarm_snapshot2_$$.done )  >>/tmp/alarm_snapshot2.log 2>&1 &
+		fi
 	fi
 fi
 sleep 24
@@ -84,7 +96,6 @@ if [ -n "${ipcamera1}" ]; then
 	if [ $i -eq 0 ]; then
 		log "Error: snapshot1 not received"
 	fi
-	rm /tmp/alarm_snapshot1_$$.*
 fi
 if [ -n "${ipcamera2}" ]; then
 	#wait for snapshot2
@@ -108,5 +119,8 @@ if [ -n "${ipcamera2}" ]; then
 	if [ $i -eq 0 ]; then
 		log "Error: snapshot2 not received"
 	fi
+fi
+if [ "a$DEBUG" != "a0" ]; then 
+	rm /tmp/alarm_snapshot1_$$.*
 	rm /tmp/alarm_snapshot2_$$.*
 fi

@@ -13,9 +13,12 @@ EVSTATE_DEV="EV State"
 
 HW_SP_OFF=38
 HW_SP_MIN=42
+HW_SP_MIN_WINTER=45
 HW_SP_NORMAL=48
 HW_SP_MAX=55
 
-HW_POWERSUPPLY='HotWater - Supply'		-- Relay to enable powersupply to energy meter (DDS238) and boiler (avoid 3W standby consumption and is disconnected during storms)
+HW_NIGHT_CHECKHOUR=4				-- at 4:00 activate relay and check that temperature is higher than HW_SP_MIN
+
+HW_POWERSUPPLY='Relay_HotWater'		-- Relay to enable powersupply to energy meter (DDS238) and boiler (avoid 3W standby consumption and is disconnected during storms)
 
 timeNow=os.date('*t')

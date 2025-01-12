@@ -34,6 +34,7 @@ function HPinit()
 	if (HP['OL']==nil) then HP['OL']=0 end			-- OverLimit: used to overheat or overcool
 	if (HP['toff']==nil) then HP['toff']=0 end		-- time the heat pump is in OFF state
 	if (HP['EV']==nil) then HP['EV']=0 end			-- >0 while charging, decreased when EV stops charging
+	if (HP['S']==nil) then HP['S']=0 end			-- Supply timeout: used to enable/disable relay to feed power to the heat pump (disabling power when inactive, to save energy consumption)
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -51,7 +52,10 @@ end
 
 -- switch ON/OFF valves to enable/disable zones
 function updateValves()
-	-- check valveStateTemp and update valve status
+	-- check valveStateDiff and update valve status for each zone
+	local overlimitTempAdd=0
+	local valves=0
+	if (HP['OL']~=0) then overlimitTempAdd=overlimitTemp end	-- overlimit => set the overlimit temperature to add to "diff" for each zone
 	for n,v in pairs(zones) do
 		-- v[ZONE_NAME]=zonename (HeatingSP_n = setpoint temperature)
 		-- v[ZONE_TEMP_DEV]=tempsensor
@@ -62,19 +66,36 @@ function updateValves()
 		--
 		-- if HeatPump == Off => don't activate electrovalve
 		if (otherdevices[DEVlist[1][1] ]=='Off') then 
-			valveStateTemp[v[ZONE_VALVE] ]='Off'	
+			valveStateTmp[v[ZONE_VALVE] ]='Off'	
 		end
 		-- update commandArray only when valve status have changed
-		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and valveStateTemp[v[ZONE_VALVE] ]~=nil and otherdevices[v[ZONE_VALVE] ]~=valveStateTemp[v[ZONE_VALVE] ]) then
-			if (valveStateTemp[v[ZONE_VALVE] ] == 'On' and HPlevel~='Dehum') then
+		--[[
+		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='' and valveStateTmp[v[ZONE_VALVE] ]~=nil and otherdevices[v[ZONE_VALVE] ]~=valveStateTmp[v[ZONE_VALVE] ]) then
+			if (valveStateTmp[v[ZONE_VALVE] ] == 'On' and HPlevel~='Dehum') then
 				deviceOn(v[ZONE_VALVE],HP,'v'..n)
 			else
 				deviceOff(v[ZONE_VALVE],HP,'v'..n)
 			end
-			-- log(E_DEBUG,'**** Valve for zone '..v[ZONE_NAME]..' changed to '..valveStateTemp[ v[ZONE_VALVE] ])
+			-- log(E_DEBUG,'**** Valve for zone '..v[ZONE_NAME]..' changed to '..valveStateTmp[ v[ZONE_VALVE] ])
 		end
-
+--]]
+		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='') then  -- valve exists 
+			-- log(E_DEBUG, 'Valve '..v[ZONE_VALVE]..' diff='..valveStateDiff[n]..' overlimit='..overlimitTempAdd)
+			--   zone must be heated/cooled                 Not dehumidifaction        heatpump is on
+			if ((valveStateDiff[n]+overlimitTempAdd)>0 and HPlevel~='Dehum' and otherdevices[ DEVlist[1][1] ]~='Off') then -- must be on
+                deviceOn(v[ZONE_VALVE],HP,'v'..n)
+				valves=valves+1
+            else
+                deviceOff(v[ZONE_VALVE],HP,'v'..n)
+            end
+		end
+		-- TODO: if one valve is On, activate the main valve
 	end 
+	if (valves>0) then
+		deviceOn(HPValveGeneral,HP,'vg')	-- enable general valve, to heat the second floor
+	else
+		deviceOff(HPValveGeneral,HP,'vg')	-- valves are all off => disable general valve
+	end
 end
 
 function setOutletTemp(temp)
@@ -188,7 +209,8 @@ else
 end
 
 valveState=''
-valveStateTemp={}
+valveStateTmp={}	-- temporarily state for valve
+valveStateDiff={}	-- diff time for each zone (may be decreased by overlimitTemp to activate zones in case of extra power available from photovoltaic)
 gasHeaterOn=0
 -- check outdoorTemperature
 -- outdoorTemperature=string.gsub(otherdevices[tempOutdoor],';.*','')
@@ -321,7 +343,7 @@ if (HPlevel~="Off") then
 			log(E_INFO,"Morning or Night: diffMaxTh increased to "..diffMaxTh)
 		end
 		if (timeNow.yday>=41 and timeNow.yday<320 and timeNow.hour<9) then
-			if (tonumber(otherdevices['Clouds_today'])<=60) then
+			if (CLOUDS_TODAY~='' and otherdevices[CLOUDS_TODAY]~=nil and tonumber(otherdevices[CLOUDS_TODAY])<=60) then
 				-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
 				diffMaxTh=diffMaxTh+0.2
 				log(E_INFO,"Night, from 10 Feb to 15 Nov, and Sunny => increase diffMaxTh to "..diffMaxTh)
@@ -359,7 +381,6 @@ if (HPlevel~="Off") then
 		TargetPowerMax=1500
 		CompressorMax=50
 	end
-	realdiffMax=-10
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
 	rhMax=0		-- max value of relative humidity
 
@@ -367,7 +388,6 @@ if (HPlevel~="Off") then
 
 	zonesOn=0	-- number of zones that are ON
 	
-	-- check temperatures and setpoints
 	for n,v in pairs(zones) do
 		-- v[ZONE_NAME]=zonename (HeatingSP_n = setpoint temperature)
 		-- v[ZONE_TEMP_DEV]=tempsensor
@@ -401,40 +421,20 @@ if (HPlevel~="Off") then
 		else
 			log(E_ERROR,"Please create thermostat with name SetPoint_"..v[ZONE_NAME])
 		end
-		realdiff=math.floor((setpoint+temperatureOffset-temp)*100)/100;	-- tempSet-temp+temperatureOffsetZone
-		diff=realdiff										-- tempSet-temp+temperatureOffsetZone+temperatureOffsetGlobal
+		diff=math.floor((setpoint+temperatureOffset-temp)*100)/100;	-- tempSet-temp+temperatureOffsetZone
 		if (HPmode ~= 'Winter') then
 			-- summer => invert diff
-			realdiff=0-realdiff	-- TempSet+offset(nighttime)-Temp
 			diff=0-diff			-- TempSet+offset(nighttime)+offset(power)-Temp	increased when there is extra power from PV
 		end
-		if (diff>0) then
-			-- must heat/cool!
-			valveState='On'
-			diff=diff*v[zone_weight]	-- compute the weighted difference between room temperature and setpoint
-			realdiff=realdiff*v[zone_weight]
-			zonesOn=zonesOn+1
-		else
-			-- temperature <= (setpoint+offset) => diff<=0
-			valveState='Off'
-		end
+		diff=diff*v[zone_weight]    -- compute the weighted difference between room temperature and setpoint
+		valveStateDiff[n]=diff
 		if (diff>diffMax) then
 			diffMax=diff	-- store in diffMax the maximum value of room difference between setpoint and temperature 
-		end
-		if (realdiff>realdiffMax) then
-			realdiffMax=realdiff	-- store in diffMax the maximum value of room difference between setpoint and temperature 
-		end
-		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='') then
-			valveStateTemp[v[ZONE_VALVE] ]=valveState
-		end
-		if (valveState=='On') then
-			log(E_INFO,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..setpoint..'+'..temperatureOffset..' diff='..diff)
-		else
-			log(E_DEBUG,valveState..' zone='..v[ZONE_NAME]..' RH='..rh..' Temp='..temp..' SP='..setpoint..'+'..temperatureOffset..' diff='..diff)
 		end
 		if (v[ZONE_TEMP_DEV]==TempZoneAlwaysOn) then
 			diffZoneAlwaysOn=diff	-- diff calculated on the zone that is always on
 		end
+		log(E_INFO,string.format('diff=% .2f RH=%-2d Temp=%.2f SP=%2.1f%+2.1f %s', diff, rh, temp, setpoint, temperatureOffset, v[ZONE_NAME]))
 	end
 	diffMax=math.floor(diffMax*100)/100
 	if (HPforce=="Night") then
@@ -461,6 +461,7 @@ if (HPlevel~="Off") then
 		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
 			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
 			inverterPower=getPowerValue(otherdevices[inverterMeter])
+			inverter1Power=inverterPower
 		end
 		inverterPower=inverterPower+inverter2Power
 		log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
@@ -468,15 +469,16 @@ if (HPlevel~="Off") then
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (peakPower()) then
-			if (prodPower>inverterPower) then	-- check that I'm not exporting more power than photovoltaic on the roof
-				prodPower=prodPower-inverterPower	-- use only power from secondary PV system
-				log(E_INFO,"Use only power from secondary PV")
+			if (prodPower>inverter1Power) then	-- check that I'm not exporting more power than photovoltaic on the roof
+				log(E_INFO,"Use only power from secondary PV: prodPower ".. prodPower .." -> "..(prodPower-inverter1Power))
+				prodPower=prodPower-inverter1Power	-- use only power from secondary PV system
+				if (prodPower>300) then HP['Level']=LEVEL_ON end
 			else
 				log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
-				if ((timeNow.month>=11 or timeNow.month<3)) then
-					diffMax=diffMax-0.2	-- in Winter
+				if ((timeNow.month>=11 or timeNow.month<3) and timeNow.hour<12) then
+					diffMax=diffMax-0.1	-- in Winter, in the morning
 				else
-					diffMax=diffMax-0.3 -- in Summer
+					diffMax=diffMax-0.3 -- in Summer or in the night peak hours
 				end
 			end
 		elseif (timeNow.yday>=71 and timeNow.yday<305 and timeNow.hour<9) then
@@ -550,17 +552,17 @@ if (HPlevel~="Off") then
 					if (diffMax>diffMaxTh+0.1) then
 						if (timeNow.hour>=10 and timeNow.hour<17) then
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*2000)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
 						else
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*500)
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*800)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1")
 						end
 					end
 					
 					-- if sunny, in the morning, reduce target power (then increase if photovoltaic produce more than house usage)
-					if (tonumber(otherdevices['Clouds_today'])<=50 and diffMax<diffMaxTh and timeNow.hour<14) then
+					if (CLOUDS_TODAY~='' and otherdevices[CLOUDS_TODAY]~=nil and tonumber(otherdevices[CLOUDS_TODAY])<=50 and diffMax<diffMaxTh and timeNow.hour<14) then
 						-- Sunny !!
 						targetPower=targetPower-300 -- Try to use energy from photovoltaic, reducing power during the night
 						log(E_INFO,"targetPower-=300 because it is Sunny and diffMax is low")
@@ -575,7 +577,7 @@ if (HPlevel~="Off") then
 						log(E_INFO,"targetPower+=300 between 10 and 17")
 						targetPower=targetPower+300
 						if (timeNow.hour>=12) then 
-							targetPower=targetPower+math.floor(diffMax*diffMax*1000)	-- Adjust targetPower based on diffMax value
+							targetPower=targetPower+math.floor(diffMax*diffMax*2000)	-- Adjust targetPower based on diffMax value
 							log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 						end
 					elseif (timeNow.hour<8 or timeNow.hour>=20) then	-- during the night reduce power if diffMax near zero
@@ -813,11 +815,12 @@ end
 
 if (HP['EV']>=2 and HPlevel~='Off') then
 	if (diffMax<0.15 or HP['OL']~=0) then 
-		log(E_INFO,"EV: Disable Heat Pump because EV charging terminated")
-		commandArray[#commandArray +1]={[HPLevel]='Set Level: 0'}	-- 0=Off
+		log(E_INFO,"EV: Disable Heat Pump because EV is charging and diffMax<0.15 or HP[OL]~=0")
 		HPlevel='Off'
+		heatingCoolingEnabled=0
+		HP['Level']=LEVEL_OFF
 	else
-		HP['EV']=1 --retry next minut
+		HP['EV']=1 --retry next minute
 	end
 end
 
@@ -877,22 +880,21 @@ for n,v in pairs(DEVlist) do
 		end
 	end
 end
-
 updateValves() -- enable/disable the valve for each zone
 
 
 -- other customizations....
 -- Make sure that radiant circuit is enabled when outside temperature goes down, or in winter, because heat pump starts to avoid any damage with low temperatures
 
-if (outdoorTemperature<=4 or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1 and otherdevices[HPLevel]~='Dehum' and otherdevices[HPLevel]~='DehumNight') or GasHeaterOn==1) then
-	if (otherdevices['Valve_Radiant_Coil']~='On') then
-		commandArray['Valve_Radiant_Coil']='On'
+if ((outdoorTemperature<=4 or tonumber(otherdevices['Temp_GarageVerde'])<=4) or (HPmode=='Winter' and HP['Level']>LEVEL_OFF) or (HPmode=='Summer' and HP['Level']>=1 and otherdevices[HPLevel]~='Dehum' and otherdevices[HPLevel]~='DehumNight') or GasHeaterOn==1) then
+	if (otherdevices[HPValveRadiantCoil]~='On') then
+		commandArray[HPValveRadiantCoil]='On'
 		HP['trc']=0
 	end
 else
 	HP['trc']=HP['trc']+1
-	if (otherdevices['Valve_Radiant_Coil']~='Off' and HP['trc']>=3) then
-		commandArray['Valve_Radiant_Coil']='Off'
+	if (otherdevices[HPValveRadiantCoil]~='Off' and HP['trc']>=3) then
+		commandArray[HPValveRadiantCoil]='Off'
 	end
 end
 
@@ -932,11 +934,15 @@ elseif (HPmode=='Summer') then
 	end
 end
 
-
-if (HP['Level']>0) then
+if (HP['Level']>0 or outdoorTemperature<=4 or tonumber(otherdevices['Temp_GarageVerde'])<=4) then
 	HP['toff']=0
+	if (otherdevices[HPRelay]=='Off') then
+		commandArray[HPRelay]='On'	-- Activate relay feeding power supply to the heat pump
+	end
 else
 	HP['toff']=HP['toff']+1
+	if (HP['toff']>60) then HP['toff']=60 end
+	if (HP['toff']>=30 and otherdevices[HPRelay]~='Off') then commandArray[HPRelay]='Off' end -- Remove power supply to the heat pump (to save energy consumption)
 	log(E_DEBUG,"HP[toff]="..HP['toff'])
 end
 

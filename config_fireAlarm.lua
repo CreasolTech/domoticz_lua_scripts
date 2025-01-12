@@ -10,7 +10,7 @@ ROOMS={
 	{"Garage",			"Temp_Garage",			0.6, 	35},
 --	{"Wallbox",			"Temp_Wallbox",			0.3, 	30},
 	{"Cellar",			"TempRH_Cantina",		0.4, 	24},
-	{"Bathroom",		"Temp_Bagno",			1, 		30},
+	{"Bathroom",		"Temp_Bagno",			1.5,	30},
 	{"Bedroom",			"Temp_Camera",			0.4, 	30},
 	{"Bedroom2",		"TempRH_Camera",		2.5, 	30},
 	{"BedroomVale",		"Temp_Camera_Valentina",0.4, 	30},

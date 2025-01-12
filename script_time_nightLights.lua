@@ -2,7 +2,7 @@
 dofile("scripts/lua/globalvariables.lua") -- some variables common to all scripts
 dofile("scripts/lua/globalfunctions.lua") -- some functions common to all scripts
 
-LightOnDeviceNames={'LightOut_Portico','LightOut_NordOvest','LightOut_Portico_Sud','LightOut_Est','LightOut_Nord'}	-- device names of lights that should be turned on after sunset
+LightOnDeviceNames={'LightOut_Portico','LightOut_NordOvest','LightOut_Portico_Sud','LightOut_Est','LightOut_Nord','LightOut_Terrazzo'}	-- device names of lights that should be turned on after sunset
 LightOffDeviceNames={'LightOut_Terrazzo','LightOut_NordOvest','LightOut1','LightOut_Portico','LightOut_Portico_Sud','LightOut_Est','LightOut2','LightOut3','LightOut_Nord'}	-- device names of lights that should be turned off at sunrise
 commandArray={}
 newvalue=0

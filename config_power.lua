@@ -17,6 +17,7 @@ PowerMeterImport='PowerMeter Import'				-- Alternative devices to measure import
 PowerMeterExport='PowerMeter Export'
 --PowerMeterExport=''
 POWERMETER_GENS={'PV_PowerMeter', 'PV_Garden'}	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
+POWERMETER_INTERVAL=5	-- sampling time for PowerMeter (normally 5s) 
 
 -- The following 5 devices have to be created manually, and will be filled by the script
 POWERMETER_USAGE='Power_Used'					-- Electric+Counter virtual device (to be created manually)
@@ -25,7 +26,7 @@ POWERMETER_SELF='Power_SelfConsumption'			-- Electric+Counter virtual device (to
 PERCENTAGE_SELF='Perc_SelfConsumption'			-- Percentage virtual device (to be created manually)
 PERCENTAGE_SUFF='Perc_SelfSufficiency'			-- Percentage virtual device (to be created manually)
 
-blackoutDevice='PowerSupply_HeatPump'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
+blackoutDevice='Monitor_HeatPump'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
 EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'dombus2 - (ffe3.c) Grid Power'}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 --DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
@@ -54,17 +55,17 @@ HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heatin
 
 EVLedStatus={''}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}
 PowerThreshold={
-	5500,  	-- available power (Italy: power+10%)
-	6350,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
+	5450,  	-- available power (Italy: power+10%)
+	6300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
 	4800,	-- send alert after 4800s (80minutes) . Imported power can stay at TH[2] for 90min, then must be below TH[1] for at least 90 minutes
-	60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s)
+	30		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s)
 }
 --[[	-- DEBUG: reduce power and time threshold to test script
 PowerThreshold={ --DEBUG values
 	4000,  	-- available power (Italy: power+10%)
 	5000,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
 	80,		-- send alert after 4800s (80minutes)
-	60		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
+	40		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s
 }
 ]]
 
@@ -73,6 +74,20 @@ PowerMeterAlerts={	-- buzzer devices to be activated when usage power is very hi
 --	{'Display_Lab_12V','Off','On'},
 	{'Buzzer_Cucina','Off','On'},
 }
+
+DeviceToDisconnect={	-- list of device that can be disabled to reduce power usage
+	-- Device Name, Device Off Value, Device On Value
+	{'Pranzo_Stufetta', 'Off', 'On'},
+	{'Dehumidifier_Cantina', 'Off', 'On'},
+	{'Dehumidifier_Camera_Ospiti', 'Off', 'On'},
+	{'Bagno_Scaldasalviette', 'Off', 'On'},
+	{'Socket_Nord', 'Off', 'On'},
+	{'Socket_Garden', 'Off', 'On'},
+	{'EV Mode', 'Off', 'Solar'},
+	{'Relay_HotWater', 'Off', 'On'},
+	{'HeatPump', 'Off', 'On'},
+}
+	
 
 -- devices that can be disconnected in case of overloading, specified in the right priority (the first device is the first to be disabled in case of overload)
 overloadDisconnect={ -- syntax: device name, command to disable, command to enable

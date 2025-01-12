@@ -8,7 +8,7 @@ dofile "scripts/lua/config_alarm.lua"
 -- Function called when alarm is activated in Day mode
 function alarmDayOn()
 	commandArray['Group:AlarmDay']='On'
-	commandArray['Power Apricancello']='Off'
+	commandArray['Relay_Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -19,7 +19,7 @@ end
 -- Function called when alarm is disactivated
 function alarmDayOff()
 	commandArray['Group:AlarmDay']='Off'
-	commandArray['Power Apricancello']='On'
+	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -30,7 +30,7 @@ end
 -- Function called when alarm is activated in Night mode
 function alarmNightOn()
 	commandArray['Group:AlarmNight']='On'
-	commandArray['Power Apricancello']='Off'
+	commandArray['Relay_Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -41,7 +41,7 @@ end
 -- Function called when alarm is disactivated
 function alarmNightOff()
 	commandArray['Group:AlarmNight']='Off'
-	commandArray['Power Apricancello']='On'
+	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -59,7 +59,7 @@ end
 -- Function called when alarm is disactivated
 function alarmAwayOff()
 	commandArray['Group:AlarmNight']='Off'
-	commandArray['Power Apricancello']='On'
+	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -90,6 +90,12 @@ function alarmOn(sensorType, sensorItem, sensorName, sensorDelay)
 					os.execute('curl -m 1 "'..url..'"')
 					cmd='Off'
 					urloff=urloff..DOMOTICZ_URL..'/json.htm?type=command&param=switchlight&idx='..otherdevices_idx[sirenRow[1]]..'&switchcmd=Off|'
+				end
+				for i,display in pairs(DISPLAY_DAY) do
+					-- activate display that shows cameras
+					if (display~='' and otherdevices[display]~=nil) then
+						commandArray[display]="On FOR 2 MINUTES"
+					end
 				end
 			else
 				log(E_INFO,"Alarm: Activate "..sirenRow[1])
@@ -450,12 +456,12 @@ if (uservariables['alarmLevelNew']~=0) then
 		if (alarmLevel==ALARM_AWAY) then
 			alarmAwayOn()
 		elseif (alarmLevel==ALARM_NIGHT) then
-			commandArray["Power_Apricancello"]="Off"
+			commandArray[RELAY_GATE_DEV]="Off"
 		end
 	else
 		-- alarmLevel==LEVEL_OFF or LEVEL_TEST
 		log(E_WARNING,"Alarm Disabled")
-		commandArray["Power_Apricancello"]="On"
+		commandArray[RELAY_GATE_DEV]="On"
 		if (otherdevices_scenesgroups['AlarmDay']~='Off') then
 			commandArray["Scene:AlarmDay"]='Off'
 		end
