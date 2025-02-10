@@ -15,7 +15,7 @@ TELEGRAMSCRIPT='/home/pi/domoticz/scripts/lua/telegramSendText.sh'
 
 #SNAPURL='http://192.168.1.201:8088/snap.jpg'  #snapshot URL: if camera does not support snapshot, comment this variable
 SNAPURL='http://192.168.3.217:8080/cgi-bin/api.cgi?cmd=Snap&channel=1&rs=adsf&user=viewer&password=Barbisano15.'
-SNAP_REGION=1200x800+500+220  #extract picture 1400x800px, starting from offset 520x+0y
+SNAP_REGION=1200x800+300+220  #extract picture 1400x800px, starting from offset 520x+0y
 #MEDIA_REGION=500x200+228+40  #extract picture 500x200px, starting from offset 228x+40y
 SNAP_SCALE=800 #width of picture that we should want to get on Telegram
 

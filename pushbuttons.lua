@@ -137,7 +137,7 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_Rinnovo']='Off'
 				end
 			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 180 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 150 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
 			elseif (pulseLen>=4 and pulseLen<=7) then
 				if (otherdevices['Bagno_Scaldasalviette']~='Off') then -- Bagno_Scaldasalviette = device name for electric heater
 					commandArray['Bagno_Scaldasalviette']='Off'
@@ -203,9 +203,9 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_CaldoFreddo']='Off'
 				end
 			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 80 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 70 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
 			elseif (pulseLen>=4 and pulseLen<=6) then
-				commandArray['Ricircolo ACS']='On FOR 180 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 150 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
 			end
 		else
 			-- devValue==On => store the current date/time in PB array

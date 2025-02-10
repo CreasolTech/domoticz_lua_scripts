@@ -82,6 +82,7 @@ function updateValves()
 		if (v[ZONE_VALVE]~=nil and v[ZONE_VALVE]~='') then  -- valve exists 
 			-- log(E_DEBUG, 'Valve '..v[ZONE_VALVE]..' diff='..valveStateDiff[n]..' overlimit='..overlimitTempAdd)
 			--   zone must be heated/cooled                 Not dehumidifaction        heatpump is on
+			if (valveStateDiff[n]==nil) then valveStateDiff[n]=0 end
 			if ((valveStateDiff[n]+overlimitTempAdd)>0 and HPlevel~='Dehum' and otherdevices[ DEVlist[1][1] ]~='Off') then -- must be on
                 deviceOn(v[ZONE_VALVE],HP,'v'..n)
 				valves=valves+1
@@ -226,7 +227,8 @@ end
 -- Also, I have to consider the availability of power from photovoltaic
 if (otherdevices[powerMeter]~=nil) then
 	-- power meter exists, returning value "usagePower;totalEnergy"
-	instPower=getPowerValue(otherdevices[powerMeter])
+	-- instPower=getPowerValue(otherdevices[powerMeter])
+	instPower=tonumber(uservariables['GridPower'])		-- read grid power from the variable updated by power.lua script
 	evsolar=getPowerValue(otherdevices['EV Solar'])		-- EV charging power from solar
 	evgrid=getPowerValue(otherdevices['EV Grid'])		-- EV charging power from grid
 	avgPower=uservariables['avgPower']	-- use the average power instead of instant power!
@@ -474,11 +476,9 @@ if (HPlevel~="Off") then
 				prodPower=prodPower-inverter1Power	-- use only power from secondary PV system
 				if (prodPower>300) then HP['Level']=LEVEL_ON end
 			else
-				log(E_INFO,"Reduce diffMax to try exporting energy in the peak hours")
-				if ((timeNow.month>=11 or timeNow.month<3) and timeNow.hour<12) then
-					diffMax=diffMax-0.1	-- in Winter, in the morning
-				else
+				if (timeNow.month>3 and timeNow.month<11) then
 					diffMax=diffMax-0.3 -- in Summer or in the night peak hours
+					log(E_INFO,"Reduce diffMax to try exporting energy in the night")
 				end
 			end
 		elseif (timeNow.yday>=71 and timeNow.yday<305 and timeNow.hour<9) then
@@ -547,12 +547,12 @@ if (HPlevel~="Off") then
 				
 				if (HPmode == 'Winter') then
 					-- targetPower computed based on outdoor temperature min and max
-					targetPower=math.floor(((12-HP['otmin'])^1.5)*22 + ((24-HP['otmax'])^1.6)*4)
+					targetPower=math.floor(((12-tonumber(HP['otmin']))^1.5)*22 + ((24-tonumber(HP['otmax']))^1.6)*4)
 					log(E_INFO,"targetPower="..targetPower.." computed based on otmin and otmax")
 					if (diffMax>diffMaxTh+0.1) then
 						if (timeNow.hour>=10 and timeNow.hour<17) then
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*2000)
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
 						else
 							-- increase power to recover the comfort state
@@ -591,6 +591,16 @@ if (HPlevel~="Off") then
 						end
 
 					end
+					if (peakPower()) then
+						if (timeNow.hour<=12     ) then -- TODO: Sunny day???
+							targetPower=math.floor(targetPower*0.4)
+							log(E_INFO,"targetPower="..targetPower.." reduced by 60% because peak hours and Sunny day")
+						else
+							targetPower=math.floor(targetPower*0.7)
+							log(E_INFO,"targetPower="..targetPower.." reduced by 30% because peak hours")
+						end
+					end
+
 
 					-- use all available power from photovoltaic
 					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available

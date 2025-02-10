@@ -7,7 +7,7 @@ dofile "scripts/lua/config_alarm.lua"
 
 -- Function called when alarm is activated in Day mode
 function alarmDayOn()
-	commandArray['Group:AlarmDay']='On'
+	if (otherdevices_scenesgroups['AlarmDay']~='On') then commandArray['Group:AlarmDay']='On' end
 	commandArray['Relay_Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
@@ -18,7 +18,7 @@ end
 
 -- Function called when alarm is disactivated
 function alarmDayOff()
-	commandArray['Group:AlarmDay']='Off'
+	if (otherdevices_scenesgroups['AlarmDay']~='Off') then commandArray['Group:AlarmDay']='Off' end
 	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
@@ -29,7 +29,7 @@ end
 
 -- Function called when alarm is activated in Night mode
 function alarmNightOn()
-	commandArray['Group:AlarmNight']='On'
+	if (otherdevices_scenesgroups['AlarmNight']~='On') then commandArray['Group:AlarmNight']='On' end
 	commandArray['Relay_Apricancello']='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
@@ -40,7 +40,7 @@ end
 
 -- Function called when alarm is disactivated
 function alarmNightOff()
-	commandArray['Group:AlarmNight']='Off'
+	if (otherdevices_scenesgroups['AlarmNight']~='Off') then commandArray['Group:AlarmNight']='Off' end
 	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
@@ -58,7 +58,7 @@ end
 
 -- Function called when alarm is disactivated
 function alarmAwayOff()
-	commandArray['Group:AlarmNight']='Off'
+	if (otherdevices_scenesgroups['AlarmAway']~='Off') then commandArray['Group:AlarmAway']='Off' end
 	commandArray['Relay_Apricancello']='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
@@ -456,21 +456,25 @@ if (uservariables['alarmLevelNew']~=0) then
 		if (alarmLevel==ALARM_AWAY) then
 			alarmAwayOn()
 		elseif (alarmLevel==ALARM_NIGHT) then
-			commandArray[RELAY_GATE_DEV]="Off"
+			alarmNightOn()
+		elseif (alarmLevel==ALARM_DAY) then
+			alarmDayOn()
 		end
 	else
 		-- alarmLevel==LEVEL_OFF or LEVEL_TEST
 		log(E_WARNING,"Alarm Disabled")
 		commandArray[RELAY_GATE_DEV]="On"
 		if (otherdevices_scenesgroups['AlarmDay']~='Off') then
-			commandArray["Scene:AlarmDay"]='Off'
+			-- commandArray["Scene:AlarmDay"]='Off'
+			alarmDayOff()
 		end
 		if (otherdevices_scenesgroups['AlarmNight']~='Off') then
-			commandArray["Scene:AlarmNight"]='Off'
+			-- commandArray["Scene:AlarmNight"]='Off'
+			alarmNightOff()
 		end
 		if (otherdevices_scenesgroups['AlarmAway']~='Off') then
-			log(E_INFO,"Disabling group AlarmWay")
-			commandArray["Scene:AlarmAway"]='Off'
+			-- commandArray["Scene:AlarmAway"]='Off'
+			alarmAwayOff()
 		end
 	end
 end

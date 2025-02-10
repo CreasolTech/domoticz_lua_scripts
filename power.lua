@@ -15,6 +15,10 @@ DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG
 
 dofile "scripts/lua/config_power.lua"		-- configuration file
+
+-- ENABLE THE FOLLOWING LINE, BUT ONLY THE FIRST TIME TO CREATE GridPower variable, then disable it to save execution time
+--checkVar('GridPower',0,0) -- check that uservariable at1 exists, else create it with type 0 (integer) and value 0
+
 timeNow=os.date("*t")
 
 function PowerInit()
@@ -370,10 +374,11 @@ if (PowerMeter~="" and otherdevices_lastupdate[PowerMeter]~=nil and timedifferen
 end
 
 
-
 -- if currentPower~=10MW => currentPower was just updated => check power consumption, ....
 if (currentPower>-20000 and currentPower<20000) then
 	-- currentPower is good
+	commandArray['Variable:GridPower']=tostring(currentPower)
+
 	prodPower=0-currentPower
 	--[[
 	if (DOMBUSEVSE_GRIDPOWER~=nil) then	-- update the DomBusEVSE virtual device used to know the current power from electricity grid

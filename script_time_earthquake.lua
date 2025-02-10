@@ -121,7 +121,9 @@ if ((os.time()-t)<MAXAGE*3600) then
 	-- response = json data with location information
 	local q=json.decode(response)
 	local address=''
-	if (q.address.village ~= nil and q.address.county ~= nil) then address = q.address.village..', '..q.address.county end
+	if (q ~= nil and q.address ~= nil and q.address.village ~= nil and q.address.county ~= nil) then 
+		address = q.address.village..', '..q.address.county
+	end
 	if (string.len(address)<6) then address=qRegion end
 	
 	--Set and format the new alertText

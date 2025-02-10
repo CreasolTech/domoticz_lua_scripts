@@ -7,7 +7,7 @@ TIME_DOMOTICZ_UNAVAILABLE=5			#minutes: restart domoticz if unavailable since 5 
 CHECK_PLUGINS=1						#check that all python plugins are running correctly
 DOMOTICZ_LOG=/var/log/domoticz.log	#domoticz log file
 DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
-DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly|Domoticz and DomoticzEx modules both found in interpreter)'      
+DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly|Domoticz and DomoticzEx modules both found in interpreter|Error: DDS238: Try=3)'      
 
 count=0
 loglinesold=0
@@ -35,13 +35,23 @@ function restartDomoticz () {
 		killall -9 domoticz
 		sleep 10
 	fi
+	if [ $(( `date +%s` - $lastrestart )) -lt 600 ]; then
+		mbpoll -b9600 -Pnone -o1 -mrtu -a3 -0 -1 -r0 -c2 /dev/ttyUSBheatpump
+		if [ $? -ne 0 ]; then
+			echo "Last restart less than 600s ago and mbpoll returns error => reboot!" >>/tmp/domoticzCheck.log
+			/usr/sbin/reboot	
+		fi
+	fi
+
 	#disable hyundai kia plugin
 	sqlite3 /home/pi/domoticz/domoticz.db 'update Hardware set Enabled=0 where ID=31;'
 	service domoticz restart
+	lastrestart=`date +%s`
 }
 
 logerrorscount=0
 logcount
+lastrestart=0
 while [ 1 ]; do
 	if [ -z "`pidof domoticz`" ]; then
 		count=$(( $count + 1 ))
@@ -86,8 +96,9 @@ while [ 1 ]; do
 					if [ $logerrorscount -gt 0 ]; then
 						logerrorscount=$(( $logerrorscount -1 ))
 					fi
+					echo "`date` : No errors"   >>/tmp/domoticzCheck.log
 				fi
-				#echo "logerrorscount=$logerrorscount"
+				echo "logerrorscount=$logerrorscount"   >>/tmp/domoticzCheck.log
 			fi
 		fi
 	fi
