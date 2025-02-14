@@ -106,6 +106,17 @@ function peakPower()
 	return false
 end
 
+function getItemFromCSV(string, sep, n) -- Return the Nth item from the CSV string, using separator sep. Ex: getItemFromCSV("banana;apple;pear;mango", ";", 0)  returns "banana"
+    i=0
+    for str in string:gmatch("[^"..sep.."]+") do
+        if (i==n) then
+            return str
+        end
+        i=i+1
+    end
+    return ""   -- not found
+end
+
 function getPowerValue(devValue)
     -- extract the power value from string "POWER;ENERGY...."
     for str in devValue:gmatch("[^;]+") do
@@ -125,3 +136,23 @@ function getEnergyValue(devValue)
     end
 end
 
+function dumpTable(o, level) -- dump table content: dump(table, 0)
+    s=""
+    for i=0,level*2 do
+        s=s.." "
+    end
+    if type(o) == 'table' then
+        local s = s..'{ '
+        for k,v in pairs(o) do
+            if type(k) ~= 'number' then k = '"'..k..'"' end
+            io.write(s .. '['..k..'] = ')
+            dump(v, level+1)
+            print(',')
+        end
+        print('} ')
+        return
+    else
+        io.write(tostring(o))
+        return
+    end
+end

@@ -96,9 +96,11 @@ while [ 1 ]; do
 					if [ $logerrorscount -gt 0 ]; then
 						logerrorscount=$(( $logerrorscount -1 ))
 					fi
-					echo "`date` : No errors"   >>/tmp/domoticzCheck.log
+					#echo "`date` : No errors"   >>/tmp/domoticzCheck.log
 				fi
-				echo "logerrorscount=$logerrorscount"   >>/tmp/domoticzCheck.log
+				if [ $logerrorscount -ne 0 ]; then
+					echo "logerrorscount=$logerrorscount"   >>/tmp/domoticzCheck.log
+				fi
 			fi
 		fi
 	fi

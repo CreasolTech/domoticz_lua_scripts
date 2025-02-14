@@ -35,6 +35,7 @@ function HPinit()
 	if (HP['toff']==nil) then HP['toff']=0 end		-- time the heat pump is in OFF state
 	if (HP['EV']==nil) then HP['EV']=0 end			-- >0 while charging, decreased when EV stops charging
 	if (HP['S']==nil) then HP['S']=0 end			-- Supply timeout: used to enable/disable relay to feed power to the heat pump (disabling power when inactive, to save energy consumption)
+	if (HP['p']==nil) then HP['p']=1 end			-- electricity avgPrice/currentPrice 
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -601,6 +602,16 @@ if (HPlevel~="Off") then
 						end
 					end
 
+					-- now multiply targetPower by electricity avgPrice/currentPrice
+					if (uservariables['entsoe_today']~=nil) then
+						if (timeNow.min==5) then --TODO 1
+							HP['p']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))*100/tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)))/100
+						end
+					else
+						HP['p']=1
+					end
+					targetPower=math.floor(targetPower*HP['p'])
+					log(E_INFO,"targetPower="..targetPower.." (multiplied by electricity avgPrice/Price="..HP['p']..")")
 
 					-- use all available power from photovoltaic
 					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
@@ -645,6 +656,18 @@ if (HPlevel~="Off") then
 
 					end
 
+					-- now multiply targetPower by electricity avgPrice/currentPrice
+					if (uservariables['entsoe_today']~=nil) then
+						if (timeNow.min==1) then
+							HP['p']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))*100/tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)))/100
+						end
+					else
+						HP['p']=1
+					end
+					targetPower=math.floor(targetPower*HP['p'])
+					log(E_INFO,"targetPower="..targetPower.." (multiplied by electricity avgPrice/Price="..HP['p']..")")
+
+
 					-- use all available power from photovoltaic
 					if (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
 						targetPower=HPPower+prodPower -- increase targetPower because there more power is available from photovoltaic
@@ -659,6 +682,8 @@ if (HPlevel~="Off") then
 					log(E_INFO,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end
 				end
+
+
 				if (targetPower>TargetPowerMax) then targetPower=TargetPowerMax end
 
 			
@@ -861,6 +886,7 @@ end
 
 if (compressorPerc==nil) then compressorPerc=10 end
 if (otherdevices[HPLevel]=='Dehum' or otherdevices[HPLevel]=='DehumNight') then compressorPerc=15 end	-- heat pump must go at very low level, because it should only supply the dehumidifier VMC
+
 
 if (compressorPerc>CompressorMax) then 
 	compressorPerc=CompressorMax 
