@@ -193,7 +193,10 @@ File *script_time_entsoe.lua* is a LUA script for Domoticz that:
 * let Domoticz to get electricity price from the last custom virtual device, so **Domoticz can show energy costs in the energy dashboard**
 * **store in a user variable the energy price of the day, hour by hour, separated by semicolon, and in last position the average price**: in this way it's possible to include in automations the management of load devices (for example climate heat pump) to reduce or increase their power based on the current energy price. For example, **it's possible to set every hour the climate heat pump to work to a targetPower * averagePrice / currentPrice , to save energy when price is high and consume more energy when power is low**. Similar policy can be chosen to **charge the electric vehicle when energy cost is low**.
 
+### Installation
 
+* Copy files script_time_entsoe.lua globalvariables.lua globalfunctions.lua to the DOMOTICZ/scripts/lua directory
+* Edit script_time_entsoe.lua : you'll find a description of the procedure to register to ENTSO-e website, get a security token and create two custom devices
 
 
 
