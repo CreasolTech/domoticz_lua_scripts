@@ -139,6 +139,7 @@ if (timeNow.hour<13 and uservariables['entsoe_tomorrow']~=nil and uservariables[
 	print("entsoe: moving variable entsoe_tomorrow to entsoe_today")
 	commandArray['Variable:entsoe_today']=uservariables['entsoe_tomorrow']
 	commandArray['Variable:entsoe_tomorrow']=''
+	uservariables['entsoe_today']=uservariables['entsoe_tomorrow']	-- copy also uservariables['today'] because will use later to write the price devices
 end
 if ((timeNow.min%5)==0) then
 	-- update device with current price
