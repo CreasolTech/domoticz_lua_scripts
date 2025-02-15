@@ -36,7 +36,7 @@ function restartDomoticz () {
 		sleep 10
 	fi
 	if [ $(( `date +%s` - $lastrestart )) -lt 600 ]; then
-		mbpoll -b9600 -Pnone -o1 -mrtu -a3 -0 -1 -r0 -c2 /dev/ttyUSBheatpump
+		mbpoll -b9600 -Pnone -o1 -mrtu -a3 -0 -1 -r0 -c2 /dev/ttyUSBmeter
 		if [ $? -ne 0 ]; then
 			echo "Last restart less than 600s ago and mbpoll returns error => reboot!" >>/tmp/domoticzCheck.log
 			/usr/sbin/reboot	
