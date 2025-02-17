@@ -187,11 +187,12 @@ Just copy this script in *scripts/lua* folder and update the 6 variables at the 
 ## Script that fetches electricity energy price from ENTSO-e website (for your specific zone, if you reside in EU)
 
 File *script_time_entsoe.lua* is a LUA script for Domoticz that:
-* fetches every day, in the afternoon, the **day-ahead electricity prices for your zone**
+* **fetches** every day, in the afternoon, the **day-ahead electricity prices for your zone**
 * update a custom virtual device with the **current energy price (that changes every hour)**
 * **compute your real energy cost (including taxes, fees, ...) and update a custom virtual device with that price**
-* let Domoticz to get electricity price from the last custom virtual device, so **Domoticz can show energy costs in the energy dashboard**
+* let Domoticz core to get electricity price from the last custom virtual device, so **Domoticz can show energy costs in the energy dashboard**
 * **store in a user variable the energy price of the day, hour by hour, separated by semicolon, and in last position the average price**: in this way it's possible to include in automations the management of load devices (for example climate heat pump) to reduce or increase their power based on the current energy price. For example, **it's possible to set every hour the climate heat pump to work to a targetPower * averagePrice / currentPrice , to save energy when price is high and consume more energy when power is low**. Similar policy can be chosen to **charge the electric vehicle when energy cost is low**.
+Although in Italy electric energy cost is based on the montly average price for 3 time slots (day, early morning/evening, night/Sunday), **we should aim to regulate the power consumed by our buildings to increase it when there is more availability and reduce it when there is less availability of electricity.**
 
 ### Installation
 

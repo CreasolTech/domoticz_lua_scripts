@@ -7,7 +7,7 @@ TIME_DOMOTICZ_UNAVAILABLE=5			#minutes: restart domoticz if unavailable since 5 
 CHECK_PLUGINS=1						#check that all python plugins are running correctly
 DOMOTICZ_LOG=/var/log/domoticz.log	#domoticz log file
 DOMOTICZ_LOG_STRING='(WebServer.* thread seems to have ended unexpectedly|received fatal signal 11)'	#regular expression (for egrep) to search in the last log lines to determines if a plugin has been stopped
-DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly|Domoticz and DomoticzEx modules both found in interpreter|Error: DDS238: Try=3)'      
+DOMOTICZ_LOG_STRING2='( seems to have ended unexpectedly|Domoticz and DomoticzEx modules both found in interpreter|Error: DDS238: Try=3|Error: HeatPump: 3: Error writing to heat pump Modbus)'      
 
 count=0
 loglinesold=0
@@ -38,7 +38,7 @@ function restartDomoticz () {
 	if [ $(( `date +%s` - $lastrestart )) -lt 600 ]; then
 		mbpoll -b9600 -Pnone -o1 -mrtu -a3 -0 -1 -r0 -c2 /dev/ttyUSBmeter
 		if [ $? -ne 0 ]; then
-			echo "Last restart less than 600s ago and mbpoll returns error => reboot!" >>/tmp/domoticzCheck.log
+			echo "`date` : last restart less than 600s ago and mbpoll returns error => reboot!" >>/tmp/domoticzCheck.log
 			/usr/sbin/reboot	
 		fi
 	fi
@@ -99,7 +99,7 @@ while [ 1 ]; do
 					#echo "`date` : No errors"   >>/tmp/domoticzCheck.log
 				fi
 				if [ $logerrorscount -ne 0 ]; then
-					echo "logerrorscount=$logerrorscount"   >>/tmp/domoticzCheck.log
+					echo "`date` : logerrorscount=$logerrorscount"   >>/tmp/domoticzCheck.log
 				fi
 			fi
 		fi
