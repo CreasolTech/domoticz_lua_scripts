@@ -1,4 +1,6 @@
 -- Script to load day-ahead electricity prices into Domoticz historic variables, as a base for further processing.
+-- Also get the solar photovoltaic forecast from api.forecast.solar (PVGIS)
+--
 -- New prices are available every day at 15:00 for the coming 24 hrs.
 -- These are base prices. Providers of dynamic electricity contracts will add their surcharges and government taxes to it.
 -- API documentation at: https://transparency.entsoe.eu/content/static_content/Static%20content/web%20api/Guide.html
@@ -121,6 +123,22 @@ local ENTSOE_ZONE="10Y1001A1001A73I"
     "XK": "10Y1001C--00100H",
 ]]
 local URL='https://web-api.tp.entsoe.eu/api?documentType=A44'  -- the API website
+
+------------------------------ SOLAR FORECAST for photovoltaic ------------------------------------
+LATITUDE=45.1234		-- will be replaced by LATITUDE  written in globalvariables.lua, if exists
+LONGITUDE=12.1234		-- will be replaced by LONGITUDE written in globalvariables.lua, if exists
+
+-- PV={}	-- no photovoltaic system installed (empty table).
+-- The following array list all installed photovoltaic systems (to take into account strings with different orientation)
+PV={ -- kWp	 Azimuth Tilt InverterMaxkW
+	{   2.7, -90,    15},	-- -90°=East, 15° declination, 2.7kWp
+	{   4.5, 90,     15},	-- +90°=West, 15° declination, 4.5kWp
+	{   1.66, 0,     60},	-- 0°=South, 60° declination, 1.66kWp
+}
+
+
+---------------------------------------------------------------------------------------------------------------------------------------------------
+
 SCRIPTS_PATH="scripts/lua/" 
 
 dofile(SCRIPTS_PATH .. "globalvariables.lua")	-- global configuration: ENTSOE_TOKEN may be defined in this lua configuration script
@@ -144,6 +162,11 @@ end
 if ((timeNow.min%5)==0) then
 	-- update device with current price
 	price=tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour))
+	if (price==nil) then 
+		-- error getting price from entsoe_today variable
+		print("entsoe: no prices in entsoe_today variable: "..uservariables['entsoe_today'])
+		price=0 
+	end
 	print("entsoe: updating device "..ENTSOE_DEV.." with price="..price)
 	commandArray[#commandArray+1]={['UpdateDevice']=otherdevices_idx[ENTSOE_DEV].."|".. price .."|" .. price}
 
@@ -206,6 +229,74 @@ elseif (timeNow.hour>=15 and (timeNow.min%13)==0 and uservariables['entsoe_tomor
 	commandArray['Variable:entsoe_tomorrow']=s .. fd	-- save dayahead prices to the user variable, in format "123.12,124.11,110.2,..." (max length=255 chars)
 end
 
+if (next(PV)) then 
+	-- PV not empty => photovoltaic system exists
+	-- solar photovoltaic forecast
+	if (uservariables['pv_today']==nil or uservariables['pv_tomorrow']==nil) then
+		-- create user variables entsoe_today and entsoe_tomorrow
+		checkVar('pv_today'		,2,'')	-- 24 energy production (in Wh) + total day production for today
+		checkVar('pv_tomorrow'	,2,'')	-- 24 energy production (in Wh) + total day production for tomorrow
+		return commandArray
+	end
 
-return commandArray
+	if (timeNow.hour==0 and uservariables['pv_tomorrow']~='') then
+		print("entsoe: initializing variables pv_today and pv_tomorrow")
+		commandArray['Variable:pv_today']=uservariables['pv_tomorrow']
+		commandArray['Variable:pv_tomorrow']=''
+	elseif (timeNow.hour>=6 and uservariables['pv_tomorrow']=='') then
+		-- get forecast
+		print("entsoe: getting photovoltaic solar forecast")
+		local pv_today={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+		local pv_tomorrow={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
+		local pvToday=""
+		local pvTomorrow=""
+		local fd, response
+		local pvf
+		local day, hour, min
+		local whToday=0
+		local whTomorrow=0
+		local json=require("dkjson")
 
+		for k,v in pairs(PV) do
+			url="https://api.forecast.solar/estimate/watthours/period/" .. LATITUDE .. "/" ..LONGITUDE .."/" .. v[3] .. "/" .. v[2] .."/" .. v[1]
+			fd=io.popen("curl -s '"..url.."'")
+			response=assert(fd:read('*a'))
+			io.close(fd)
+			-- response='{"result":{"2025-03-03 06:45:41":0,"2025-03-03 07:00:00":38,"2025-03-03 08:00:00":547,"2025-03-03 09:00:00":981,"2025-03-03 10:00:00":1312,"2025-03-03 11:00:00":1485,"2025-03-03 12:00:00":1510,"2025-03-03 13:00:00":1360,"2025-03-03 14:00:00":1087,"2025-03-03 15:00:00":768,"2025-03-03 16:00:00":440,"2025-03-03 17:00:00":194,"2025-03-03 18:00:00":74,"2025-03-03 18:00:33":0,"2025-03-04 06:43:51":0,"2025-03-04 07:00:00":44,"2025-03-04 08:00:00":538,"2025-03-04 09:00:00":944,"2025-03-04 10:00:00":1263,"2025-03-04 11:00:00":1436,"2025-03-04 12:00:00":1464,"2025-03-04 13:00:00":1322,"2025-03-04 14:00:00":1057,"2025-03-04 15:00:00":748,"2025-03-04 16:00:00":432,"2025-03-04 17:00:00":194,"2025-03-04 18:00:00":75,"2025-03-04 18:01:57":1},"message":{"code":0,"type":"success","text":"","pid":"h54B8q7C","info":{"latitude":45.8812,"longitude":12.1833,"distance":0,"place":"Via Monte Grappa, 31054 Pieve di Soligo Province of Treviso, Italy","timezone":"Europe/Rome","time":"2025-03-03T08:21:03+01:00","time_utc":"2025-03-03T07:21:03+00:00"},"ratelimit":{"zone":"IP 149.13.157.183","period":3600,"limit":12,"remaining":10}}}'
+			
+			pvf=json.decode(response)
+			for ts, wh in pairs(pvf['result']) do
+				-- ts="2025-03-03 07:00:00"
+				-- wh=38
+				-- print("entsoe pv: ts=".. ts .. " wh=" .. wh)
+				day=tonumber(ts:sub(9,10))
+				hour=tonumber(ts:sub(12,13))
+				minSec=ts:sub(15,19)		-- string within minutes and seconds, like "01:57" : used to determine if this is the sunrise/sunset time (to be ignored) or not
+				if (wh>1 and minSec=="00:00") then
+					if (day==timeNow.day) then
+						pv_today[hour+1]=pv_today[hour+1]+wh
+						whToday=whToday+wh
+					else
+						pv_tomorrow[hour+1]=pv_tomorrow[hour+1]+wh
+						whTomorrow=whTomorrow+wh
+					end
+				end
+			end
+		end
+		for k,v in pairs(pv_today) do
+			pvToday=pvToday..v..","
+		end
+		pvToday=pvToday..whToday
+		for k,v in pairs(pv_tomorrow) do
+			pvTomorrow=pvTomorrow..v..","
+		end
+		pvTomorrow=pvTomorrow..whTomorrow
+
+		-- print("pv_today="..pvToday)
+		-- print("pv_tomorrow="..pvTomorrow)
+		commandArray['Variable:pv_today']=pvToday
+		commandArray['Variable:pv_tomorrow']=pvTomorrow
+	end
+		
+	return commandArray
+end

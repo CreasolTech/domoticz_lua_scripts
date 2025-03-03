@@ -48,6 +48,7 @@ HPTempSummerMaxIDX=2048
 HPValveRadiantCoil="Valve_Radiant_Coil"				-- 3-way valve that should be activated to enable radiant system (if disabled coil system will be enabled)
 HPValveGeneral="Valve_P1"							-- general valve
 HPRelay="Relay_HeatPump"							-- Relay to enable power supply to the heat pump (used to remove power supply limiting the standby energy when heat pump is not used)
+HPCompressorSP="HeatPump_Compressor_SP"				-- SetPoint for the heat pump compressor %
 
 -- fields for the following table
 ZONE_NAME=1

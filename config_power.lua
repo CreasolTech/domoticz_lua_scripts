@@ -145,7 +145,7 @@ DEVauxlist={
     -- device                   minwinterlevel  minsummerlevel  power   condition_to_enable		condition_to_disable, work_minutes 
     {'Dehumidifier_Camera_Ospiti',  0,          0,              300,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Camera_Ospiti"])>=70', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Camera_Ospiti"])<=65', 0}, -- Dehumidifier 
     {'Dehumidifier_Cantina',        0,          0,              500,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Cantina"])>=70 and timeNow.hour>=12 and timeNow.hour<=15', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Cantina"])<=65', 600},   -- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
---    {'Bagno_Scaldasalviette',       1,          100,            450,    'Temp_Bagno',               0,  22,     'Temp_Bagno',               0,  20,     0, '', ''} -- Electric heater in bathroom
+    {'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20', 0} -- Electric heater in bathroom
 }
 
 DEVauxfastlist={
@@ -153,5 +153,6 @@ DEVauxfastlist={
     -- device                   minwinterlevel  minsummerlevel  power   temphumdev winter   gt=1, lt=0  value   temphumdev summer   gt=1, lt=0  value   0 condition_on condition_off
     --{'Pranzo_Stufetta',       		0,          100,            950,    'Temp_Cucina',              0,  22.2,     'Temp_Cucina',              0,  18,     0, 'otherdevices["EV Mode"]=="Off" or otherdevices["EV State"]=="Dis"', 'otherdevices["EV Mode"]~="Off" and otherdevices["EV State"]=="Ch"'} -- Electric heater in the kitchen
 }
+
 
 

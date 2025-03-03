@@ -1,3 +1,7 @@
+LATITUDE=45.1234              -- Your latitude
+LONGITUDE=12.1234             -- Your longitude
+
+
 TELEGRAM_CHATID="-1234567890123"
 TELEGRAM_DEBUG_CHATID="12345678"
 TELEGRAM_TOKEN="1234567890:abcdefghijkakdfjak239rjas9djf9jdfaf"

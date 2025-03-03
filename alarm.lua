@@ -8,7 +8,7 @@ dofile "scripts/lua/config_alarm.lua"
 -- Function called when alarm is activated in Day mode
 function alarmDayOn()
 	if (otherdevices_scenesgroups['AlarmDay']~='On') then commandArray['Group:AlarmDay']='On' end
-	commandArray['Relay_Apricancello']='Off'
+	commandArray[RELAY_GATE_DEV]='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -19,7 +19,7 @@ end
 -- Function called when alarm is disactivated
 function alarmDayOff()
 	if (otherdevices_scenesgroups['AlarmDay']~='Off') then commandArray['Group:AlarmDay']='Off' end
-	commandArray['Relay_Apricancello']='On'
+	commandArray[RELAY_GATE_DEV]='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -30,7 +30,7 @@ end
 -- Function called when alarm is activated in Night mode
 function alarmNightOn()
 	if (otherdevices_scenesgroups['AlarmNight']~='On') then commandArray['Group:AlarmNight']='On' end
-	commandArray['Relay_Apricancello']='Off'
+	commandArray[RELAY_GATE_DEV]='Off'
 	for i,ledDev in pairs(LEDS_ON) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -41,7 +41,7 @@ end
 -- Function called when alarm is disactivated
 function alarmNightOff()
 	if (otherdevices_scenesgroups['AlarmNight']~='Off') then commandArray['Group:AlarmNight']='Off' end
-	commandArray['Relay_Apricancello']='On'
+	commandArray[RELAY_GATE_DEV]='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'
@@ -51,7 +51,7 @@ end
 
 -- Function called when alarm is activated in Away mode
 function alarmAwayOn()
-	commandArray['Power_Apricancello']='Off AFTER 600 SECONDS'
+	commandArray[RELAY_GATE_DEV]='Off AFTER 600 SECONDS'
 	lightsCheck()
 	lightsNext()
 end
@@ -59,7 +59,7 @@ end
 -- Function called when alarm is disactivated
 function alarmAwayOff()
 	if (otherdevices_scenesgroups['AlarmAway']~='Off') then commandArray['Group:AlarmAway']='Off' end
-	commandArray['Relay_Apricancello']='On'
+	commandArray[RELAY_GATE_DEV]='On'
 	for i,ledDev in pairs(LEDS_OFF) do
 		if (otherdevices[ledDev]~=nil and otherdevices[ledDev]~='On') then
 			commandArray[ledDev]='On FOR 3 SECONDS'

@@ -21,6 +21,9 @@ local DEBUG=0
 local timeNow=os.date('*t')
 if ((timeNow.min % 5)~=0 and DEBUG==0) then return commandArray end	-- exec script every 5 minutes
 
+LATITUDE=45.8814				-- Your latitude
+LONGITUDE=12.1893				-- Your longitude
+
 dofile "scripts/lua/globalvariables.lua"
 dofile "scripts/lua/globalfunctions.lua"
 
@@ -32,8 +35,6 @@ MAXRADIUS=8					-- used to restrict data from the earthquake source (default 4)
 MAXDISTANCE=1000			-- Max distance in km
 MINMAGNITUDE=3.5			-- Min Richter magnitude
 TELEGRAMMAGNITUDE=4.2		-- Min magnitude to send notification on smartphone
-LATITUDE=45.88				-- Your latitude
-LONGITUDE=12.18				-- Your longitude
 MAXAGE=24					-- Remove quakes earthquakes older than MAXAGE hours
 LOCALTIMEDIFF=3600			-- Difference time from UTC (3600 for GMT+1)
 

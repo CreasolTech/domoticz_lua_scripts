@@ -184,7 +184,7 @@ Just copy this script in *scripts/lua* folder and update the 6 variables at the 
 
 
 
-## Script that fetches electricity energy price from ENTSO-e website (for your specific zone, if you reside in EU)
+## Script that fetches electricity energy price from ENTSO-e website (for your specific zone, if you reside in EU) and solar photovoltaic forecast
 
 File *script_time_entsoe.lua* is a LUA script for Domoticz that:
 * **fetches** every day, in the afternoon, the **day-ahead electricity prices for your zone**
@@ -193,6 +193,10 @@ File *script_time_entsoe.lua* is a LUA script for Domoticz that:
 * let Domoticz core to get electricity price from the last custom virtual device, so **Domoticz can show energy costs in the energy dashboard**
 * **store in a user variable the energy price of the day, hour by hour, separated by semicolon, and in last position the average price**: in this way it's possible to include in automations the management of load devices (for example climate heat pump) to reduce or increase their power based on the current energy price. For example, **it's possible to set every hour the climate heat pump to work to a targetPower * averagePrice / currentPrice , to save energy when price is high and consume more energy when power is low**. Similar policy can be chosen to **charge the electric vehicle when energy cost is low**.
 Although in Italy electric energy cost is based on the montly average price for 3 time slots (day, early morning/evening, night/Sunday), **we should aim to regulate the power consumed by our buildings to increase it when there is more availability and reduce it when there is less availability of electricity.**
+* get today and tomorrow solar photovoltaic forecast (estimated energy hour by hour, and total)
+* permits to specify one or more photovoltaic strings/systems (with different orientation) to get a precise forecast.
+* write a user variable with hour-by-hour estimated energy and total daily energy for today and tomorrow.
+
 
 ### Installation
 
@@ -202,7 +206,14 @@ Although in Italy electric energy cost is based on the montly average price for 
 ![alt Electricity hourly price and cost](https://images.creasol.it/domoticz_entsoe.webp?new "Electricity hourly price, cost, variable with the price hour by hour, and charts")
 
 
+### Usage
+By including the *script/lua/globalvariables.lua* and *script/lua/globalfunctions.lua* , it's possible to use the function 
 
+* *getItemFromCSV(uservariables['entsoe_today'], ';', 24)* to get the current average electricity price
+* *getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)* to get the current electricity price
+* *getItemFromCSV(uservariables['pv_today'], ';', 24)* to get the total estimated solar energy, today
+
+In the *script_time_heatpump_emmeti.lua* there are some example of how electricity price and solar production are used to limit or increase heat pump power to optimize own-consumption 
 
 ***
 
