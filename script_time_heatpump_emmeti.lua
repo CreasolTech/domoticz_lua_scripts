@@ -39,6 +39,7 @@ function HPinit()
 	if (HP['P']==nil) then HP['P']=0.1 end			-- electricity price average
 	if (HP['Pp']==nil) then HP['Pp']=1 end			-- electricity price average
 	if (HP['pv']==nil) then HP['pv']=0 end			-- estimated Wh energy from photovoltaic, today
+	if (HP['o']==nil) then HP['o']=25 end			-- outlet temperature min, for example 30°C => outlet temp between 30°C and 40°C depending by outdoor temperature
 end
 
 -- Initialize the HPZ domoticz variable (json coded, used to compute temperature tempDerivate of a zone that is always enabled)
@@ -179,7 +180,6 @@ log(E_DEBUG, "tempDerivate=".. string.format('%.3f',(HPZ['t2']-HPZ['t3'])*0.2) .
 
 levelOld=HP['Level']	-- save previous level
 diffMax=0
-local outletTemp=0
 
 for n,v in pairs(zones) do	-- check that temperature setpoint exist
 	-- n=zone name, v=CSV separated by | containing tempsensor and electrovalve device name
@@ -371,7 +371,8 @@ if (HPlevel~="Off") then
 		-- diffMaxTh is used to define when room temperature is distant from the set point
 	 	-- diffMaxTh=0.1	-- if diffMax<diffMaxTh, temperature is near the set point
 		-- reduce diffMaxTh if outdoor temperature is low (to use higher temperatures to heat the building)
-		diffMaxTh=((HP['otmin']-4)/40)+HP['otmax']/160
+		diffMaxTh=math.floor(((HP['otmin']-2)*2.5)+HP['otmax']*0.625)/100
+		if (diffMaxTh<=0.1) then diffMaxTh=0.1 end
 		if (timeNow.hour<3 or timeNow.hour>=20) then
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
 			diffMaxTh=diffMaxTh+0.1
@@ -399,7 +400,7 @@ if (HPlevel~="Off") then
 		if (timeNow.yday>=41 and timeNow.yday<320) then gridPowerMin=0 end	-- don't use power from grid in Spring and Autumn!
 		TargetPowerMin=math.floor(510+(890/14)*(7-outdoorTemperature)) -- computed based on heat pump datasheet
 		TargetPowerMax=3000
-		outletTemp=35				-- default outlet temperature depending by outdoor temperature: from 35 to 45°C
+		--outletTemp=35				-- default outlet temperature depending by outdoor temperature: from 35 to 45°C
 	else
 		-- Cooling enabled
 		zone_start=ZONE_SUMMER_START	-- offset on zones[] structure
@@ -416,7 +417,7 @@ if (HPlevel~="Off") then
 		TargetPowerMin=math.floor(510+(890/14)*(outdoorTemperature-25)) -- computed based on heat pump datasheet
 		TargetPowerMax=1500
 		CompressorMax=50
-		outletTemp=15				-- default outlet temperature depending by outdoor temperature: from 15 to 17°C
+		--outletTemp=15				-- default outlet temperature depending by outdoor temperature: from 15 to 17°C
 	end
 	diffMax=-10	-- max weighted difference between room setpoint and temperature
 	rhMax=0		-- max value of relative humidity
@@ -558,15 +559,10 @@ if (HPlevel~="Off") then
 					HP['OL']=HP['OL']+1
 					if (EVSEON_DEV~='' and otherdevices[EVSEON_DEV]=='On') then HP['OL']=HP['OL']+4 end	-- if EVSE is ON => turn off heat pump quickly
 					log(E_DEBUG,"HP[OL]="..HP['OL'])
-					if (HP['OL']>=4 and prodPower<100 and tonumber(otherdevices[HPTempWinterMin])>30) then 
-						log(E_INFO,"Reduce min outlet temperature because there is not enough power in overlimit mode")
-						if (HPmode == 'Winter') then outletTemp=tonumber(otherdevices[HPTempWinterMin])-1 end
-					end
 					if (HP['OL']>10) then -- more than 10 minutes with insufficient power
 						-- stop overheating
 						HP['OL']=0
 						diffMax=0
-						if (HPmode == 'Winter') then outletTemp=35 end
 					end
 				end
 			end
@@ -643,7 +639,7 @@ if (HPlevel~="Off") then
 					targetPower=math.floor(targetPower*HP['Pp'])	-- HP['Pp']=avgPrice/currentPrice ratio
 					log(E_INFO,"targetPower="..targetPower.." (multiplied by electricity avgPrice/Price="..HP['Pp']..")")
 					if (HP['Pp']<1) then 
-						targetPower=math.floor(targetPower*HP['p'])
+						targetPower=math.floor(targetPower*HP['Pp'])
 						log(E_INFO,"targetPower="..targetPower.." (multiplied again by avgPrice/Price="..HP['Pp']..") to save more power")
 					end
 					if (HP['EV']>=2 and targetPower>600) then
@@ -658,7 +654,7 @@ if (HPlevel~="Off") then
 					end
 
 					-- use all available power from photovoltaic?
-					if (peakPower() and targetPower<450 and diffMax<diffMaxTh and HP['pv']>15000) then 
+					if ((peakPower() or HP['Pp']<=0.9) and targetPower<450 and diffMax<diffMaxTh and HP['pv']>15000) then 
 						HP['Level']=LEVEL_OFF
 						diffMax=0
 						log(E_INFO,"Peak hour and targetPower="..targetPower.." is very low => turn off heat pump")
@@ -745,33 +741,21 @@ if (HPlevel~="Off") then
 							log(E_DEBUG,"compresorPerc="..compressorPerc.." (limited to targetPower/25)")
 						end
 					else
-						compressorPerc=compressorPercOld+diff/80
+						compressorPerc=math.floor(compressorPercOld+diff/80)
 						log(E_DEBUG,"compresorPerc="..compressorPerc.." (decreased by diff/80)")
-						if (compressorPerc<targetPower/40) then 
-							compressorPerc=targetPower/40 
-							log(E_DEBUG,"compresorPerc="..compressorPerc.." (downlimited to targetPower/40)")
-						end
-						if (HPmode == 'Winter' and timeofday['Nighttime']) then
-							outletTemp=30
-							log(E_DEBUG, "outletTemp="..outletTemp.. " decreased because night time")
-						end
-						if (targetPower<1000) then
-							outletTemp=math.floor(outletTemp-(1000-targetPower)/200)
-							log(E_DEBUG, "outletTemp="..outletTemp.. " decreased because targetPower<1000")
+						if (compressorPerc<targetPower/50) then 
+							compressorPerc=math.floor(targetPower/50)
+							log(E_DEBUG,"compresorPerc="..compressorPerc.." (downlimited to targetPower/50)")
 						end
 					end
 				end
-				if (HPmode == 'Winter' and prodPower>500 and tonumber(otherdevices[HPTempWinterMin])<40 and HPPower>=500 and (tempHPoutComputed-tempHPout)<3) then
-					outletTemp=40
-					log(E_DEBUG,"outletTemp="..outletTemp.." increased because enough power")
-				end
 				if (HP['Level']==LEVEL_OFF) then -- HP['Level']=LEVEL_OFF => Heat pump is OFF
-					if (HPforce=="Night") then -- force heat pump ON, if diffTime>0
+					if (HPforce=="Night" or (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower))) then -- force heat pump ON, if diffTime>0
 						HP['Level']=LEVEL_ON
-					else -- Day
-						-- diffMax>0, some power available (from grid or solar) => should I turn ON heating/cooling?
-						if (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower)) then
-							HP['Level']=LEVEL_ON
+						if (HPmode=="Winter") then
+							HP['o']=30	-- outletTemp min
+						else
+							HP['o']=15
 						end
 					end
 				end
@@ -933,8 +917,9 @@ end
 if (compressorPerc==nil) then compressorPerc=10 end
 if (otherdevices[HPLevel]=='Dehum' or otherdevices[HPLevel]=='DehumNight') then compressorPerc=15 end	-- heat pump must go at very low level, because it should only supply the dehumidifier VMC
 
-
-if (compressorPerc>CompressorMax) then 
+if (HP['Level']==LEVEL_OFF) then
+	compressorPerc=0
+elseif (compressorPerc>CompressorMax) then 
 	compressorPerc=CompressorMax 
 elseif (compressorPerc<CompressorMin) then 
 	compressorPerc=CompressorMin 
@@ -943,9 +928,6 @@ else
 end
 if (compressorPerc~=compressorPercOld) then
 	commandArray[HPCompressor]="Set Level "..tostring(compressorPerc)
-end
-if (outletTemp~=0) then
-	setOutletTemp(outletTemp)
 end
 
 for n,v in pairs(DEVlist) do
@@ -1015,6 +997,20 @@ elseif (HPmode=='Summer') then
 	end
 end
 
+if (HP['Level']~=LEVEL_OFF) then
+	-- Heat pump is ON and working (not defrosting...) => adjust outletTemp
+	if (HPmode=="Winter") then 
+		HP['o']=math.floor(HP['o']*10+(targetPower-HPPower)/200)/10
+		if (HP['o']<24) then
+			HP['o']=24
+		elseif HP['o']>36 then
+			HP['o']=36
+		end
+		log(E_DEBUG, "outletTemp=".. HP['o'] .. " modified to have HPPower --> targetPower")
+	end
+end
+setOutletTemp(HP['o'])
+
 if (HP['Level']>0 or outdoorTemperature<=4 or tonumber(otherdevices['Temp_GarageVerde'])<=4) then
 	HP['toff']=0
 	if (otherdevices[HPRelay]=='Off') then
@@ -1046,9 +1042,7 @@ else
 	carsoc="unknown"
 end
 
-if (otherdevices[HPRelay]=='On') then 
-	commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}
-end
+commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}	-- Compressor SetPoint virtual device
 commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV Garden: '..inverter2Power..'W Inv.Limit: '..otherdevices['PVGarden_Limit']..'%\nCar:'..carsoc..' P='..evsolar..'+'..evgrid..' V='..gridVoltage}
 HP['CP']=compressorPerc
 --print("commandArray="..commandArray[#commandArray])
