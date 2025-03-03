@@ -215,7 +215,7 @@ By including the *script/lua/globalvariables.lua* and *script/lua/globalfunction
 
 In the *script_time_heatpump_emmeti.lua* there are some example of how electricity price and solar production are used to limit or increase heat pump power to optimize own-consumption 
 
-![alt Variables in CSV format with electriciy hourly price and solar photovoltaic forecast](https://images.creasol.it/heatpump_optimized_electricity_solar_forecast2.webp "Variables in CSV format with electriciy hourly price and solar photovoltaic forecast, suitable to control heat pump, EV charging, boiler, ... to optimize own consumption and reduce peak hours energy usage")
+![alt Variables in CSV format with electriciy hourly price and solar photovoltaic forecast](https://images.creasol.it/heatpump_optimized_electricity_solar_forecast.webp "Variables in CSV format with electriciy hourly price and solar photovoltaic forecast, suitable to control heat pump, EV charging, boiler, ... to optimize own consumption and reduce peak hours energy usage")
 
 ***
 
