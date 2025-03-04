@@ -284,11 +284,11 @@ if (next(PV)) then
 			end
 		end
 		for k,v in pairs(pv_today) do
-			pvToday=pvToday..v..","
+			pvToday=pvToday..v..";"
 		end
 		pvToday=pvToday..whToday
 		for k,v in pairs(pv_tomorrow) do
-			pvTomorrow=pvTomorrow..v..","
+			pvTomorrow=pvTomorrow..v..";"
 		end
 		pvTomorrow=pvTomorrow..whTomorrow
 

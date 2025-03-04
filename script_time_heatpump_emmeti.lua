@@ -273,8 +273,8 @@ end
 -- Update electricity price and ratio every hour
 if (uservariables['entsoe_today']~=nil) then
 	if (timeNow.min==1) then
-		HP['P']=math.floor(getItemFromCSV(uservariables['entsoe_today'], ';', 24)*1000)/1000
-		HP['p']=math.floor(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)*1000)/1000
+		HP['P']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))*1000)/1000
+		HP['p']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour))*1000)/1000
 		HP['Pp']=math.floor(HP['P']*100/HP['p'])/100
 	end
 else
@@ -282,9 +282,13 @@ else
 end
 -- Solar forecast
 
-if (uservariables['pv_today']~=nil and uservariables['pv_today']~='' and timeNow.min==5) then
+if (uservariables['pv_today']~=nil and uservariables['pv_today']~='' --[[ and timeNow.min==3 ]]) then
 	-- use PV forecast
-	HP['pv']=getItemFromCSV(uservariables['pv_today'], ';', 24)
+	HP['pv']=tonumber(getItemFromCSV(uservariables['pv_today'], ';', 24))
+	if (HP['pv']==nil) then
+		HP['pv']=0
+		log(E_ERROR, "Cannot read estimated solar energy")
+	end
 end
 
 

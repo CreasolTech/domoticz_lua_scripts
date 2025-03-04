@@ -209,9 +209,9 @@ Although in Italy electric energy cost is based on the montly average price for 
 ### Usage
 By including the *script/lua/globalvariables.lua* and *script/lua/globalfunctions.lua* , it's possible to use the function 
 
-* *getItemFromCSV(uservariables['entsoe_today'], ';', 24)* to get the current average electricity price
-* *getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)* to get the current electricity price
-* *getItemFromCSV(uservariables['pv_today'], ';', 24)* to get the total estimated solar energy, today
+* *tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))* to get the current average electricity price
+* *tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour))* to get the current electricity price
+* *tonumber(getItemFromCSV(uservariables['pv_today'], ';', 24))* to get the total estimated solar energy, today
 
 In the *script_time_heatpump_emmeti.lua* there are some example of how electricity price and solar production are used to limit or increase heat pump power to optimize own-consumption 
 
