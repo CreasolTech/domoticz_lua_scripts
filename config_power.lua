@@ -143,9 +143,9 @@ DEVauxlist={
     -- max_work_minutes: used for driers or other devices that can work for maximum N minutes before an action must be taken (empty the water bolt, for example)
     -- minutes_before_stop: number of minutes to wait before stopping a device due to insufficient power (this is used to avoid continuous start/stop)
     -- device                   minwinterlevel  minsummerlevel  power   condition_to_enable		condition_to_disable, work_minutes 
-    {'Dehumidifier_Camera_Ospiti',  0,          0,              300,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Camera_Ospiti"])>=70', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Camera_Ospiti"])<=65', 0}, -- Dehumidifier 
+ --   {'Dehumidifier_Camera_Ospiti',  0,          0,              300,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Camera_Ospiti"])>=70', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Camera_Ospiti"])<=65', 0}, -- Dehumidifier 
     {'Dehumidifier_Cantina',        0,          0,              500,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Cantina"])>=70 and timeNow.hour>=12 and timeNow.hour<=15', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Cantina"])<=65', 600},   -- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
-    {'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20', 0} -- Electric heater in bathroom
+--    {'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20', 0} -- Electric heater in bathroom
 }
 
 DEVauxfastlist={

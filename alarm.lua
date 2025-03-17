@@ -51,7 +51,7 @@ end
 
 -- Function called when alarm is activated in Away mode
 function alarmAwayOn()
-	commandArray[RELAY_GATE_DEV]='Off AFTER 600 SECONDS'
+	commandArray[RELAY_GATE_DEV]='Off AFTER 360'	
 	lightsCheck()
 	lightsNext()
 end
