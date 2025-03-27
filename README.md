@@ -201,6 +201,7 @@ Although in Italy electric energy cost is based on the montly average price for 
 ### Installation
 
 * Copy files script_time_entsoe.lua globalvariables.lua globalfunctions.lua to the DOMOTICZ/scripts/lua directory
+* cd DOMOTICZ; ln -s scripts/lua/XmlParser.lua
 * Edit script_time_entsoe.lua : you'll find a description of the procedure to register to ENTSO-e website, get a security token and create two custom devices
 
 ![alt Electricity hourly price and cost](https://images.creasol.it/domoticz_entsoe.webp?new "Electricity hourly price, cost, variable with the price hour by hour, and charts")
