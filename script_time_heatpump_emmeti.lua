@@ -399,6 +399,10 @@ if (HPlevel~="Off") then
 				log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 from 10 Mar to 15 Nov")
 			end
 		end
+		if (peakPower() and HP['Pp']<=0.9) then 
+			diffMaxTh=diffMaxTh+0.2
+			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.2 due to peak hours")
+		end
 		if (diffMaxTh<0.05) then diffMaxTh=0.05 end
 
 		overlimitTemp=OVERHEAT		-- max overheat temperature
@@ -475,7 +479,9 @@ if (HPlevel~="Off") then
 			-- summer => invert diff
 			diff=0-diff			-- TempSet+offset(nighttime)+offset(power)-Temp	increased when there is extra power from PV
 		end
-		diff=diff*v[zone_weight]    -- compute the weighted difference between room temperature and setpoint
+		if (diff>=0) then
+			diff=diff*v[zone_weight]    -- compute the weighted difference between room temperature and setpoint
+		end
 		valveStateDiff[n]=diff
 		if (diff>diffMax) then
 			diffMax=diff	-- store in diffMax the maximum value of room difference between setpoint and temperature 
@@ -487,7 +493,8 @@ if (HPlevel~="Off") then
 	end
 	diffMax=math.floor(diffMax*100)/100
 	if (HPforce=="Night") then
-		diffMax=diffMax+2	-- force starting
+		diffMax=diffMax+0.5	-- force starting
+		if (diffMax<0.5) then diffMax=0.5 end
 	end
 
 	-- diffMax=-0.56 --DEBUG
@@ -523,7 +530,7 @@ if (HPlevel~="Off") then
 
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
-		if (peakPower()) then
+		if (peakPower() and HP['Pp']<=0.9) then
 			if (prodPower>inverter1Power) then	-- check that I'm not exporting more power than photovoltaic on the roof
 				log(E_INFO,"Use only power from secondary PV: prodPower ".. prodPower .." -> "..(prodPower-inverter1Power))
 				prodPower=prodPower-inverter1Power	-- use only power from secondary PV system
@@ -534,8 +541,8 @@ if (HPlevel~="Off") then
 					log(E_INFO,"Reduce diffMax to try exporting energy in the night")
 				end
 			end
-		elseif (timeNow.yday>=71 and timeNow.yday<305 and timeNow.hour<9) then
-			diffMax=diffMax-0.3
+		elseif (timeNow.yday>=71 and timeNow.yday<305 and (timeNow.hour<9 or timeNow.hour>20)) then
+			diffMax=diffMax-0.2
 			log(E_INFO,"Night, from 10 Mar to 1 Nov => reduce diffMax to "..diffMax)
 		else
 			-- during the day, not in peak hours
@@ -546,11 +553,11 @@ if (HPlevel~="Off") then
 			end
 		end
 		if (HP['Pp']<=0.9) then
-			diffMax=diffMax+HP['Pp']-1
+			diffMax=math.floor((diffMax-(1-HP['Pp']))*100)/100
 			log(E_INFO,"diffMax="..diffMax.." reduced because electricity price is high ("..HP['p'].."€)")
 		end
 		if (diffMax<=diffMaxTh and diffMax+overlimitTemp>0) then
-			if (HP['OL']==0 and prodPower>overlimitPower and peakPower()==false and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
+			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or HP['Pp']>0.9) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
 				log(E_INFO,"OverHeating/Cooling: diffMax="..diffMax.."=>"..overlimitDiff)
 				diffMax=overlimitDiff
 				HP['OL']=1
@@ -558,7 +565,7 @@ if (HPlevel~="Off") then
 		end
 		if (HP['OL']~=0) then
 			-- overlimit is ON
-			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or peakPower()) then
+			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or (peakPower() and HP['Pp']<=0.9)) then
 				-- EV is charging => disable overlimit now
 				log(E_INFO,"Peak time or EV is charging => disable heat pump OverLimit")
 				HP['OL']=0
@@ -598,17 +605,17 @@ if (HPlevel~="Off") then
 				
 				if (HPmode == 'Winter') then
 					-- targetPower computed based on outdoor temperature min and max
-					targetPower=math.floor(((12-tonumber(HP['otmin']))^1.5)*22 + ((24-tonumber(HP['otmax']))^1.6)*4)
+					targetPower=math.floor(((16-tonumber(HP['otmin']))^1.5)*18 + ((24-tonumber(HP['otmax']))^1.5)*8)
 					log(E_INFO,"targetPower="..targetPower.." computed based on otmin and otmax")
-					if (diffMax>diffMaxTh+0.1) then
+					if (diffMax>diffMaxTh) then
 						if (timeNow.hour>=10 and timeNow.hour<17) then
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*1000)
-							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1 (daylight)")
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*6000)
+							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh (daylight)")
 						else
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh-0.1)*800)
-							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh+0.1")
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*3000)
+							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh")
 						end
 					end
 					
@@ -617,7 +624,7 @@ if (HPlevel~="Off") then
 						-- Sunny !!
 						targetPower=targetPower-300 -- Try to use energy from photovoltaic, reducing power during the night
 						log(E_INFO,"targetPower-=300 because it is Sunny and diffMax is low")
-						if (peakPower()) then -- try to export power
+						if (peakPower() and HP['Pp']<=0.9) then -- try to export power
 							log(E_INFO,"targetPower-=300 peakPower()")
 							targetPower=targetPower-300 
 						end
@@ -642,7 +649,7 @@ if (HPlevel~="Off") then
 						end
 
 					end
-					if (peakPower()) then
+					if (peakPower() and HP['Pp']<=0.9) then
 						if (timeNow.hour<=12) then 
 							targetPower=math.floor(targetPower*0.4)
 							log(E_INFO,"targetPower="..targetPower.." reduced by 60% because morning peak hours")
@@ -667,11 +674,11 @@ if (HPlevel~="Off") then
 					end
 
 					-- use all available power from photovoltaic?
-					if ((peakPower() or HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh and HP['pv']>15000) then 
+					if ((peakPower() and HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh and HP['pv']>15000) then 
 						HP['Level']=LEVEL_OFF
 						diffMax=0
 						log(E_INFO,"Peak hour and targetPower="..targetPower.." is very low => turn off heat pump")
-					elseif (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch')) then --more power available
+					elseif (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch') and (peakPower()==false or HP['Pp']>0.9)) then --more power available
 						targetPower=math.floor(HPPower+prodPower) -- increase targetPower because there more power is available from photovoltaic
 						log(E_INFO,"targetPower="..targetPower.." increased due to available prodPower")
 						if (timeNow.yday>=75 and timeNow.yday<310) then

@@ -57,7 +57,7 @@ function PBinit(name)
 end
 
 function timeElapsed(devName) 
- 	log(E_INFO,"Pushbutton hold for "..timeNow-PB[devName].." seconds")
+ 	log(E_INFO,"Pushbutton hold for "..timeNow-PB[devName].."s")
 	return timeNow-PB[devName]
 end
 
@@ -137,7 +137,7 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_Rinnovo']='Off'
 				end
 			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 150 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 150'	-- Ricircolo ACS = device name for hot water recirculation pump
 			elseif (pulseLen>=4 and pulseLen<=7) then
 				if (otherdevices['Bagno_Scaldasalviette']~='Off') then -- Bagno_Scaldasalviette = device name for electric heater
 					commandArray['Bagno_Scaldasalviette']='Off'
@@ -203,9 +203,11 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_CaldoFreddo']='Off'
 				end
 			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 70 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				log(E_INFO,"Attiva Ricircolo ACS per 60s")
+				commandArray['Ricircolo ACS']='On FOR 60'	-- Ricircolo ACS = device name for hot water recirculation pump
 			elseif (pulseLen>=4 and pulseLen<=6) then
-				commandArray['Ricircolo ACS']='On FOR 150 seconds'	-- Ricircolo ACS = device name for hot water recirculation pump
+				log(E_INFO,"Attiva Ricircolo ACS per 150s")
+				commandArray['Ricircolo ACS']='On FOR 150'	-- Ricircolo ACS = device name for hot water recirculation pump
 			end
 		else
 			-- devValue==On => store the current date/time in PB array

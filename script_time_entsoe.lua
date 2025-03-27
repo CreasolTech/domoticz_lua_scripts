@@ -20,6 +20,9 @@
 --	Enter "Utility" panel, click on Edit button for the last created device (Electricity Consumer Price) and set Axis label to € (or your currency)
 --	Enter Setup -> Settings -> Meters/Counters and set Electricity Price Device: Electricity Consumer Price . In this way Domoticz will compute exactly the 
 --  cost of your consumed energy
+--
+--  Also, type the command  cd DOMOTICZDIR; ln -s scripts/lua/XmlParser.lua
+--  for example cd /home/pi/domoticz; ln -s scripts/lua/XmlParser.lua
 --	
 -- Usage: the information about electricity price, hour by hour, can be used for:
 -- * compute the cost of imported energy
@@ -30,6 +33,7 @@
 --	 math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))*100/tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour)))/100
 --	    integer(        averagePrice (24th item in the entsoe_today variable)   *100/         currentPrice (timeNow.hour = current hour)  )                     /100
 --
+-- Credits:
 -- Based on dzVents script by WillemD61
 -- Rewritten in plain LUA by CreasolTech
 

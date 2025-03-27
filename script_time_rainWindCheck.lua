@@ -16,7 +16,7 @@
 
 RAINTIMEOUT=30					-- Wait 30 minutes after rainCounter stops incrementing and rainRate returns to zero, before determining that the rain is over.
 
-VENTILATION_START_WINTER=270	-- Start ventilation 4.5 hours after SunRise (Winter)
+VENTILATION_START_WINTER=760	-- Start ventilation at 12:40 (Winter)
 VENTILATION_START_SUMMER=120	-- Start ventilation 2 hours after SunRise (Summer)
 VENTILATION_STOP=-60	-- normally stop ventilation 60 minutes before Sunset
 VENTILATION_TIME=150	-- ventilation ON for max 6 hours a day
@@ -146,10 +146,10 @@ end
 if (timeNow.month>=10 or timeNow.month<=5 or (timeNow.month==9 and timeNow.day>=10)) then
 	VENTILATION_START=VENTILATION_START_WINTER
 else
-	VENTILATION_START=VENTILATION_START_SUMMER
+	VENTILATION_START=VENTILATION_START_SUMMER+timeofday['SunriseInMinutes']
 end
 
-if (minutesNow==(timeofday['SunriseInMinutes']+VENTILATION_START) and (timeNow.month~=1 or timeNow.day~=6)) then	-- eclude ventilation on Jan 6!
+if (minutesNow==VENTILATION_START and (timeNow.month~=1 or timeNow.day~=6)) then	-- eclude ventilation on Jan 6!
 	RWC['time']=0
 	RWC['maxtime']=VENTILATION_TIME
 	if (CLOUDS_TODAY_DEV~='' and otherdevices[CLOUDS_TODAY_DEV]~=nil and tonumber(otherdevices[CLOUDS_TODAY_DEV])<20) then 
