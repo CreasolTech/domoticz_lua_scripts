@@ -176,10 +176,16 @@ if ((timeNow.min%5)==0) then
 
 	price=(price+ENTSOE_ELPRICE_SPREAD)*ENTSOE_ELPRICE_MULTIPLY_FACTOR+ENTSOE_ELPRICE_OFFSET	-- compute total cost of energy, including fees, VAT, fixed costs ...
 	commandArray[#commandArray+1]={['UpdateDevice']=otherdevices_idx[ENTSOE_ELPRICE_DEV].."|".. price .."|" .. price}
-elseif (timeNow.hour>=15 and (timeNow.min%13)==0 and uservariables['entsoe_tomorrow']=='') then
+elseif (timeNow.hour>=15 and (timeNow.min%3)==0 and uservariables['entsoe_tomorrow']=='' ) then	
 	-- fetch new data from entsoe (no more than 1 time every 13 minutes)
-	local periodStart=os.date("%Y%m%d", os.time()) .. "2300"	-- TODO: UTC time?
-	local periodEnd=os.date("%Y%m%d", os.time()+86400) .. "2300"
+	--local now=os.date("!*t", os.time())	-- today
+	local tomorrow=os.date("!*t", os.time()+86400)	-- tomorrow
+	tomorrow.hour=0
+	tomorrow.min=0
+	tomorrow.sec=0
+	local periodStart=os.date("%Y%m%d%H%M", os.time(tomorrow))   -- UTC time
+    local periodEnd=os.date("%Y%m%d%H%M", os.time(tomorrow)+86400)
+
 	local url=URL.."&securityToken="..ENTSOE_TOKEN.."&in_Domain="..ENTSOE_ZONE.."&out_Domain="..ENTSOE_ZONE.."&periodStart="..periodStart.."&periodEnd="..periodEnd
 	-- print("entsoe: url="..url)
 	local fd=io.popen("curl -s '"..url.."'")
@@ -194,17 +200,38 @@ elseif (timeNow.hour>=15 and (timeNow.min%13)==0 and uservariables['entsoe_tomor
 	--Instantiates the XML parser
 	local parser = xml2lua.parser(handler)
 	parser:parse(response)
-	--dump(handler.root,0)	-- dump xml structure
+	print("response="..response)
+	print(handler.root.Publication_MarketDocument,0)	-- dump xml structure
 
 	local s=""
 	local ts=os.date("%Y-%m-%d ", os.time()+86400)	-- tomorrow
 	local h=0		-- hour
 	local hh=""		-- hour in "00" "01" "23" format
 	local hp=0		-- hour corresponding with position
+	local dst=0		-- daylight saving time: 0=no, 1=yes, 2=entering DST, 3=leaving DST
+	local startDate=handler.root.Publication_MarketDocument['period.timeInterval']['start']:match("T(%d%d:%d%d)Z")	-- start time in UTC returned by ENTSOe
+	local stopDate=handler.root.Publication_MarketDocument['period.timeInterval']['end']:match("T(%d%d:%d%d)Z")		--  end  time in UTC returned by ENTSOe
+
+	if (startDate == stopDate) then
+		if (startDate==22) then
+			dst=1   -- daylight saving time
+		end
+	elseif (startDate=="23:00" and stopDate=="22:00") then
+		dst=2   -- entering dst time (in March)
+	elseif (startDate=="22:00" and stopDate=="23:00") then
+		dst=3   -- leaving dst time (in October)
+	end
+
+
 	fd=0			-- compute avg price per MWh
 	for i, p in pairs(handler.root.Publication_MarketDocument.TimeSeries.Period.Point) do
 		-- print("i="..i.." Position="..p.position.." Price="..p["price.amount"])
 		hp=math.floor((p.position-1)/4)
+		if (dst==2 and h>=2) then
+			h=h+1    -- entering daylight saving time => hour 2->3
+		elseif (dst==3 and h>=3) then
+			h=h-1    -- leaving daylight saving time => hour 3->2
+		end
 		if (hp>h) then
 			for h=h,hp-1 do
 				-- print(" h="..h.." price="..price)
@@ -217,7 +244,7 @@ elseif (timeNow.hour>=15 and (timeNow.min%13)==0 and uservariables['entsoe_tomor
 			end
 			h=hp
 		end
-		price=math.floor(p["price.amount"])/1000
+		price=math.floor(p["price.amount"]+0.5)/1000
 	end
 	-- complete the series until 23:00
 	for h=hp,23 do

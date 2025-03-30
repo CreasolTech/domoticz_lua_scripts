@@ -40,11 +40,7 @@ else
 end
 
 log(E_INFO,'minutesnow=' .. minutesnow .. ' and minutesOn=' .. minutesOn .. ' and minutesOff=' .. minutesOff)
---if (debug>0) then minutesOff=minutesnow end
 
-	-- night lights are OFF
-	-- check sunset: if time > sunset+math.random(20-30minutes), switch lights on
---minutesOn=minutesnow --debug
 if (minutesnow == minutesOn) then
 	delay=3
 	for i,d in pairs(LightOnDeviceNames) do
@@ -53,7 +49,7 @@ if (minutesnow == minutesOn) then
 	end
 	setMinutesOff()
 	telegramNotify('Night lights ON: will be OFF at ' .. min2hours(newvalue))
-elseif (minutesnow == minutesOff) then
+elseif (minutesnow==minutesOff or (minutesnow==minutesOff+15 and (otherdevices[LightOffDeviceNames[1] ]~='Off' or otherdevices[LightOffDeviceNames[7] ]~='Off'))) then
 	delay=3
 	for i,d in pairs(LightOffDeviceNames) do
 		delay=math.random(delay,delay+30)
