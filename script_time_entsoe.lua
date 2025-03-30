@@ -200,8 +200,7 @@ elseif (timeNow.hour>=15 and (timeNow.min%3)==0 and uservariables['entsoe_tomorr
 	--Instantiates the XML parser
 	local parser = xml2lua.parser(handler)
 	parser:parse(response)
-	print("response="..response)
-	print(handler.root.Publication_MarketDocument,0)	-- dump xml structure
+	-- print("response="..response)	--DEBUG
 
 	local s=""
 	local ts=os.date("%Y-%m-%d ", os.time()+86400)	-- tomorrow
