@@ -251,24 +251,32 @@ In the *script_time_heatpump_emmeti.lua* there are some example of how electrici
 
 
 
+
 ***
 
 ## Creasol DomBus modules
 
-Below a list of modules, produced in Europe by Creasol, designed for Domoticz to be reliable and optimized for very very low power consumption.
+Below a list of modules, produced in Italy by Creasol, designed for high reliability and optimized for very very low power consumption.
 
 Our industrial and home automation modules are designed to be
-* very low power (**around 10mW with relays OFF**)
-* reliable (**no disconnections**)
-* bus connected (**no radiofrequency interference, no battery to replace**).
+* very low power &rArr; **10÷15mW with relays OFF**
+* reliable &rArr; **no disconnections**
+* wired network (bus) &rArr; **no radiofrequency interference, no battery to replace**
 
-Modules are available in two version:
-1. with **DomBus proprietary protocol**, working with [Domoticz](https://www.domoticz.com) only
-2. with **Modbus standard protocol**, working with [Home Assistant](https://www.home-assistant.io), [OpenHAB](https://www.openhab.org), [Node-RED](https://nodered.org)
+Modules are available in two versions:
+1. with **DomBus proprietary protocol**, suitable for every type of DomBus modules, working with [Domoticz](https://www.domoticz.com) by using the Creasol DomBus plugin, and [Home Assistant](https://www.home-assistant.io), [OpenHAB](https://www.openhab.org), [Node-RED](https://nodered.org) ... by using the [DomBusGateway software, a DomBus 2 MQTT-AutoDiscovery interface](https://www.creasol.it/DomBusGateway)
+2. with **Modbus standard protocol**, suitable for relays modules, EVSE and Dual Axis solar tracker, working with almost any building automation system supporting Modbus
+
+What version is the best? DomBus version, because:
+
+**Modbus** is a standard protocol Master/Slave: the controller must poll each module to get its status, so it's **not suitable to manage inputs and counters that change frequently**, but can be used to manage relay outputs or read inputs status every 2-5s
+
+**DomBus** is a proprietary multi-master protocol where **each module is able to initiate the communication with the master** to notify, for example, an input change, with a short latency (<100ms) that permits to **manage alarm sensors in a reliable way**. Also, DomBus supports the so-called DCMD, **commands exchanged between modules as KNX does**, so it's possible to program simple automations that work between modules even if the domotic controller is OFF (for example, short pulse on button to toggle a light ON/OFF, 1s pulse to open the garage door, 2s pulse to turn OFF some lights, ...)
+
 
 [Store website](https://store.creasol.it/domotics) - [Information website](https://www.creasol.it/domotics)
 
-### Youtube video showing DomBus modules 
+### Youtube video showing DomBus modules
 [![Creasol DomBus modules video](https://images.creasol.it/intro01_video.png)](https://www.creasol.it/DomBusVideo)
 
 
@@ -308,7 +316,7 @@ Includes:
 <br clear="all"/>
 
 ### DomBus21 - Latching relays domotic module
-<a href="https://store.creasol.it/DomBus21"><img src="https://images.creasol.it/creDomBus21_400.webp" alt="DomBus21 domotic module with 3 latching relays, 1 AC input and 4 low voltage inputs" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
+<a href="https://store.creasol.it/DomBus21"><img src="https://images.creasol.it/creDomBus21_size_400.webp" alt="DomBus21 domotic module with 3 latching relays, 1 AC input and 4 low voltage inputs" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
 Very compact domotic module providing:
 * **3x latching relays SPST, max current 15A (3kW): no power consumption when relays are On or Off!**
 * 1x 230V AC opto-isolated input to detect 230V and power outage, with **zero-detection to switch relays/loads minimizing in-rush current**
@@ -331,8 +339,8 @@ Versatile module designed to control **gate or garage door**.
 DIN rail low profile module, with **8 relays and very low power consumption**:
 * 6x relays SPST 5A
 * 2x relays STDT 10A
-* Only 10mW power consumption with all relays OFF
-* Only 500mW power consumption with all 8 relays ON !!
+* Only 15mW power consumption with all relays OFF
+* Only 600mW power consumption with all 8 relays ON !!
 <br clear="all"/>
 
 ### DomBus32 - Domotic module with 3 relays
@@ -367,7 +375,7 @@ DIN rail module, low profile, with **12 relays outputs and very low power consum
 ### DomBus37 - 12 inputs, 3 115/230Vac inputs, 3 relay outputs
 <a href="https://store.creasol.it/DomBus37"><img src="https://images.creasol.it/creDomBus37_400.webp" alt="DomBus37 domotic module with 12 inputs, 3 AC inputs, 3 relay outputs" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
 Module designed to **interface alarm sensors (magnetc contact sensors, PIRs, tampers): it's able to monitor mains power supply (power outage / blackout) and also have 3 relays outputs.**
-* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, balanced double/triple biased alarm sensors,  counters, meters, temperature and distance sensors, ...)
+* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, **balanced double/triple biased alarm sensors**,  counters, meters, temperature and distance sensors, ...)
 * 3x 115/230Vac optoisolated inputs
 * 2x relays SPST 5A
 * 1x relay SPST 10A
@@ -376,7 +384,7 @@ Module designed to **interface alarm sensors (magnetc contact sensors, PIRs, tam
 ### DomBus38 - 12 inputs, 1 100-250Vac input, 6 relay outputs
 <a href="https://store.creasol.it/DomBus38"><img src="https://images.creasol.it/creDomBus38_400.webp" alt="DomBus38 smart home module with 12 inputs, 1 AC input, 6 SPDT relay outputs + 2 SPDT relay outputs 10A" style="float: left; margin-right: 2em; vertical-align: middle;" align="left" /></a>
 Module designed to **interface alarm sensors (magnetc contact sensors, PIRs, tampers), lights and appliances outputs, ...**
-* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, balanced double/triple biased alarm sensors, counters, meters, temperature and distance sensors, ...)
+* 12x low voltage inputs (analog/digital inputs, buttons, alarm sensors, **balanced double/triple biased alarm sensors**, counters, meters, temperature and distance sensors, ...)
 * 1x 115/230Vac optoisolated input to detect power outage and for zero-crossing detection (to switch relays minimizing the in-rush current)
 * 4x relays SPDT 10A (with Normally Open and Normally Closed contacts)
 * 2x relays SPST 10A (with only Normally Open contacts)
@@ -387,7 +395,7 @@ Module designed to **interface alarm sensors (magnetc contact sensors, PIRs, tam
 Module that **check a deep-hole sun sensor to detect the direction of maximal sun radiation, working also in case of cloudy weather.**
 * Controls two external actuators/motors (linear or not) to move motors to reach the best tilt / elevation and azimuth position to optimize photovoltaic production.
 * **Check current through the motors to detect internal limit switch** (useful for linear actuators) and find where the tracker reach the final/initial position.
-* **Works autonomously** (stand-alone), without any home automation system controller, but **also can be interface by Domoticz** (DomBus protocol) and **Home Assistant, NodeRED, OpenHAB,** ... (using Modbus protocol).
+* **Works autonomously** (stand-alone), without any home automation system controller, but **also can be connected to a home automation system using Domoticz, Home Assistant, NodeRED, OpenHAB,** and other systems by using the DomBusGateway software (that converts DomBus protocol to MQTT AutoDiscovery), or with other systems by using DomBusTracker with Modbus firmware.
 * Wire connection (RS485) to the domotic controller for the best reliability.
 <br clear="all"/>
 
@@ -408,6 +416,4 @@ Simple module with 2 relays, to be used with DomBus modules (like <a href="https
 * 1x I²C interface for sensors, extended I/Os and more)
 * 1x OneWire interface (DS18B20 or other 1wire sensors/devices)
 <br clear="all"/>
-
-
 

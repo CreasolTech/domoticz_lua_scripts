@@ -31,6 +31,7 @@ function restartDomoticz () {
 		killall domoticz
 		sleep 10
 	fi
+	killall curl 2>/dev/null	# kill pending curl processes
 	if [ -n "`pidof domoticz`" ]; then
 		killall -9 domoticz
 		sleep 10
@@ -39,12 +40,14 @@ function restartDomoticz () {
 		mbpoll -b9600 -Pnone -o1 -mrtu -a3 -0 -1 -r0 -c2 /dev/ttyUSBmeter
 		if [ $? -ne 0 ]; then
 			echo "`date` : last restart less than 600s ago and mbpoll returns error => reboot!" >>/tmp/domoticzCheck.log
+			cp /var/log/domoticz.log /mnt/usb/domoticz/domoticz_`date '+%F_%X'`.log
 			/usr/sbin/reboot	
 		fi
 	fi
 
 	#disable hyundai kia plugin
 	sqlite3 /home/pi/domoticz/domoticz.db 'update Hardware set Enabled=0 where ID=31;'
+	killall curl 2>/dev/null	# kill pending curl processes
 	service domoticz restart
 	lastrestart=`date +%s`
 }
@@ -79,6 +82,7 @@ while [ 1 ]; do
 						echo "$ret" >>/tmp/domoticzCheck.log
 						echo "=====================================" >>/tmp/domoticzCheck.log
 						#echo "Restarting domoticz because log file contain the selected string"
+						killall curl 2>/dev/null
 						service domoticz restart
 						logerrorscount=0
 					fi
