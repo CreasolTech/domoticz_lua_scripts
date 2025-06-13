@@ -45,9 +45,9 @@ timeNow = os.date("*t")
 
 ENTSOE_DEV="Electricity Price"	-- Name of the Managed Counter device where prices are stored
 ENTSOE_ELPRICE_DEV="Electricity Consumer Price"	-- total cost of imported energy now 
-ENTSOE_ELPRICE_SPREAD=0.0195				-- Electricity Price Now = (ElectricityPrice+ENTSOE_ELPRICE_SPREAD) * ENTSOE_ELPRICE_MULTIPLY_FACTOR + ENTSOE_ELPRICE_OFFSET
+ENTSOE_ELPRICE_SPREAD=0.0165				-- Electricity Price Now = (ElectricityPrice+ENTSOE_ELPRICE_SPREAD) * ENTSOE_ELPRICE_MULTIPLY_FACTOR + ENTSOE_ELPRICE_OFFSET
 ENTSOE_ELPRICE_MULTIPLY_FACTOR=1.21			-- Electricity Price Now = (ElectricityPrice+ENTSOE_ELPRICE_SPREAD) * ENTSOE_ELPRICE_MULTIPLY_FACTOR + ENTSOE_ELPRICE_OFFSET
-ENTSOE_ELPRICE_OFFSET=0.09103908			-- Electricity Price Now = (ElectricityPrice+ENTSOE_ELPRICE_SPREAD) * ENTSOE_ELPRICE_MULTIPLY_FACTOR + ENTSOE_ELPRICE_OFFSET
+ENTSOE_ELPRICE_OFFSET=0.09433171			-- Electricity Price Now = (ElectricityPrice+ENTSOE_ELPRICE_SPREAD) * ENTSOE_ELPRICE_MULTIPLY_FACTOR + ENTSOE_ELPRICE_OFFSET
 -- In Italy, for residential houses, kWh price may be computed as ( (ENTSOE_price + SPREAD)*1.1 + DISPATCH*1.1 + TAXES )*1.1
 --        where SPREAD=supplier profit, 1.1 is a factor to take into account grid losses (10%), last 1.1 to take into account 10% VAT (22% for non-residential buildings)
 --        Italy, January 2025:  (ENTSOE_PRICE (PUN) + SPREAD) * 1.1 * 1.1 + (0.019478*1.1 + 0.008828 + 0.029809 + 0.0227) * 1.1

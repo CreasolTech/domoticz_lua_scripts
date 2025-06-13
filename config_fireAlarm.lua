@@ -3,9 +3,9 @@
 --
 ROOMS={
 -- 	 RoomName			SensorName		incTemperature	maxTemperature
-	{"Kitchen", 		"Temp_Cucina", 			0.4, 	30},
+	{"Kitchen", 		"Temp_Cucina", 			1.0, 	30},
 	{"Living",			"Temp_Soggiorno",		0.4, 	30},
-	{"Office",			"Temp_Studio",			0.6, 	30},
+	{"Office",			"Temp_Studio",			1.2, 	30},
 	{"Laundry",			"Temp_Lavanderia",		3, 		35},		-- DS1820 sensor behind the washer machine socket
 	{"Garage",			"Temp_Garage",			0.6, 	35},
 --	{"Wallbox",			"Temp_Wallbox",			0.3, 	30},

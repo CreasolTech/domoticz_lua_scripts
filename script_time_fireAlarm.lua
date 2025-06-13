@@ -13,7 +13,7 @@ function FAinit()
 end
 
 DEBUG_LEVEL=E_INFO
---DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
+DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
 DEBUG_PREFIX="FireAlarm: "
 SIREN_DEV="SIREN_Internal"	-- In case of alarm, activate the internal siren
 SIREN_TIME="1"				-- activation time in seconds
@@ -24,6 +24,7 @@ SIREN2_TIME="600"			-- Activation time for the second siren/light
 
 commandArray={}
 
+local timeSinceLastUpdate = 86400	-- Time since last user variable update
 json=require("dkjson")
 log(E_DEBUG,"====================== "..DEBUG_PREFIX.." ============================")
 if (uservariables['zFireAlarm'] == nil) then
@@ -32,6 +33,7 @@ if (uservariables['zFireAlarm'] == nil) then
 	-- create a Domoticz variable, coded in json, within all variables used in this module
 	checkVar('zFireAlarm',2,json.encode(FA))
 else
+	timeSinceLastUpdate=timedifference(uservariables_lastupdate['zFireAlarm'])
     FA=json.decode(uservariables['zFireAlarm'])
 	FAinit()   -- check that all variables in RWC table are initialized
 end
@@ -49,7 +51,7 @@ for n,v in pairs(ROOMS) do
 		end
 		if (FA[n]~=nil) then
 			-- room average value already set
-			if (tempNow>FA[n]+v[3] or tempNow>=v[4]) then
+			if (tempNow>FA[n]+v[3] or tempNow>=v[4] and timeSinceLastUpdate<80) then	-- also check that previous temperature is recent, not an old value
 				-- fire alarm!
 				log(E_CRITICAL,"room "..v[1]..", Temp. "..FA[n].."->"..tempNow)
 				FA[n]=(FA[n]+tempNow)/2	-- real average between avg and the new temperature

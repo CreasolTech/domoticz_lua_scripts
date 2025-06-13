@@ -12,13 +12,11 @@ log(E_INFO,'---------------------------------- nightLights ---------------------
 function setMinutesOff()
 --	commandArray['Variable:vNightLightsOff']=timeofday['SunriseInMinutes']-math.random(20, 40) -- after 5.30 switch lights off, even in the Winter
 	newvalue= math.min(timeofday['SunriseInMinutes'], 360) - math.random(30,45) -- after 7:00 switch lights off, even in the Winter
-	-- telegramNotify('Night lights: will be OFF at ' .. min2hours(newvalue))
 	commandArray['Variable:vNightLightsOff'] = tostring(newvalue)
 
 end
 function setMinutesOn()
 	newvalue= timeofday['SunsetInMinutes'] + math.random(25,30)
-	-- telegramNotify('Night lights: will be ON at ' .. min2hours(newvalue))
 	commandArray['Variable:vNightLightsOn'] = tostring(newvalue)
 end
 
@@ -48,7 +46,6 @@ if (minutesnow == minutesOn) then
 		commandArray[d] = 'On AFTER '..delay
 	end
 	setMinutesOff()
-	telegramNotify('Night lights ON: will be OFF at ' .. min2hours(newvalue))
 elseif (minutesnow==minutesOff or (minutesnow==minutesOff+15 and (otherdevices[LightOffDeviceNames[1] ]~='Off' or otherdevices[LightOffDeviceNames[7] ]~='Off'))) then
 	delay=3
 	for i,d in pairs(LightOffDeviceNames) do
@@ -56,7 +53,6 @@ elseif (minutesnow==minutesOff or (minutesnow==minutesOff+15 and (otherdevices[L
 		commandArray[d] = 'Off AFTER '..delay
 	end
 	setMinutesOn()
-	-- telegramNotify('Night lights OFF: will be ON at ' .. min2hours(newvalue))
 end
 ----------------------------- custom rules ------------------------
 -- turn on the light outside bedroom when alarm is activated during the night

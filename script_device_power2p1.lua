@@ -6,7 +6,7 @@
 -- The virtual device (name is written in GENERATOR_SUM_DEV below) should be created manually: see below.
 
 GRID_DEV="PowerMeter Grid"		-- existing meter used to measure the grid power (negative when producing)
-P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that is managed/updated by this script
+P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that is managed/updated by this script: MUST BE CREATED (type P1 meter)
 TARIFF1_START=420				-- minutes since midnight when TARIFF1 starts (420=7:00)
 TARIFF1_STOP=1360				-- minutes since midnight when TARIFF2 stops  (1360=23:00)
 
@@ -38,8 +38,8 @@ if (devicechanged[GRID_DEV]~=nil) then
 	else
 		-- zP1Energy variables does not exist: create it!
 		energyOld=energy
+		print("Power2P1: creating new variable zP1Energy...")
 		os.execute('curl -m 1 "http://127.0.0.1:8080/json.htm?type=command&param=adduservariable&vname=zP1Energy&vtype=0&vvalue='..energyOld..'"')	-- Create variable, type integer
-		print("Power2P1: create new variable zP1Energy")
 	end
 	energyDiff=energy-energyOld
 

@@ -21,11 +21,6 @@ function log(level, msg)
     end
 end
 
-function min2hours(mins)
-    -- convert minutes in hh:mm format
-    return string.format('%02d:%02d',mins/60,mins%60)
-end
-
 function timedifference (s)
     year = string.sub(s, 1, 4)
     month = string.sub(s, 6, 7)
@@ -90,9 +85,8 @@ function deviceOff(devName,table,index)
 end
 
 function peakPower()
-	if (monthnow==nil) then monthnow = tonumber(os.date("%m")) end
 	if (timeNow==nil) then timeNow = os.date("*t") end
-	if ((monthnow>=11 or monthnow<=3)) then
+	if ((timeNow.month>=11 or timeNow.month<=3)) then
 		if ((timeNow.hour>=7 and timeNow.hour<10) or (timeNow.hour>=17 and timeNow.hour<23)) then 
 			-- tonumber(otherdevices['Clouds_today'])<70)
 			return true

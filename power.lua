@@ -33,6 +33,7 @@ function PowerInit()
 	if (Power['EV']==nil) then Power['EV']=0 end	-- EV Charge power
 	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- current limit value
 	if (Power['HS']==nil and HOYMILES_ID~='') then Power['HS']=0 end	-- Inverter producing status (0=Off, 1=On) 
+	if (Power['Ht']==nil and HOYMILES_ID~='') then Power['Ht']=0 end	-- time, since epoch, when hoymiles inverter limit was set
 	--if (PowerAux==nil) then PowerAux={} end
 end	
 
@@ -221,105 +222,10 @@ for devName,devValue in pairs(devicechanged) do
 			end
 		end
 	end
-	-- EV: check EVChargingButton
-	-- print("EVSE BatteryMax="..otherdevices_svalues["EVSE BatteryMax"])
-	for k,evRow in pairs(eVehicles) do
-		if (evRow[9]~='') then
-			levelChanged=0
-			if (devName==evRow[8]) then
-				-- Charging button used to select between Off, Min0%, Min50%, Max100%, On modes
-				-- find the current level
-				levelItem=1
-				levelName=EVChargingModeNames[1]
-				levelMax=0
-				for li,ln in pairs(EVChargingModeNames) do
-					levelMax=levelMax+1
-					if (otherdevices[ evRow[9] ]==ln) then 
-						levelName=ln
-						levelItem=li
-					end
-				end
-				if (devValue=='Enable' and levelItem<levelMax) then
-					levelItem=levelItem+1
-					levelChanged=1
-				elseif (devValue=='Disable' and levelItem>1) then
-					levelItem=levelItem-1
-					levelChanged=1
-				end
-				if (levelChanged==1) then
-					-- evRow[4] is the battery min selector, and evRow[5] the battery max selector
-					log(E_DEBUG,"EV: button pressed => set charging mode to "..EVChargingModeNames[ levelItem ] .. ", set battery min to "..EVChargingModeConf[ levelItem ][2].."% and battery max to "..EVChargingModeConf[ levelItem ][4].."%")
-					commandArray[ evRow[9] ]='Set Level: '.. (levelItem-1)*10				-- set new charging mode
-				end
-			elseif (devName==evRow[9]) then
-				-- changed selector switch
-				log(E_DEBUG, "EV: Charging mode selector switch has been changed")
-				levelItem=1
-				levelName=EVChargingModeNames[1]
-				for li,ln in pairs(EVChargingModeNames) do
-					if (otherdevices[ evRow[9] ]==ln) then 
-						levelName=ln
-						levelItem=li
-						break
-					end
-				end
-				levelChanged=1
-			end
-			if (levelChanged==1) then
-				-- update min and max battery level according to selector switch Charging Mode
-				commandArray[ evRow[4] ]='Set Level: '..tostring(EVChargingModeConf[ levelItem ][1])	-- set min battery level
-				commandArray[ evRow[5] ]='Set Level: '..tostring(EVChargingModeConf[ levelItem ][3])	-- set max battery level
-				otherdevices[ evRow[4] ]=tostring(EVChargingModeConf[ levelItem ][2])
-				otherdevices[ evRow[5] ]=tostring(EVChargingModeConf[ levelItem ][4])
-				Power['ev']=1 -- force updating contactor output
-				commandArray['Variable:zPower']=json.encode(Power)
-			end
-		end
+	if (devName == 'EV Current') then
+		log(E_INFO, "V="..otherdevices['EV Voltage'].." => EVCurr="..otherdevices_svalues['EV Current'].."A (EVPower="..getPowerValue(otherdevices['EV Energy']).." GridPower="..getPowerValue(otherdevices['Grid Power']).." PV="..math.floor(getPowerValue(otherdevices['PV_PowerMeter'])).."+"..getPowerValue(otherdevices['PV_Garden']).."W CarSoC="..otherdevices_svalues['eNiro: EV battery level'].."%)" )
 	end
-	if (EVSE_BUTTON~='' and devName==EVSE_BUTTON) then
-		if (devValue=='Down') then
---			if (otherdevices[EVSE_STATE_DEV]=='Ch' or otherdevices[EVSE_STATE_DEV]=='Vent') then
---DEBUG				commandArray[EVSE_CURRENT_DEV]='Off'	-- turn off charging
-				otherdevices[EVSE_CURRENT_DEV]='Off'
-				commandArray[EVSE_SOC_MIN]='Set Level 10'	-- min 40% battery level
-				commandArray[EVSE_CURRENTMAX]="Set Level 0" -- set max current to 0A
-				otherdevices[EVSE_CURRENTMAX]="0"
---			end
-		elseif (devValue=='Up') then
-			if (otherdevices[EVSE_STATE_DEV]=='Con') then
---DEBUG				commandArray[EVSE_CURRENT_DEV]='On'		-- turn on charging
-				otherdevices[EVSE_CURRENT_DEV]='On'
-				commandArray[EVSE_CURRENT_DEV]="Set Level 8"
-			end
-			if (tonumber(otherdevices[EVSE_CURRENTMAX])<20) then -- less than 20A
-				commandArray[EVSE_CURRENTMAX]="Set Level 40" -- set to Level=40 => 20A
-				otherdevices[EVSE_CURRENTMAX]="40"
-			end
-			if (tonumber(otherdevices_svalues[EVSE_SOC_MIN])<40) then
-				commandArray[EVSE_SOC_MIN]='Set Level 40'
-			elseif (tonumber(otherdevices_svalues[EVSE_SOC_MIN])<60) then
-				commandArray[EVSE_SOC_MIN]='Set Level 60'
-			elseif (tonumber(otherdevices_svalues[EVSE_SOC_MIN])<80) then
-				commandArray[EVSE_SOC_MIN]='Set Level 80'
-				commandArray[EVSE_SOC_MAX]='Set Level 90'
-			elseif (tonumber(otherdevices_svalues[EVSE_SOC_MIN])<100) then
-				commandArray[EVSE_SOC_MIN]='Set Level 100'
-				commandArray[EVSE_SOC_MAX]='Set Level 100'
-			end
-			if (tonumber(otherdevices_svalues[EVSE_SOC_MAX])<=tonumber(otherdevices_svalues[EVSE_SOC_MIN])) then
-				commandArray[EVSE_SOC_MAX]='Set Level 80'
-			end
-		end
-	end
-	if (EVSE['S']~='Dis' and otherdevices[EVSE_STATE_DEV]=='Dis') then
-		-- vehicle was just disconnected => restore default charging setting
---DEBUG		commandArray[EVSE_CURRENT_DEV]='On'
-		commandArray[EVSE_CURRENT_DEV]="Set Level 8"
-		if (tonumber(otherdevices[EVSE_CURRENTMAX])<20) then -- less than 20A
-			commandArray[EVSE_CURRENTMAX]="Set Level 40" -- set to Level=40 => 20A
-		end
-		commandArray[EVSE_SOC_MIN]='Set Level 40'
-	end
+
 
 	-- if blackout, turn on white leds in the building!
 	if (devName==blackoutDevice) then
@@ -435,34 +341,44 @@ if (currentPower>-20000 and currentPower<20000) then
 			log(E_DEBUG,"Update "..name.."="..currentPower)
 		end
 	end
-	if (HOYMILES_ID~='') then
-		-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
-		local newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+	
+	if (HOYMILES_ID~='' and (os.time()-Power['Ht'])>=10) then
+		-- more than 10s since last time the hoymiles limit was set
+		Power['Ht']=os.time()
+		-- check when value have been modified last time
+		local newlimit=HOYMILES_LIMIT_MAX	-- always MAX power if vehicle is charging
 		local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
-		-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
-		if (newlimit>HOYMILES_LIMIT_MAX) then
-			newlimit=HOYMILES_LIMIT_MAX
-		elseif (newlimit<100) then
-			newlimit=100	-- avoid turning off the inverter completely
-		end
-		if (hoymilesVoltage>=251.5) then 
-			log(E_WARNING,"HOYMILES: Reduce inverter power")
-			if (newlimit>Power['HL']/2) then
-				newlimit=Power['HL']/2
+		if (otherdevices[EVSE_STATE_DEV]~='Ch') then
+			-- not charging EV => modulate power
+			-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
+			newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
+			-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
+			if (newlimit>HOYMILES_LIMIT_MAX) then
+				newlimit=HOYMILES_LIMIT_MAX
+			elseif (newlimit<100) then
+				newlimit=100	-- avoid turning off the inverter completely
 			end
-		else
-			if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
-				log(E_INFO,"HOYMILES: Increase inverter power")
-				newlimit=Power['HL']*1.35
+			if (hoymilesVoltage>=251.5) then 
+				log(E_WARNING,"HOYMILES: Reduce inverter power")
+				if (newlimit>Power['HL']/2) then
+					newlimit=Power['HL']/2
+				end
+			else
+				if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
+					log(E_INFO,"HOYMILES: Increase inverter power")
+					newlimit=Power['HL']*1.35
+				end
 			end
-		end
-		newlimit=math.floor(newlimit)
-		if (newlimit>HOYMILES_LIMIT_MAX) then
-			newlimit=HOYMILES_LIMIT_MAX
-		elseif (newlimit<100) then
-			newlimit=100	-- avoid turning off the inverter completely
+			newlimit=math.floor(newlimit)
+			if (newlimit>HOYMILES_LIMIT_MAX) then
+				newlimit=HOYMILES_LIMIT_MAX
+			elseif (newlimit<100) then
+				newlimit=100	-- 100 Watt: avoid turning off the inverter completely
+			end
 		end
 		local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
+		
+		-- log(E_INFO, "HOYMILES new limit="..newlimit.." old limit="..Power['HL'])
 		if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
 			log(E_INFO,"HOYMILES: Voltage="..hoymilesVoltage.."V currentPower="..currentPower.."W target="..HOYMILES_TARGET_POWER.."W => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
 			os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
@@ -475,7 +391,7 @@ if (currentPower>-20000 and currentPower<20000) then
 			if (Power['HS']==1 and hoymilesVoltage>=240) then
 				-- inverter not producing due to overvoltage => restart it
 				newlimit=100	-- start inverter from 100W only to prevent overvoltage
-				os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+				-os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
 				Power['HL']=newlimit
 				log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
 				commandArray[HOYMILES_RESTART_DEV]='On'

@@ -19,7 +19,7 @@ commandArray={}
 local DEBUG=0
 --DEBUG=1	-- enable debugging (execute every minute instead of every 5)
 local timeNow=os.date('*t')
-if ((timeNow.min % 5)~=0 and DEBUG==0) then return commandArray end	-- exec script every 5 minutes
+if ((timeNow.min % 12)~=0 and DEBUG==0) then return commandArray end	-- exec script every 5 minutes
 
 LATITUDE=45.8814				-- Your latitude
 LONGITUDE=12.1893				-- Your longitude
@@ -76,7 +76,7 @@ local function calculateDistance(lat1, lon1, lat2, lon2)
 end
 
 -- Now start to do something ============
-local fd=io.popen('curl -s "https://www.seismicportal.eu/fdsnws/event/1/query?limit=10&lat='..LATITUDE..'&lon='..LONGITUDE..'&minradius=0&maxradius='..MAXRADIUS..'&format=json&minmag='..MINMAGNITUDE..'"')
+local fd=io.popen('curl --connect-timeout 3 -m 5 -s "https://www.seismicportal.eu/fdsnws/event/1/query?limit=10&lat='..LATITUDE..'&lon='..LONGITUDE..'&minradius=0&maxradius='..MAXRADIUS..'&format=json&minmag='..MINMAGNITUDE..'"')
 local response=assert(fd:read('*a'))
 io.close(fd)
 -- response = json data with list of earthquakes
@@ -116,7 +116,7 @@ if ((os.time()-t)<MAXAGE*3600) then
 
 	local distance = calculateDistance(LATITUDE, LONGITUDE, qLat, qLon)
 	
-	fd=io.popen('curl -s "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&lat='..qLat..'&lon='..qLon..'"')
+	fd=io.popen('curl -m 5 -s "https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&lat='..qLat..'&lon='..qLon..'"')
 	local response=assert(fd:read('*a'))
 	io.close(fd)
 	-- response = json data with location information

@@ -75,6 +75,13 @@ elseif (mode=='On') then
 else
 	-- mode==Auto
 	setPointNew=HW_SP_OFF	-- Default: OFF
+	-- get electricity price from HP dictionary
+	-- HP['p'] =  electricity price now
+    -- HP['P'] =  electricity price average
+    -- HP['Pp'] = electricity price average
+
+	json=require("dkjson")
+	HP=json.decode(uservariables['zHeatPump'])
 
 	if (peakPower()) then 
 		if (setPoint>HW_SP_OFF) then
@@ -94,7 +101,7 @@ else
 					commandArray[HW_POWERSUPPLY]='Off'	-- turn Off the relay supplying hotwater heatpump
 				end
 			end
-		elseif (timeofday["Daytime"] and timeNow.hour>=10) then
+		elseif (timeofday["Daytime"] and timeNow.hour>=12) then
 			-- during the day
 			hwPower=getPowerValue(otherdevices[HW_POWER])
 			gridPower=getPowerValue(otherdevices[GRID_POWER_DEV])  	-- Grid power meter
@@ -108,23 +115,47 @@ else
 			end
 			availablePower=hwPower-gridPower-500
 			tempWaterBot=tonumber(otherdevices[HW_TEMPWATER_BOTTOM])
+			tempWaterTop=tonumber(otherdevices[HW_TEMPWATER_TOP])
 			log(E_DEBUG, "DAY: gridPower="..gridPower.." pvPower="..pvPower.." pvGarden="..pvGardenPower.." hwPower="..hwPower.." tempWaterBot="..tempWaterBot)
 			
+			-- With no solar production:
+			-- From 4 to 6 => HW_SP_MIN
+			-- From 6 to 10 => HW_SP_OFF
+			-- From 10 to 13 => HW_SP_MIN
+			-- From 13 ...   => HW_SP_NORMAL
+			--
+			-- With solar production:
+			-- From 10 to 12 => HW_SP_NORMAL
+			-- From 12 to .. => HW_SP_MAX
+
 			if (availablePower>0) then
-				if (gridPower+pvPower<0) then
-					log(E_DEBUG,"Available power and PV in the garden is producing too much")
+				-- power available from photovoltaic
+				-- Check if energy price goes low
+				if (timeNow.hour>=12) then
+					log(E_DEBUG,"Available power and time >= 12:00 => HW_SP_MAX")
 					setPointNew=HW_SP_MAX
-				elseif (timeNow.hour>=12) then
-					log(E_DEBUG,"Available power and time >= 12")
-					setPointNew=HW_SP_MAX
+					-- if electricity price <= 0 => increase setpoint
+					print(HP['p'])
 				else
-					setPointNew=HW_SP_NORMAL
+					-- before 12:00
+--					if (gridPower+pvPower<0) then
+--						log(E_DEBUG,"Available power and PV in the garden is producing too much")
+--						setPointNew=HW_SP_MAX
+--					else
+						log(E_DEBUG,"Available power and time < 12:00 => HW_SP_NORMAL")
+						setPointNew=HW_SP_NORMAL
+--					end
 				end
 			else
-				if (timeNow.hour>=14) then 
+				-- no available power from photovoltaic 
+				if (timeNow.hour>=13) then 
+					log(E_DEBUG,"No solar power and time >= 13:00 => HW_SP_NORMAL")
 					setPointNew=HW_SP_NORMAL
-				else
-					setPointNew=HW_SP_MIN
+				elseif (timeNow.hour>=10) then
+					if (tempWaterTop<HW_SP_MIN) then
+						log(E_DEBUG,"No solar power and time between 10:00 and 13:00 => HW_SP_MIN")
+						setPointNew=HW_SP_MIN
+					end
 				end
 			end
 			if (setPointNew>HW_SP_OFF and otherdevices[EVSTATE_DEV]=='Ch') then

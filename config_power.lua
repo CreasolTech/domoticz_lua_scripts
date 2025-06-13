@@ -17,7 +17,7 @@ PowerMeterImport='PowerMeter Import'				-- Alternative devices to measure import
 PowerMeterExport='PowerMeter Export'
 --PowerMeterExport=''
 POWERMETER_GENS={'PV_PowerMeter', 'PV_Garden'}	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
-POWERMETER_INTERVAL=5	-- sampling time for PowerMeter (normally 5s) 
+POWERMETER_INTERVAL=3	-- sampling time for PowerMeter (normally 3s) 
 
 -- The following 5 devices have to be created manually, and will be filled by the script
 POWERMETER_USAGE='Power_Used'					-- Electric+Counter virtual device (to be created manually)
@@ -58,7 +58,7 @@ PowerThreshold={
 	5450,  	-- available power (Italy: power+10%)
 	6300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
 	4800,	-- send alert after 4800s (80minutes) . Imported power can stay at TH[2] for 90min, then must be below TH[1] for at least 90 minutes
-	30		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect in 120s)
+	100		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect within 120s)
 }
 --[[	-- DEBUG: reduce power and time threshold to test script
 PowerThreshold={ --DEBUG values
@@ -122,8 +122,8 @@ EVChargingModeConf={
 	{	50,	100,	50, 100	},
 }
 
-EVSE_CURRENT_DEV='EVSE Current'		-- device used to set the charging current. Set to '' to disable EVSE management
-EVSE_STATE_DEV='EVSE State'			-- EVSE status: Disconnected, Connected, Charging, ....
+EVSE_CURRENT_DEV=''		-- device used to set the charging current. Set to '' to disable EVSE management
+EVSE_STATE_DEV='EV State'			-- EVSE status: Disconnected, Connected, Charging, ....
 EVSE_MAXCURRENTVALUE=32				
 EVSE_SOC_DEV='eNiro: EV battery level'	-- device that show the battery state of charge (e.g. 65%). Set to '' to disable this checking
 EVSE_SOC_MIN='EVSE BatteryMin'		-- virtual device (dimmer) that set the min battery level

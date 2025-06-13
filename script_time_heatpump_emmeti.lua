@@ -180,6 +180,7 @@ log(E_DEBUG, "tempDerivate=".. string.format('%.3f',(HPZ['t2']-HPZ['t3'])*0.2) .
 
 levelOld=HP['Level']	-- save previous level
 diffMax=0
+overlimitTemp=0
 
 for n,v in pairs(zones) do	-- check that temperature setpoint exist
 	-- n=zone name, v=CSV separated by | containing tempsensor and electrovalve device name
@@ -408,6 +409,7 @@ if (HPlevel~="Off") then
 		overlimitTemp=OVERHEAT		-- max overheat temperature
 		overlimitPower=500			-- minimum power to start overheating
 		overlimitPowerExport=0		-- exporting power in overlimit
+		if (timeNow.month>=4 and timeNow.month<=10) then overlimitPowerExport=1500 end
 		overlimitDiff=0.4			-- forced diffmax value
 		prodPowerOn=300				-- minimum extra power to turn ON the heatpump
 		gridPowerMin=300			-- minimum power from the grid, even when PV is producing
@@ -526,7 +528,7 @@ if (HPlevel~="Off") then
 			inverter1Power=inverterPower
 		end
 		inverterPower=inverterPower+inverter2Power
-		log(E_INFO,"AveragePower:"..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
+		log(E_INFO,"AveragePower="..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
 
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
@@ -557,8 +559,8 @@ if (HPlevel~="Off") then
 			log(E_INFO,"diffMax="..diffMax.." reduced because electricity price is high ("..HP['p'].."€)")
 		end
 		if (diffMax<=diffMaxTh and diffMax+overlimitTemp>0) then
-			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or HP['Pp']>0.9) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
-				log(E_INFO,"OverHeating/Cooling: diffMax="..diffMax.."=>"..overlimitDiff)
+			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or (HP['Pp']>0.9 and (timeNow.month<4 or timeNow.month>10))) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
+				log(E_INFO,"diffMax="..diffMax.."=>"..overlimitDiff.." because overLimit and prodPower>overlimitPower")
 				diffMax=overlimitDiff
 				HP['OL']=1
 			end
@@ -576,6 +578,7 @@ if (HPlevel~="Off") then
 					-- enough power
 					HP['OL']=1
 					diffMax=diffMax+overlimitDiff
+					log(E_INFO,"diffMax="..diffMax.." increased because overlimit and EV not charging")
 				else
 					-- not enough power
 					log(E_INFO,"Not enough power to keep overlimit ON, or reached max temperature")
@@ -605,7 +608,9 @@ if (HPlevel~="Off") then
 				
 				if (HPmode == 'Winter') then
 					-- targetPower computed based on outdoor temperature min and max
-					targetPower=math.floor(((16-tonumber(HP['otmin']))^1.5)*18 + ((24-tonumber(HP['otmax']))^1.5)*8)
+					targetPower=TargetPowerMin
+					if (HP['otmin']<16) then targetPower=math.floor(((16-tonumber(HP['otmin']))^1.5)*18) end
+					if (HP['otmax']<24) then targetPower=targetPower+math.floor(((24-tonumber(HP['otmax']))^1.5)*8) end
 					log(E_INFO,"targetPower="..targetPower.." computed based on otmin and otmax")
 					if (diffMax>diffMaxTh) then
 						if (timeNow.hour>=10 and timeNow.hour<17) then
@@ -773,7 +778,7 @@ if (HPlevel~="Off") then
 					end
 				end
 				if (HP['Level']==LEVEL_OFF) then -- HP['Level']=LEVEL_OFF => Heat pump is OFF
-					if (HPforce=="Night" or (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower))) then -- force heat pump ON, if diffTime>0
+					if (HPforce=="Night" or (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower and (timeNow.month<4 or timeNow.month>10)))) then -- force heat pump ON, if diffTime>0
 						log(E_INFO,"Level was OFF, but diffMax>diffMaxTh or time>=9:00 and prodPower>targetPower => turn Heat Pump ON")
 						HP['Level']=LEVEL_ON
 						if (HPmode=="Winter") then
@@ -854,7 +859,7 @@ if (HPlevel~="Off") then
 		log(E_DEBUG,'No power meter installed')
 	end
 	log(E_DEBUG,"diffMax="..diffMax.." diffMaxTh="..diffMaxTh.." prodPower="..prodPower.." prodPowerOn="..prodPowerOn)
-
+	
 	if (GasHeater~=nil and GasHeater~='' and otherdevices[GasHeater]~=nil and HPmode == 'Winter') then
 		-- boiler exists: activate it during the night if outdoorTemperature<GHoutdoorTemperatureMax and if diffMax>=GHdiffMax
 		if (otherdevices[GasHeater]=='On') then
@@ -940,6 +945,8 @@ end
 
 if (compressorPerc==nil) then compressorPerc=10 end
 if (otherdevices[HPLevel]=='Dehum' or otherdevices[HPLevel]=='DehumNight') then compressorPerc=15 end	-- heat pump must go at very low level, because it should only supply the dehumidifier VMC
+
+-- HP['Level']=LEVEL_OFF; HPlevel='Off'; HP['OL']=0	-- DEBUG: force heat pump OFF
 
 if (HP['Level']==LEVEL_OFF) then
 	compressorPerc=0
@@ -1045,8 +1052,8 @@ if (HP['Level']~=LEVEL_OFF) then
 			if (dT<0.1) then dT=0.1 end
 			HP['o']=HP['o']-dT
 		end
-		if (HP['o']<28) then
-			HP['o']=28
+		if (HP['o']<30) then
+			HP['o']=30
 		elseif HP['o']>40 then
 			HP['o']=40
 		end

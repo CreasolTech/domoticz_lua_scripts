@@ -205,7 +205,7 @@ for devName,devValue in pairs(devicechanged) do
 			elseif (pulseLen>=2 and pulseLen<=3) then
 				log(E_INFO,"Attiva Ricircolo ACS per 60s")
 				commandArray['Ricircolo ACS']='On FOR 60'	-- Ricircolo ACS = device name for hot water recirculation pump
-			elseif (pulseLen>=4 and pulseLen<=6) then
+			elseif (pulseLen>=5 and pulseLen<=7) then
 				log(E_INFO,"Attiva Ricircolo ACS per 150s")
 				commandArray['Ricircolo ACS']='On FOR 150'	-- Ricircolo ACS = device name for hot water recirculation pump
 			end

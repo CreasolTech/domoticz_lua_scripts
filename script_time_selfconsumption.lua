@@ -26,6 +26,7 @@ INTERVAL=1	-- minutes before calculating value. 5, in my case, because SolarEdge
 
 commandArray={}
 timeNow=os.date('*t')
+minutesNow=timeNow.hour*60+timeNow.min
 if (timeNow.min % INTERVAL)~=0 then return commandArray end	
 
 dofile 'scripts/lua/globalvariables.lua'
@@ -59,6 +60,19 @@ local importedEnergy=0
 local totalEnergy=0
 local selfPerc=100
 local suffPerc=0
+
+if ((timeNow.min%10)==0 and minutesNow>timeofday['SunriseInMinutes']+60 and minutesNow<timeofday['SunsetInMinutes']-60) then
+	-- check inverter lastupdate, during daytime and notify any problem every 10 minutes
+	log(E_DEBUG,"===== Check if inverters are blocked =====")
+	-- Solaredge inverter: check RELAY that disable it (may be OFF during storms), and lastupdate for power and voltage
+	if (otherdevices['Relay_PV']=='On' and timedifference(otherdevices_lastupdate[ POWERMETER_GENS[1] ])>360 and timedifference(otherdevices_lastupdate['Inverter - AC Voltage'])>360)  then
+		log(E_CRITICAL,"Inverter ".. POWERMETER_GENS[1] .." does not respond for more than 6 minutes ")
+	end
+	-- Hoymiles inverter: check RELAY that disable it (may be OFF during storms), and lastupdate for power and voltage
+	if (otherdevices['Relay_PV_Garden'] and timedifference(otherdevices_lastupdate[ POWERMETER_GENS[2] ])>360 and timedifference(otherdevices_lastupdate['PVGarden_Voltage'])>360)  then
+		log(E_CRITICAL,"Inverter ".. POWERMETER_GENS[2] .." does not respond for more than 6 minutes ")
+	end
+end
 
 log(E_DEBUG,"===== Calculate SelfConsumption and SelfSufficiency =====")
 for devNum,devName in pairs(POWERMETER_GENS) do

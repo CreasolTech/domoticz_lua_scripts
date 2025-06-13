@@ -10,12 +10,12 @@ local run_ledLiving=0
 for devName,devValue in pairs(devicechanged) do	-- scan all changed devices
 	if (run_alarm==0 and devName:sub(1,3)=='MCS' or devName:sub(1,3)=='PIR' or devName:sub(1,6)=='TAMPER' or devName:sub(1,5)=='SIREN' or devName:sub(1,5)=='ALARM' or devName:sub(1,5)=="Light") then
 		run_alarm=1
-	elseif (run_power==0 and (devName:find("Power") or devName:find("Button"))) then
+	elseif (run_power==0 and (devName:find("Power") or devName:find("Button")) or devName=='EV Current') then
 		run_power=1
 	elseif (run_pushbuttons==0 and (devName:sub(1,8)=='PULSANTE' or devName:sub(1,4)=='VMC_')) then
 		run_pushbuttons=1
-	elseif (run_testdombus==0 and (devName:sub(1,7)=='esplab_' or devName:sub(1,13)=='dombus2 - (ff')) then -- cancel these two lines: not needed! Only for testing
-		run_testdombus=1
+--	elseif (run_testdombus==0 and (devName:sub(1,7)=='esplab_' or devName:sub(1,13)=='dombus2 - (ff')) then -- cancel these two lines: not needed! Only for testing
+--		run_testdombus=1
 	elseif (devName=="LEDWhite_Living" and devValue=="On" and otherdevices["Relay_Apricancello"]~="On") then
 		commandArray["Relay_Apricancello"]="On FOR 20 MINUTES" -- when pushing the touch button to turn ON lights in the garden, also enable GATE powersupply
 --	else
