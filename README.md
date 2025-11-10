@@ -258,6 +258,9 @@ In the *script_time_heatpump_emmeti.lua* there are some example of how electrici
 
 Below a list of modules, produced in Italy by Creasol, designed for high reliability and optimized for very very low power consumption.
 
+[<img src="https://images.creasol.it/pdf2.png" alt="Video" style="vertical-align: middle;"> Download the PDF catalog!](https://www.creasol.it/catalog)
+
+
 Our industrial and home automation modules are designed to be
 * very low power &rArr; **10÷15mW with relays OFF**
 * reliable &rArr; **no disconnections**
