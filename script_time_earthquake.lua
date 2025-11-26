@@ -94,11 +94,28 @@ local qLon = tonumber(q.features[1].properties.lon)
 local qDepth = tonumber(q.features[1].properties.depth)
 local qUnid = tostring(q.features[1].properties.unid)
 
-local checkText=qTimeString..qLat..qLon..qDepth..qMag
+local checkText=qTimeString.."_"..qLat.."_"..qLon.."_"..qDepth.."_"..qMag
 -- create a Domoticz variable if zEarthQuake does not exist
 checkVar('zEarthQuake',2,"")
-if (uservariables['zEarthQuake']==checkText.."AAAA" and DEBUG==0) then return commandArray end	-- earthquake alert already processed
+if ((uservariables['zEarthQuake']==checkText) and DEBUG==0) then return commandArray end	-- earthquake alert already processed
 -- new alert, or debug is active
+
+log(E_DEBUG, "Old checkText="..uservariables['zEarthQuake'])
+log(E_DEBUG, "New checkText="..checkText)
+
+--
+local lastVar = {}
+for field in string.gmatch(uservariables['zEarthQuake'], "([^_]+)") do
+    table.insert(lastVar, field)
+end
+if (#lastVar == 5) then
+	log(E_DEBUG,"checkText contains 5 fields")
+	if (math.abs(tonumber(lastVar[2])-qLat)<0.1 and math.abs(tonumber(lastVar[3])-qLon)<0.1 and math.abs(tonumber(lastVar[4])-qDepth)<5 and math.abs(tonumber(lastVar[5])-qMag)<0.3) then
+		return commandArray	-- similar event
+	end
+end
+
+
 commandArray["Variable:zEarthQuake"]=checkText
 
 --local t = string.sub(cuando, 1,10)
@@ -128,7 +145,7 @@ if ((os.time()-t)<MAXAGE*3600) then
 	if (string.len(address)<6) then address=qRegion end
 	
 	--Set and format the new alertText
-	local alertText = tostring(  atLocalTime .. ' ' .. address .. '\n' .. 'Mag: ' .. qMag .. '. Depth:' .. qDepth .. 'km Distance: ' .. distance ..'km. <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new" style="color: blue;">Map</a> <a href="https://www.seismicportal.eu/eventdetails.html?unid=' .. qUnid .. '" target="new" style="color: blue;">Detail</a>')
+	local alertText = tostring(  atLocalTime .. ' ' .. address .. '\n' .. 'Mag:' .. qMag .. ' Depth:' .. qDepth .. 'km Dist:' .. distance ..'km. <a href="https://maps.google.com/?q=' .. qLat .. ',' .. qLon .. '" target="_new" style="color: blue;">Map</a> <a href="https://www.seismicportal.eu/eventdetails.html?unid=' .. qUnid .. '" target="new" style="color: blue;">Detail</a>')
 
 	-- Only update and sent message when info has changed. and 
 	if (DEBUG~=0 or (alertText ~= lastalertText and distance <= MAXDISTANCE)) then

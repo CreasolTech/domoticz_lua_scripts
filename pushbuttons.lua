@@ -137,7 +137,7 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_Rinnovo']='Off'
 				end
 			elseif (pulseLen>=2 and pulseLen<=3) then
-				commandArray['Ricircolo ACS']='On FOR 150'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 150 SECONDS'	-- Ricircolo ACS = device name for hot water recirculation pump
 			elseif (pulseLen>=4 and pulseLen<=7) then
 				if (otherdevices['Bagno_Scaldasalviette']~='Off') then -- Bagno_Scaldasalviette = device name for electric heater
 					commandArray['Bagno_Scaldasalviette']='Off'
@@ -202,12 +202,14 @@ for devName,devValue in pairs(devicechanged) do
 					commandArray['VMC_Deumidificazione']='Off'
 					commandArray['VMC_CaldoFreddo']='Off'
 				end
-			elseif (pulseLen>=2 and pulseLen<=3) then
+			elseif (pulseLen>=2 and pulseLen<=4) then
 				log(E_INFO,"Attiva Ricircolo ACS per 60s")
-				commandArray['Ricircolo ACS']='On FOR 60'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 60 SECONDS'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Led_Cucina_White']='Set Level 40'		-- Flash White led 4 times
 			elseif (pulseLen>=5 and pulseLen<=7) then
 				log(E_INFO,"Attiva Ricircolo ACS per 150s")
-				commandArray['Ricircolo ACS']='On FOR 150'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Ricircolo ACS']='On FOR 150 SECONDS'	-- Ricircolo ACS = device name for hot water recirculation pump
+				commandArray['Led_Cucina_White']='Set Level 50'		-- Flash White led 4 times
 			end
 		else
 			-- devValue==On => store the current date/time in PB array
@@ -224,7 +226,7 @@ for devName,devValue in pairs(devicechanged) do
 		ledVMCstatus=0
 		if (otherdevices['VMC_Rinnovo']=='On') then ledVMCstatus=ledVMCstatus+10 end			
 		if (otherdevices['VMC_Deumidificazione']=='On') then ledVMCstatus=ledVMCstatus+20 end
-		if (otherdevices_svalues['Led_Cucina_White']~=tostring(ledVMCstatus)) then		-- led device on DomBusTH , configured in Selection mode with levels 0..3
+		if (otherdevices['Ricircolo ACS']=='Off' and otherdevices_svalues['Led_Cucina_White']~=tostring(ledVMCstatus)) then		-- led device on DomBusTH , configured in Selection mode with levels 0..3
 			print("ledVMCstatus=="..tostring(ledVMCstatus).." otherdevices_svalues[Led_Cucina_White]="..otherdevices_svalues['Led_Cucina_White'])
 			commandArray['Led_Cucina_White']="Set Level "..tostring(ledVMCstatus)
 		end

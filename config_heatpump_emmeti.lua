@@ -9,7 +9,7 @@ dofile "scripts/lua/globalfunctions.lua"	-- some functions common to all scripts
 TEMP_HISTERESIS=0.1
 TEMP_WINTER_HP_MAX=48 				-- maximum fluid temperature from HP during the Winter
 TEMP_SUMMER_HP_MIN=14				-- minimum fluid temperature from HP during the Summer
-OVERHEAT=0.5						-- Increase temperature setpoint in case of available power from solar photovoltaic
+OVERHEAT=0.8						-- Increase temperature setpoint in case of available power from solar photovoltaic
 OVERCOOL=-0.2						-- Decrease temperature setpoint in case of available power from solar photovoltaic
 POWER_MAX=5500						-- Increment heat pump level only if consumed power is less than POWER_MAX
 EVPOWER_DEV='EV Energy'
@@ -103,15 +103,15 @@ zones={
 	-- During the winter, keep the setpoint from 5:00 to 22:00 (comfort period), and keep setpoint-0.2 (offset) outside the comfort period. This zone is really important, so weight=1
 	-- During the summer, keep setpoin from 7:00 to 23:00, then temperature can raise to setpoint+0.2. Weight is 1 (important zone)
 	--
-	--            						                                                  <---------- Winter -------->  <---------- Summer ----------> 
-	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  start	stop	offset	weight  
-	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						8,		20,		-0.2,		1,		7,		23,		0.2,	1},	
-	{'Studio',			'Temp_Studio',		'',                 '',						9,		18,		-0.2,		0.2,	8,		19,		0.5,	0.8},
+	--            						                                                  <---------- Winter ------------------->  <---------- Summer ----------------------> 
+	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  overheat	start	stop	offset	weight  overcool
+	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						8,		20,		-0.1,	1,				7,		23,		0.2,	1},	
+	{'Studio',			'Temp_Studio',		'',                 '',						9,		18,		-0.2,	0.2,	8,		19,		0.5,	0.8},
 	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
-	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			13,		22,		-0.6,	0.5,	10,		23,		0.5,	0.8},	
-	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	13,		22,		-0.8,	0.3,	13,		23,		0.5,	0.8},	
-	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	13,		22,		-0.8,	0.3,	13,		23,		0.5,	0.3},
-	{'Stireria',		'Temp_Stireria',	'',                 'Valve_Stireria',		13,		18,		-1,		0.3,	8,		20,		1,		0.3},
+	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			12,		22,		-0.6,	0.3,	10,		23,		0.5,	0.8},	
+	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	12,		22,		-0.8,	0.3,	13,		23,		0.5,	0.8},	
+	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	12,		22,		-0.8,	0.3,	13,		23,		0.5,	0.3},
+	{'Stireria',		'Temp_Stireria',	'',                 'Valve_Stireria',		12,		18,		-1,		0.3,	8,		20,		1,		0.3},
 }
 
 

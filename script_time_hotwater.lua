@@ -15,9 +15,10 @@ commandArray={}
 
 dofile "scripts/lua/config_hotwater.lua"
 function hwTurnOff() -- turn Off the heatpump
-	if (setPoint>HW_SP_OFF) then
+	if (setPoint>HW_SP_OFF or hwPower>50) then
 		log(E_INFO,"Hot Water switched On -> Off: set SetPoint to a very low value to stop boiler")
 		setPointNew=HW_SP_OFF-10
+		setPoint=setPointNew+1
 	elseif (setPoint<HW_SP_OFF) then
 		log(E_INFO,"Hot Water Off: set SetPoint to HW_SP_OFF")
 		setPointNew=HW_SP_OFF
@@ -64,6 +65,7 @@ if (setPoint==nil) then
 	goto hotwaterEnd
 end
 setPointNew=setPoint
+hwPower=getPowerValue(otherdevices[HW_POWER])
 
 if (mode=='Off') then
 	hwTurnOff()
@@ -103,7 +105,6 @@ else
 			end
 		elseif (timeofday["Daytime"] and timeNow.hour>=12) then
 			-- during the day
-			hwPower=getPowerValue(otherdevices[HW_POWER])
 			gridPower=getPowerValue(otherdevices[GRID_POWER_DEV])  	-- Grid power meter
 			pvPower=getPowerValue(otherdevices[PV_POWER_DEV])		-- Photovoltaic on the roof
 			pvGardenPower=getPowerValue(otherdevices[PVGARDEN_POWER_DEV])		-- Photovoltaic on the roof
@@ -116,6 +117,9 @@ else
 			availablePower=hwPower-gridPower-500
 			tempWaterBot=tonumber(otherdevices[HW_TEMPWATER_BOTTOM])
 			tempWaterTop=tonumber(otherdevices[HW_TEMPWATER_TOP])
+			if (timedifference(otherdevices_lastupdate[HW_TEMPWATER_TOP])>3600 and timeNow.min==6) then
+				log(E_CRITICAL, "Lo scaldacqua non risponde da piu di 1 ora\nRiavviare il raspberry da Domoticz -> Configurazione -> Piu opzioni -> Riavvia il sistema")
+			end
 			log(E_DEBUG, "DAY: gridPower="..gridPower.." pvPower="..pvPower.." pvGarden="..pvGardenPower.." hwPower="..hwPower.." tempWaterBot="..tempWaterBot)
 			
 			-- With no solar production:
@@ -158,25 +162,34 @@ else
 					end
 				end
 			end
-			if (setPointNew>HW_SP_OFF and otherdevices[EVSTATE_DEV]=='Ch') then
+			if (setPointNew>HW_SP_OFF and otherdevices[EVSTATE_DEV]=='Ch' and timeNow.hour<15) then
 				log(E_DEBUG,"EV is charging: reduce setpoint to HW_SP_OFF")
 				hwTurnOff()
 			end
 			if (setPointNew>setPoint and hwPower<100) then
-				log(E_DEBUG,"HotWater is OFF and setPoint has been increased")
+				log(E_DEBUG,"HotWater is OFF and setPoint has been increased from "..setPoint.." to "..setPointNew)
 				-- if HP_TEMPWATER_BOT + 15 > setPointNew => increase setPointNew to force start
 				if (tempWaterBot<setPointNew and tempWaterBot>=(setPointNew-15)) then
-					log(E_DEBUG,"Increase setpoint to tempWaterBot+15+1 to force heat pump start")
+					log(E_DEBUG,"tempWaterBot="..tempWaterBot.." => Increase setpoint to tempWaterBot+15+1 to force heat pump start")
 					setPointNew=tempWaterBot+15+1
 				end
 			elseif (setPointNew<setPoint and hwPower>100) then
 				-- request to turn off the hotwater boiler: decrease the setpoint gradually to avoid continuous ON/OFF in case of clouds
-				log(E_DEBUG,"SetPoint "..setPoint.." -> "..setPointNew..": decrease it to "..setPoint-2)
 
 				if (setPoint-2>=setPointNew) then 
 					setPointNew=setPoint-2 
 				else
 					setPointNew=setPoint-1
+				end
+				log(E_DEBUG,"Decrease SetPoint "..setPoint.." -> "..setPointNew)
+			end
+		else
+			-- before 12:00
+			log(E_DEBUG,"Before 12:00, setPointNew="..setPointNew)
+			if (otherdevices[EVSTATE_DEV]=='Ch') then
+				if (hwPower>50) then 
+					log(E_DEBUG,"EV is charging: turn OFF boiler")
+					hwTurnOff()
 				end
 			end
 		end

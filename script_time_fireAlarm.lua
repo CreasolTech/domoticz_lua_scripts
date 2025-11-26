@@ -13,7 +13,7 @@ function FAinit()
 end
 
 DEBUG_LEVEL=E_INFO
-DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
+--DEBUG_LEVEL=E_DEBUG		-- remove "--" at the begin of line, to enable debugging
 DEBUG_PREFIX="FireAlarm: "
 SIREN_DEV="SIREN_Internal"	-- In case of alarm, activate the internal siren
 SIREN_TIME="1"				-- activation time in seconds

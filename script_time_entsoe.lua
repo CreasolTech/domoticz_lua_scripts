@@ -188,7 +188,7 @@ elseif (timeNow.hour>=15 and (timeNow.min%3)==0 and uservariables['entsoe_tomorr
 
 	local url=URL.."&securityToken="..ENTSOE_TOKEN.."&in_Domain="..ENTSOE_ZONE.."&out_Domain="..ENTSOE_ZONE.."&periodStart="..periodStart.."&periodEnd="..periodEnd
 	-- print("entsoe: url="..url)
-	local fd=io.popen("curl -s '"..url.."'")
+	local fd=io.popen("curl -s --connect-timeout 5 '"..url.."'")
 	local response=assert(fd:read('*a'))
 	-- print("entsoe: response="..response)
 	io.close(fd)
@@ -273,7 +273,7 @@ if (next(PV)) then
 		print("entsoe: initializing variables pv_today and pv_tomorrow")
 		commandArray['Variable:pv_today']=uservariables['pv_tomorrow']
 		commandArray['Variable:pv_tomorrow']=''
-	elseif (timeNow.hour>=6 and uservariables['pv_tomorrow']=='') then
+	elseif (timeNow.hour>=6 and timeNow.min==14 and uservariables['pv_tomorrow']=='') then
 		-- get forecast
 		print("entsoe: getting photovoltaic solar forecast")
 		local pv_today={0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}
@@ -286,46 +286,54 @@ if (next(PV)) then
 		local whToday=0
 		local whTomorrow=0
 		local json=require("dkjson")
+		local errors=0
 
 		for k,v in pairs(PV) do
 			url="https://api.forecast.solar/estimate/watthours/period/" .. LATITUDE .. "/" ..LONGITUDE .."/" .. v[3] .. "/" .. v[2] .."/" .. v[1]
-			fd=io.popen("curl -s '"..url.."'")
+			fd=io.popen("curl --connect-timeout 5 -s '"..url.."'")
 			response=assert(fd:read('*a'))
 			io.close(fd)
 			-- response='{"result":{"2025-03-03 06:45:41":0,"2025-03-03 07:00:00":38,"2025-03-03 08:00:00":547,"2025-03-03 09:00:00":981,"2025-03-03 10:00:00":1312,"2025-03-03 11:00:00":1485,"2025-03-03 12:00:00":1510,"2025-03-03 13:00:00":1360,"2025-03-03 14:00:00":1087,"2025-03-03 15:00:00":768,"2025-03-03 16:00:00":440,"2025-03-03 17:00:00":194,"2025-03-03 18:00:00":74,"2025-03-03 18:00:33":0,"2025-03-04 06:43:51":0,"2025-03-04 07:00:00":44,"2025-03-04 08:00:00":538,"2025-03-04 09:00:00":944,"2025-03-04 10:00:00":1263,"2025-03-04 11:00:00":1436,"2025-03-04 12:00:00":1464,"2025-03-04 13:00:00":1322,"2025-03-04 14:00:00":1057,"2025-03-04 15:00:00":748,"2025-03-04 16:00:00":432,"2025-03-04 17:00:00":194,"2025-03-04 18:00:00":75,"2025-03-04 18:01:57":1},"message":{"code":0,"type":"success","text":"","pid":"h54B8q7C","info":{"latitude":45.8812,"longitude":12.1833,"distance":0,"place":"Via Monte Grappa, 31054 Pieve di Soligo Province of Treviso, Italy","timezone":"Europe/Rome","time":"2025-03-03T08:21:03+01:00","time_utc":"2025-03-03T07:21:03+00:00"},"ratelimit":{"zone":"IP 149.13.157.183","period":3600,"limit":12,"remaining":10}}}'
 			
 			pvf=json.decode(response)
-			for ts, wh in pairs(pvf['result']) do
-				-- ts="2025-03-03 07:00:00"
-				-- wh=38
-				-- print("entsoe pv: ts=".. ts .. " wh=" .. wh)
-				day=tonumber(ts:sub(9,10))
-				hour=tonumber(ts:sub(12,13))
-				minSec=ts:sub(15,19)		-- string within minutes and seconds, like "01:57" : used to determine if this is the sunrise/sunset time (to be ignored) or not
-				if (wh>1 and minSec=="00:00") then
-					if (day==timeNow.day) then
-						pv_today[hour+1]=pv_today[hour+1]+wh
-						whToday=whToday+wh
-					else
-						pv_tomorrow[hour+1]=pv_tomorrow[hour+1]+wh
-						whTomorrow=whTomorrow+wh
+			if (pvf ~= nil) then
+				for ts, wh in pairs(pvf['result']) do
+					-- ts="2025-03-03 07:00:00"
+					-- wh=38
+					-- print("entsoe pv: ts=".. ts .. " wh=" .. wh)
+					day=tonumber(ts:sub(9,10))
+					hour=tonumber(ts:sub(12,13))
+					minSec=ts:sub(15,19)		-- string within minutes and seconds, like "01:57" : used to determine if this is the sunrise/sunset time (to be ignored) or not
+					if (wh>1 and minSec=="00:00") then
+						if (day==timeNow.day) then
+							pv_today[hour+1]=pv_today[hour+1]+wh
+							whToday=whToday+wh
+						else
+							pv_tomorrow[hour+1]=pv_tomorrow[hour+1]+wh
+							whTomorrow=whTomorrow+wh
+						end
 					end
 				end
+			else
+				print("entsoe: error fetching solar forecast, url="..url)
+				errors=errors+1
 			end
 		end
-		for k,v in pairs(pv_today) do
-			pvToday=pvToday..v..";"
-		end
-		pvToday=pvToday..whToday
-		for k,v in pairs(pv_tomorrow) do
-			pvTomorrow=pvTomorrow..v..";"
-		end
-		pvTomorrow=pvTomorrow..whTomorrow
+		if (errors==0) then
+			for k,v in pairs(pv_today) do
+				pvToday=pvToday..v..";"
+			end
+			pvToday=pvToday..whToday
+			for k,v in pairs(pv_tomorrow) do
+				pvTomorrow=pvTomorrow..v..";"
+			end
+			pvTomorrow=pvTomorrow..whTomorrow
 
-		-- print("pv_today="..pvToday)
-		-- print("pv_tomorrow="..pvTomorrow)
-		commandArray['Variable:pv_today']=pvToday
-		commandArray['Variable:pv_tomorrow']=pvTomorrow
+			-- print("pv_today="..pvToday)
+			-- print("pv_tomorrow="..pvTomorrow)
+			commandArray['Variable:pv_today']=pvToday
+			commandArray['Variable:pv_tomorrow']=pvTomorrow
+		end
 	end
 		
 	return commandArray

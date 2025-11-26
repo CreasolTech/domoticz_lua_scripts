@@ -107,5 +107,14 @@ if (devicechanged[GRID_DEV]~=nil) then
 		end
 	end
 end
+
+--[[
+-- Set the EV Voltage for DomBusEVSE on dombusLab
+if (devicechanged['Voltage_Mains']~=nil) then
+   	print('Voltage_Mains='..otherdevices['Voltage_Mains'])
+	commandArray['dombusLab - (ffe3.a) EV Voltage']=tostring(math.floor(otherdevices_svalues['Voltage_Mains']))
+end
+]]
+
 return commandArray
 

@@ -29,8 +29,8 @@ PERCENTAGE_SUFF='Perc_SelfSufficiency'			-- Percentage virtual device (to be cre
 blackoutDevice='Monitor_HeatPump'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
 EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'dombus2 - (ffe3.c) Grid Power'}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
---DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
-DOMBUSEVSE_GRIDPOWER={'Grid Power','dombus2 - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
+DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
+--DOMBUSEVSE_GRIDPOWER={'Grid Power','dombusLab - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 
 -- Hoymiles inverter using OpenDTU monitoring device: automatically update the output power limit to get a Grid power corresponding to the specified HOYMILES_TARGET_POWER
 -- In this example, I can export max 6000W and have two inverters connected to my house. Hoymiles inverter (1600W, in my case) will limit the production power to export max 6000W to the grid

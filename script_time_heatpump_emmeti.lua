@@ -376,17 +376,17 @@ if (HPlevel~="Off") then
 		-- diffMaxTh is used to define when room temperature is distant from the set point
 	 	-- diffMaxTh=0.1	-- if diffMax<diffMaxTh, temperature is near the set point
 		-- reduce diffMaxTh if outdoor temperature is low (to use higher temperatures to heat the building)
-		diffMaxTh=math.floor(((HP['otmin']-2)*2.5)+HP['otmax']*0.3)/100
+		diffMaxTh=math.floor(((HP['otmin']-2)*1.2)+HP['otmax']*0.15)/100
 		if (timeNow.month<=7) then
-			diffMaxTh=diffMaxTh+(timeNow.month-1)*0.05
+			diffMaxTh=diffMaxTh+(timeNow.month-1)*0.02
 		else
-			diffMaxTh=diffMaxTh+(12-timeNow.month)*0.05
+			diffMaxTh=diffMaxTh+(12-timeNow.month)*0.02
 		end
-		if (diffMaxTh<=0.1) then diffMaxTh=0.1 end
-		if (timeNow.hour<3 or timeNow.hour>=20) then
+		if (diffMaxTh<=0.05) then diffMaxTh=0.05 end
+		if (timeNow.hour<23 and timeNow.hour>=20) then
 			-- in the morning, or in the night, no problem if the temperature is far from setpoint
-			diffMaxTh=diffMaxTh+0.1
-			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 between 20:00 and 02:59")
+			diffMaxTh=diffMaxTh+0.05
+			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.05 between 20:00 and 00:59")
 		end
 		if (timeNow.yday>=41 and timeNow.yday<320 and timeNow.hour<9) then	
 			if (CLOUDS_TODAY~='' and otherdevices[CLOUDS_TODAY]~=nil and tonumber(otherdevices[CLOUDS_TODAY])<=60) then
@@ -494,6 +494,8 @@ if (HPlevel~="Off") then
 		log(E_INFO,string.format('diff=% .2f RH=%-2d Temp=%.2f SP=%2.1f%+2.1f %s', diff, rh, temp, setpoint, temperatureOffset, v[ZONE_NAME]))
 	end
 	diffMax=math.floor(diffMax*100)/100
+	commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_diffMax'].."|".. diffMax .."|" .. diffMax}	
+	commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_tempDerivate'].."|".. tempDerivate .."|" .. tempDerivate}	
 	if (HPforce=="Night") then
 		diffMax=diffMax+0.5	-- force starting
 		if (diffMax<0.5) then diffMax=0.5 end
@@ -502,15 +504,14 @@ if (HPlevel~="Off") then
 	-- diffMax=-0.56 --DEBUG
 
 	log(E_INFO,'tempDerivate='..tempDerivate..' diffMax='..diffMax..' diffMaxTh='..diffMaxTh..' RHMax='..rhMax..' HPforce='..HPforce)
-	if (tempDerivate<0) then
+	if (tempDerivate<0.02) then
 		if ((minutesNow>=185 and minutesNow<300)) then
 			-- From 03:05 to 04:59, heat pump is OFF, turn On if diffMax computed at 10:00 will be very high
-			diffMax=diffMax+0.2-tempDerivate*9
-			log(E_INFO,"tempDerivate<0 between 3:00 and 5:00 => estimated diffMax at 10:00 = "..diffMax)
-		else
-			diffMax=diffMax-tempDerivate*5	-- if room temperature is decreasing, in winter, it's better to start heater early
-			log(E_INFO,"tempDerivate<0 => increase diffMax to "..diffMax)
+			diffMax=diffMax+0.1
+			log(E_INFO,"tempDerivate<0.02 between 3:05 and 5:00 => increase diffMax by 0.1 to increase power in this slot")
 		end
+		diffMax=diffMax-(tempDerivate-0.02)*4	-- if room temperature is decreasing, in winter, it's better to start heater early
+		log(E_INFO,"tempDerivate<0.02 => increase diffMax by |tempDerivate-0.02|*4: "..diffMax)
 	else
 		diffMax=diffMax-tempDerivate	-- room is reaching the setPoint
 		log(E_INFO,"tempDerivate>0 => decrease diffmax to "..diffMax)
@@ -615,11 +616,11 @@ if (HPlevel~="Off") then
 					if (diffMax>diffMaxTh) then
 						if (timeNow.hour>=10 and timeNow.hour<17) then
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*6000)
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*500)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh (daylight)")
 						else
 							-- increase power to recover the comfort state
-							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*3000)
+							targetPower=math.floor(targetPower+(diffMax-diffMaxTh)*300)
 							log(E_INFO,"targetPower="..targetPower.." increased due to diffMax>diffMaxTh")
 						end
 					end
@@ -640,17 +641,17 @@ if (HPlevel~="Off") then
 						log(E_INFO,"targetPower+=300 between 10 and 17")
 						targetPower=targetPower+300
 						if (timeNow.hour>=12) then 
-							targetPower=targetPower+math.floor(diffMax*diffMax*2000)	-- Adjust targetPower based on diffMax value
+							targetPower=targetPower+math.floor(diffMax*diffMax*500)	-- Adjust targetPower based on diffMax value
 							log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 						end
 					elseif (timeNow.hour<8 or timeNow.hour>=20) then	-- during the night reduce power if diffMax near zero
-						if (diffMax<diffMaxTh and tempDerivate>=0) then
+						if (diffMax<diffMaxTh and tempDerivate>=0.05) then
 							--rooms almost in temperature, in the night
-							targetPower=math.floor(targetPower*0.5)
-							log(E_INFO,"targetPower="..targetPower.." reduced by 50% because night time and rooms in temperature")
+							targetPower=math.floor(targetPower*0.2)
+							log(E_INFO,"targetPower="..targetPower.." reduced to 20% because night time and rooms in temperature")
 						else
-							targetPower=math.floor(targetPower*0.7)
-							log(E_INFO,"targetPower="..targetPower.." reduced by 30% because night time")
+							targetPower=math.floor(targetPower*0.3)
+							log(E_INFO,"targetPower="..targetPower.." reduced to 30% because night time")
 						end
 
 					end
@@ -665,11 +666,14 @@ if (HPlevel~="Off") then
 					end
 
 					-- now multiply targetPower by electricity avgPrice/currentPrice
-					targetPower=math.floor(targetPower*HP['Pp']*HP['Pp'])	-- HP['Pp']=avgPrice/currentPrice ratio
-					log(E_INFO,"targetPower="..targetPower.." multiplied by electricity (avgPrice/Price="..HP['Pp']..")²")
+					targetPower=math.floor(targetPower*HP['Pp'])	-- HP['Pp']=avgPrice/currentPrice ratio
+					log(E_INFO,"targetPower="..targetPower.." multiplied by electricity (avgPrice/Price="..HP['Pp']..")")
 					if (HP['EV']>=2 and targetPower>600) then
 						targetPower=math.floor(500+diffMax*1000)
-						log(E_INFO,"targetPower="..targetPower.." (reduced to 500+diffMax*1000) because the car is charging")
+						if (tempDerivate<0) then
+							targetPower=targetPower-tempDerivate*20000
+						end
+						log(E_INFO,"targetPower="..targetPower.." (reduced to 500 + diffMax*1000 - dT/dt*20000) because the car is charging")
 					end
 
 					-- solar production forecast
@@ -712,13 +716,13 @@ if (HPlevel~="Off") then
 						targetPower=targetPower+math.floor(diffMax*diffMax*1000)	-- Adjust targetPower based on diffMax value
 						log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 					elseif (timeNow.hour<9 or timeNow.hour>=18) then	-- during the night reduce power if diffMax near zero
-						if (diffMax<diffMaxTh and tempDerivate>=0) then
+						if (diffMax<diffMaxTh and tempDerivate>=0 and HPforce~='Night') then
 							--rooms almost in temperature, in the night
 							diffMax=0	-- 
-							log(E_INFO,"set diffMax=0 to disable heat pump, because rooms almost in temperature")
+							log(E_INFO,"Set diffMax=0 to disable heat pump, because rooms almost in temperature")
 						else
 							targetPower=math.floor(targetPower*0.8)
-							log(E_INFO,"targetPower="..targetPower.." reduced by 20% because peak hours or night time")
+							log(E_INFO,"TargetPower="..targetPower.." reduced by 20% because peak hours or night time")
 						end
 
 					end
@@ -807,9 +811,9 @@ if (HPlevel~="Off") then
 								log(TELEGRAM_LEVEL, HPSummer.." was On => disable it")
 								commandArray[HPSummer]='Off'
 							end
-							if (HP['HPout']<=TEMP_SUMMER_HP_MIN and otherdevices[HPOn]=='On') then	-- fluid temperature low and heatpump is on
+							if (tempHPout<=TEMP_SUMMER_HP_MIN and HP['HPout']<=TEMP_SUMMER_HP_MIN and otherdevices[HPOn]=='On' and timedifference(otherdevices_lastupdate[HPOn])>300) then	-- fluid temperature low and heatpump is on
 								--fluid temperature is decreasing below a reasonable value => send alert
-								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is very low!! "..HP['HPout'].."°C")
+								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is very low!! "..HP['HPout'].." -> "..tempHPout.."°C")
 								HP['Level']=LEVEL_OFF
 							end
 						end
@@ -829,7 +833,7 @@ if (HPlevel~="Off") then
 								log(TELEGRAM_LEVEL,HPSummer.." was Off => enable it")
 								commandArray[HPSummer]='On'
 							end
-							if (HP['HPout']>=30 and HP['Level']==0) then
+							if (HP['HPout']>=30 and otherdevices[HPOn]=='On' and timedifference(otherdevices_lastupdate[HPOn])>300) then
 								log(TELEGRAM_LEVEL,"Fluid temperature from heat pump is too high!! "..HP['HPout'].."°C")
 							end
 						end
@@ -1003,10 +1007,13 @@ elseif (HPmode=='Summer') then
 	-- Summer, and Level~=0
 	if (HP['Level']>=1) then
 		if (prodPower+evsolar>800) then deviceOn(VENTILATION_COIL_DEV,HP,'DC') end
-		if (tempHPout<=17 and (tempHPin<=17 or (tempHPin<20 and (HPlevel=='Auto' or HPlevel=='Night'))) and prodPower+evsolar>1800) then	-- activate chiller only if fluid temperature from heat pump is cold enough
+		if (tempHPout<=17 and (tempHPin<=17 or (tempHPin<20 and (HPlevel=='Auto' or HPlevel=='Night'))) and (prodPower+evsolar>1800 or HPlevel=='DehumNight')) then	
+			-- activate chiller only if fluid temperature from heat pump is cold enough, and there is enough power or DehumNight mode.
+			log(E_INFO,"Activate dehumidifier")
 			deviceOn(VENTILATION_DEHUMIDIFY_DEV,HP,'DD') 
 		elseif (tempHPout>=18) then
 			-- if (otherdevices[HPLevel]~='Dehum') then deviceOff(VENTILATION_COIL_DEV,HP,'DC') end
+			log(E_INFO,"fluid temperature too high => deactivate dehumidifier")
 			deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 		end
 		if (HPlevel=='Dehum' or HPlevel=='DehumNight') then
@@ -1016,7 +1023,7 @@ elseif (HPmode=='Summer') then
 			outletTemp=15
 			log(E_ERROR,"Set TempSummerMin to 15°C")
 		end
-	else		
+	else
 		deviceOff(VENTILATION_DEHUMIDIFY_DEV,HP,'DD')
 	end
 	if (prodPower<0) then 
@@ -1095,6 +1102,7 @@ else
 	carsoc="unknown"
 end
 
+commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_targetPower'].."|".. targetPower .."|" .. targetPower}	
 commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}	-- Compressor SetPoint virtual device
 commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV Garden: '..inverter2Power..'W Inv.Limit: '..otherdevices['PVGarden_Limit']..'%\nCar:'..carsoc..' P='..evsolar..'+'..evgrid..' V='..gridVoltage}
 HP['CP']=compressorPerc

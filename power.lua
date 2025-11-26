@@ -11,7 +11,7 @@
 -- At least a device with "Power" in its name has changed: let's go!
 
 DEBUG_LEVEL=E_WARNING
-DEBUG_LEVEL=E_INFO
+--DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG
 
 dofile "scripts/lua/config_power.lua"		-- configuration file
@@ -192,6 +192,7 @@ for devName,devValue in pairs(devicechanged) do
 		-- use PowerMeter device, measuring instant power (goes negative in case of exporting)
 		if (devName==PowerMeter) then
 			currentPower=getPowerValue(devValue)
+			log(E_DEBUG,"currentPower1="..currentPower.." from devName="..PowerMeter.." devValue="..devValue)
 		end
 	else
 		-- use PowerMeterImport and PowerMeterExport (if available)
@@ -223,9 +224,15 @@ for devName,devValue in pairs(devicechanged) do
 		end
 	end
 	if (devName == 'EV Current') then
-		log(E_INFO, "V="..otherdevices['EV Voltage'].." => EVCurr="..otherdevices_svalues['EV Current'].."A (EVPower="..getPowerValue(otherdevices['EV Energy']).." GridPower="..getPowerValue(otherdevices['Grid Power']).." PV="..math.floor(getPowerValue(otherdevices['PV_PowerMeter'])).."+"..getPowerValue(otherdevices['PV_Garden']).."W CarSoC="..otherdevices_svalues['eNiro: EV battery level'].."%)" )
+		if (batteryLevel==nil) then
+			if (otherdevices_svalues['eNiro: EV battery level']~=nil) then
+				batteryLevel=otherdevices_svalues['eNiro: EV battery level']
+			else
+				batteryLevel=unknown
+			end
+		end
+		log(E_INFO, "V="..otherdevices['EV Voltage'].." => EVCurr="..otherdevices_svalues['EV Current'].."A (EVPower="..getPowerValue(otherdevices['EV Energy']).." GridPower="..getPowerValue(otherdevices['Grid Power']).." PV="..math.floor(getPowerValue(otherdevices['PV_PowerMeter'])).."+"..getPowerValue(otherdevices['PV_Garden']).."W CarSoC="..batteryLevel.."%)" )
 	end
-
 
 	-- if blackout, turn on white leds in the building!
 	if (devName==blackoutDevice) then
@@ -391,7 +398,7 @@ if (currentPower>-20000 and currentPower<20000) then
 			if (Power['HS']==1 and hoymilesVoltage>=240) then
 				-- inverter not producing due to overvoltage => restart it
 				newlimit=100	-- start inverter from 100W only to prevent overvoltage
-				-os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+				os.execute('/usr/bin/mosquitto_pub -u ' .. MQTT_OWNER .. ' -P ' .. MQTT_PASSWORD .. ' -t ' .. HOYMILES_ID .. ' -m ' .. newlimit)
 				Power['HL']=newlimit
 				log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
 				commandArray[HOYMILES_RESTART_DEV]='On'
