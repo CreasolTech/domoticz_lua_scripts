@@ -528,7 +528,7 @@ if (HPlevel~="Off") then
 			inverterPower=getPowerValue(otherdevices[inverterMeter])
 			inverter1Power=inverterPower
 		end
-		inverterPower=inverterPower+inverter2Power
+		inverterPower=math.floor(inverterPower+inverter2Power)
 		log(E_INFO,"AveragePower="..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
 
 
@@ -540,8 +540,11 @@ if (HPlevel~="Off") then
 				if (prodPower>300) then HP['Level']=LEVEL_ON end
 			else
 				if (timeNow.month>3 and timeNow.month<11) then
-					diffMax=diffMax-0.3 -- in Summer or in the night peak hours
-					log(E_INFO,"Reduce diffMax to try exporting energy in the night")
+					diffMax=diffMax-0.3
+					log(E_INFO,"diffMax-=0.3 to reduce power in peak hours from April to October")
+				else
+					diffMax=diffMax-0.1
+					log(E_INFO,"diffMax-=0.1 to reduce power in peak hours from November to March")
 				end
 			end
 		elseif (timeNow.yday>=71 and timeNow.yday<305 and (timeNow.hour<9 or timeNow.hour>20)) then
@@ -549,15 +552,19 @@ if (HPlevel~="Off") then
 			log(E_INFO,"Night, from 10 Mar to 1 Nov => reduce diffMax to "..diffMax)
 		else
 			-- during the day, not in peak hours
+			if (HPmode == 'Winter' and timeNow.hour>=14 and timeNow.hour<17) then
+				diffMax=diffMax+0.1	
+				log(E_INFO,"diffMax increased +0.1 from 14 to 17 to avoid that heat pump restarts during peak hours")
+			end
 			prodPower=prodPower+gridPowerMin -- makes the heat pump using at least gridPowerMin Watt from the grid, even while overheating
 			if (prodPower>2000) then
 				log(E_INFO,"Extra power => extra overlimit")
 				overlimitTemp=overlimitTemp+0.3
 			end
 		end
-		if (HP['Pp']<=0.9) then
+		if (HP['Pp']<=0.9 and timeNow.month>=4 and timeNow.month<11) then
 			diffMax=math.floor((diffMax-(1-HP['Pp']))*100)/100
-			log(E_INFO,"diffMax="..diffMax.." reduced because electricity price is high ("..HP['p'].."€)")
+			log(E_INFO,"diffMax="..diffMax.." reduced because electricity price is high Apr-Oct ("..HP['p'].."€)")
 		end
 		if (diffMax<=diffMaxTh and diffMax+overlimitTemp>0) then
 			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or (HP['Pp']>0.9 and (timeNow.month<4 or timeNow.month>10))) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
@@ -644,42 +651,51 @@ if (HPlevel~="Off") then
 							targetPower=targetPower+math.floor(diffMax*diffMax*500)	-- Adjust targetPower based on diffMax value
 							log(E_INFO,"targetPower="..targetPower.." computed based on diffMax² after 12:00")
 						end
-					elseif (timeNow.hour<8 or timeNow.hour>=20) then	-- during the night reduce power if diffMax near zero
+					elseif (timeNow.hour<8 or timeNow.hour>=18) then	-- during the night reduce power if diffMax near zero
 						if (diffMax<diffMaxTh and tempDerivate>=0.05) then
 							--rooms almost in temperature, in the night
-							targetPower=math.floor(targetPower*0.2)
-							log(E_INFO,"targetPower="..targetPower.." reduced to 20% because night time and rooms in temperature")
+							targetPower=math.floor(targetPower*0.5)
+							log(E_INFO,"targetPower="..targetPower.." reduced to 50% because night time and rooms in temperature")
 						else
-							targetPower=math.floor(targetPower*0.3)
-							log(E_INFO,"targetPower="..targetPower.." reduced to 30% because night time")
+							targetPower=math.floor(targetPower*0.8)
+							log(E_INFO,"targetPower="..targetPower.." reduced to 80% because night time")
 						end
 
 					end
 					if (peakPower() and HP['Pp']<=0.9) then
+						targetPower=math.floor(targetPower*HP['Pp'])
+						log(E_INFO,"targetPower="..targetPower.." multiplied to avgPrice/currentPrice")
+						--[[
 						if (timeNow.hour<=12) then 
-							targetPower=math.floor(targetPower*0.4)
-							log(E_INFO,"targetPower="..targetPower.." reduced by 60% because morning peak hours")
+							targetPower=math.floor(targetPower*0.7)
+							log(E_INFO,"targetPower="..targetPower.." reduced by 30% because morning peak hours")
 						else
 							targetPower=math.floor(targetPower*0.7)
 							log(E_INFO,"targetPower="..targetPower.." reduced by 30% because evening peak hours")
 						end
+						]]
 					end
 
 					-- now multiply targetPower by electricity avgPrice/currentPrice
 					targetPower=math.floor(targetPower*HP['Pp'])	-- HP['Pp']=avgPrice/currentPrice ratio
 					log(E_INFO,"targetPower="..targetPower.." multiplied by electricity (avgPrice/Price="..HP['Pp']..")")
 					if (HP['EV']>=2 and targetPower>600) then
-						targetPower=math.floor(500+diffMax*1000)
-						if (tempDerivate<0) then
-							targetPower=targetPower-tempDerivate*20000
+						if (timeNow.hour<13) then
+							targetPower=math.floor(500+diffMax*1000)
+							if (tempDerivate<0) then
+								targetPower=targetPower-tempDerivate*20000
+							end
+							log(E_INFO,"targetPower="..targetPower.." (reduced to 500 + diffMax*1000 - dT/dt*20000) because the car is charging")
+						else
+							targetPower=math.floor(targetPower*0.7)
+							log(E_INFO,"targetPower="..targetPower.." (reduced to 70%) because the car is charging after 13:00")
 						end
-						log(E_INFO,"targetPower="..targetPower.." (reduced to 500 + diffMax*1000 - dT/dt*20000) because the car is charging")
 					end
 
 					-- solar production forecast
 					if (timeNow.hour<10 and HP['pv']>=20000) then
-						targetPower=math.floor(targetPower*0.5)
-						log(E_INFO,"targetPower=".. targetPower .." reduced by 50% because solar production will be >=20kWh today!")
+						targetPower=math.floor(targetPower*0.8)
+						log(E_INFO,"targetPower=".. targetPower .." reduced to 80% because solar production will be >=20kWh today!")
 					end
 
 					-- use all available power from photovoltaic?
@@ -845,8 +861,13 @@ if (HPlevel~="Off") then
 				end -- if (HP['Level']>0
 				HPZ['tf']=tempHPout -- save the current tempHPout value
 			else	--avgPower>=POWER_MAX: decrement level
-				log(E_INFO,"Too much power consumption => decrease Heat Pump level")
-				--HP['Level']=LEVEL_OFF
+				if (compressorPerc>=60) then
+					compressorPerc=compressorMin
+					log(E_INFO,"Too much power consumption => decrease compressorPerc to "..compressorPerc)
+				else
+					HP['Level']=LEVEL_OFF
+					log(E_INFO,"Too much power consumption, compressorPerc<60 => turn OFF HeatPUmp")
+				end
 			end
 		elseif (diffMax<0) then
 			-- diffMax<=0 => All zones are in temperature!
@@ -1033,6 +1054,17 @@ elseif (HPmode=='Summer') then
 			HP['Level']=LEVEL_OFF;
 		end
 	end
+elseif (HPmode=='Winter') then
+	-- Enable ventilation coil if diffMax is high?
+	if (otherdevices[VENTILATION_COIL_DEV]~='On' and timeNow.hour>=8 and timeNow.hour<16) then
+		if ((diffMax>=0.35 or otherdevices[VENTILATION_DEV]=='On') and tempHPout>34) then
+			deviceOn(VENTILATION_COIL_DEV,HP,'DC')
+		end
+	else
+		if (timeNow.hour>=22 or (diffMax<=0.25 and otherdevices[VENTILATION_DEV]=='Off')) then
+			deviceOff(VENTILATION_COIL_DEV,HP,'DC')
+		end
+	end
 end
 
 if (HP['Level']~=LEVEL_OFF) then
@@ -1041,7 +1073,8 @@ if (HP['Level']~=LEVEL_OFF) then
 	if (HPmode=="Winter") then 
 		local dT=tempHPoutComputed-tempHPout	
 		local dP=targetPower-HPPower
-		if (dP>0) then
+		if (dP>0) then	
+			-- Increase HP power
 			if (HPPower>=400) then
 				-- heatpump power should be increased => increased outlet temperature
 				dT=math.floor(dP/100)/10
@@ -1083,7 +1116,33 @@ else
 	log(E_DEBUG,"HP[toff]="..HP['toff'])
 end
 
--- save variables
+------------------------------- EV Charging in the night? ---------------------------------
+-- Now check EV NightCharge selector, to detect if the car should be charged in the night
+if (otherdevices[EVNIGHTCHARGE]~='Off' and (timeNow.hour>=22 or timeNow.hour<5)) then
+	if (otherdevices[EVSTATE]=='Con') then 
+		if (otherdevices[EVNIGHTCHARGE]=='Partial' and timeNow.hour>=1 and timeNow.hour<5) then
+			if (HP['Pp']>=EVLOWPRICE) then
+				-- start charging because avgPrice/price >= 1.2 => low price
+				log(E_INFO, "Low price => start charging!")
+				commandArray[#commandArray +1]={[EVMODE]='Set Level: 50'}
+			end
+		else
+			print(TODO)
+		end
+	elseif (otherdevices[EVSTATE]=='Ch') then
+		-- while charging
+		if (otherdevices[EVNIGHTCHARGE]=='Partial') then
+			if (HP['Pp']<EVLOWPRICE) then
+				-- stop charging (high price)
+				log(E_INFO, "High price => stop charging!")
+				commandArray[#commandArray +1]={[EVMODE]='Set Level: 0'}
+			end
+		end
+	end
+
+end
+
+---------------------- save variables -----------------------------
 diffMax=string.format("%.2f", diffMax)
 diffMaxText=' dT='..diffMax..'°C'
 if (HP['OL']~=0) then diffMaxText=' OverLimit' end
@@ -1097,14 +1156,17 @@ else
 	hpstat='On '
 end
 if (otherdevices['eNiro: EV battery level']~=nil) then
-	carsoc=otherdevices['eNiro: EV battery level']..'% '..otherdevices['eNiro: EV range']..'km'
+	carsoc=otherdevices['eNiro: EV battery level']..'% R='..otherdevices['eNiro: EV range']..'km'
 else
 	carsoc="unknown"
 end
 
-commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_targetPower'].."|".. targetPower .."|" .. targetPower}	
-commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}	-- Compressor SetPoint virtual device
-commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV Garden: '..inverter2Power..'W Inv.Limit: '..otherdevices['PVGarden_Limit']..'%\nCar:'..carsoc..' P='..evsolar..'+'..evgrid..' V='..gridVoltage}
+commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_targetPower'].."|".. targetPower .."|" .. targetPower}
+--commandArray[#commandArray +1]={[HPCompressorSP]='Set Level: '..compressorPerc}
+--commandArray[HPCompressorSP] = "Set Level:"..compressorPerc
+commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|2|" .. compressorPerc}	-- Compressor SetPoint virtual device
+--commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}	-- Compressor SetPoint virtual device
+commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV Garden: '..inverter2Power..'W Inv.Limit: '..otherdevices['PVGarden_Limit']..'% V='..gridVoltage..'\nEV car: '..carsoc..' P='..evsolar..'+'..evgrid..'W'}
 HP['CP']=compressorPerc
 --print("commandArray="..commandArray[#commandArray])
 commandArray['Variable:zHeatPump']=json.encode(HP)

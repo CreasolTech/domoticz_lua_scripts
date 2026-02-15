@@ -342,7 +342,9 @@ function ZAinit()
 	if (ZA['PIR_Gs']==nil) then ZA['PIR_Gs']=timeNow end		--time when PIR_G has been activated and video recording started
 	if (ZA['PIR_SEs']==nil) then ZA['PIR_SEs']=timeNow end	--time when PIR_SE has been activated and video recording started
 	if (ZA['PIR_SEn']==nil) then ZA['PIR_SEn']=0 end			--number of video recordings due to PIR_SE activations
-	if (ZA['Button1']==nil) then ZA['Button1']=timeNow end	--time the Button1 has been pushed
+	if (ZA['PIR_Te']==nil) then ZA['PIR_Te']=0 end			--number of video recordings due to PIR_SE activations
+	if (ZA['PIR_Ea']==nil) then ZA['PIR_Ea']=0 end			--number of video recordings due to PIR_SE activations
+	if (ZA['ButtonCA']==nil) then ZA['ButtonBA']=timeNow end	--time the Button1 has been pushed
 	if (ZA['ButtonSU']==nil) then ZA['ButtonSU']=timeNow end	--time the ButtonSU has been pushed
 	if (ZA['ButtonCO']==nil) then ZA['ButtonCO']=timeNow end	--time the ButtonCO has been pushed
 	if (ZA['SirDis']==nil) then ZA['SirDis']=0 end			-- time of day when Siren will be enabled again in ALARM_DAY (used to disable siren while closing blinds
@@ -597,6 +599,22 @@ for devName,devValue in pairs(devicechanged) do
 				--	log(E_DEBUG,"PIR ignored because it's winding (".. windSpeed/10 .." m/s) or raining (".. rainRate/10 .." mm/h) or pulse length<5s")
 				end
 			end
+			if (devName=='PIR_Terrazza' and devValue=='On' and (timeNow-ZA['PIR_Te'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+				if (otherdevices['MCS_Camera_Porta']~='Open') then
+					if (alarmLevel>=ALARM_DAY) then
+						os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.207 '' PIR_Terrazza 2>&1 >/tmp/alarm_sendsnapshot_terrazzo.log &")
+						ZA['PIR_Te']=timeNow
+					end
+					if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
+				end
+			end
+			if (devName=='PIR_East' and devValue=='On' and (timeNow-ZA['PIR_Ea'])>=30) then -- ignore activations in less than 30s (because recording and sending 20s videos takes about 26s)
+				if (alarmLevel>=ALARM_DAY) then
+					os.execute("scripts/lua/alarm_sendsnapshot.sh 192.168.3.203 192.168.3.204 PIR_East 2>&1 >/tmp/alarm_sendsnapshot_east.log &")
+					ZA['PIR_Ea']=timeNow
+				end
+				if (otherdevices['Display_Lab_12V']~='On') then commandArray['Display_Lab_12V']="On FOR 2 MINUTES" end	-- activate display to check what happen
+			end
 		end		
 	elseif (devName:sub(1,6)=='TAMPER') then 
 		for item,tamperRow in pairs(TAMPERlist) do
@@ -621,7 +639,7 @@ for devName,devValue in pairs(devicechanged) do
 			end
 		end
 	elseif (devName:sub(1,5)=='ALARM') then
-		if (devName:sub(7)=='Button1') then
+		if (devName:sub(7)=='ButtonCA') then
 			-- 1 short pulse => set alarmLevel to ALARM_NIGHT
 			-- 1 long pulse  => set alarmLevel to ALARM_OFF
 			-- 1 5s pulse => start external siren
@@ -630,7 +648,6 @@ for devName,devValue in pairs(devicechanged) do
 				pulseLen=timeNow-ZA[devName:sub(7)]	-- ZA['Button'] contains the date/time when pushbutton has been pushed
 				print("Button hold for "..pulseLen.." seconds")
 				if (pulseLen<=1) then
-					
 					-- else set alarmLevel=ALARM_NIGHT
 					if (alarmLevel==ALARM_NIGHT) then 
 				  		-- turn ON/OFF LEDs in bedroom
@@ -647,7 +664,7 @@ for devName,devValue in pairs(devicechanged) do
 					-- 2-3s pulse => disactivate alarm
 					alarmLevel=ALARM_OFF
 					alarmNightOff()
-				elseif (pulseLen>=5 and pulseLen<=7) then
+				elseif (pulseLen>=6 and pulseLen<=10) then
 					-- 5-7s pulse => activate external siren
 					commandArray['SIREN_External']='On FOR 5 MINUTES'
 				end
@@ -677,7 +694,7 @@ for devName,devValue in pairs(devicechanged) do
 					-- 2-3s pulse => disactivate alarm
 					alarmLevel=ALARM_OFF
 					alarmNightOff()
-				elseif (pulseLen>=5 and pulseLen<=7) then
+				elseif (pulseLen>=6 and pulseLen<=10) then
 					-- 5-7s pulse => activate external siren
 					commandArray['SIREN_External']='On FOR 5 MINUTES'
 				end

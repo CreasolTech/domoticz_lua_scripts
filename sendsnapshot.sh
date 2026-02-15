@@ -63,18 +63,24 @@ if [ ${LIGHT1_IDX} -gt 0 ]; then
 	turnOn=0
 	if (( ${time} < ${sunrise} || ${time} > ${sunset} )); then 
 		#night time
+		#echo "night time"
 		if [ ${LIGHT1_IDX} -gt 0 ]; then
+			#echo "LIGHT1_IDX={LIGHT1_IDX} is not zero"
 			#get status of LIGHT1_IDX light
-			light1status=`curl -s "${DOMOTICZ_URL}/json.htm?type=devices&rid=${LIGHT1_IDX}" | jq '.result[0].Data' |tr -d \"`
+			#echo "Getting status for LIGHT1 using command curl -s \"${DOMOTICZ_URL}/json.htm?type=command&param=getdevices&rid=${LIGHT1_IDX}\" | jq '.result[0].Data' |tr -d \\\""
+			light1status=`curl -s "${DOMOTICZ_URL}/json.htm?type=command&param=getdevices&rid=${LIGHT1_IDX}" | jq '.result[0].Data' |tr -d \"`
 			if [ "a${light1status}" == "aOff" ]; then
 				#switch scene for light1 ON
+				#echo "Calling curl -s \"${DOMOTICZ_URL}/json.htm?type=command&param=switchscene&switchcmd=On&idx=${LIGHT1_SCENEIDX}\""
 				curl -s "${DOMOTICZ_URL}/json.htm?type=command&param=switchscene&switchcmd=On&idx=${LIGHT1_SCENEIDX}" >/dev/null
 				turnOn=1
+			#else
+				#echo "LIGHT1_IDX status=${light1status} is not Off"
 			fi
 		fi
 		if [ ${LIGHT2_IDX} -gt 0 ]; then
 			#get status of LIGHT2_IDX light
-			light2status=`curl -s "${DOMOTICZ_URL}/json.htm?type=devices&rid=${LIGHT2_IDX}" | jq '.result[0].Data' |tr -d \"`
+			light2status=`curl -s "${DOMOTICZ_URL}/json.htm?type=command&param=getdevices&rid=${LIGHT2_IDX}" | jq '.result[0].Data' |tr -d \"`
 			if [ "a${light2status}" == "aOff" ]; then
 				#switch scene for light2 ON
 				curl -s "${DOMOTICZ_URL}/json.htm?type=command&param=switchscene&switchcmd=On&idx=${LIGHT2_SCENEIDX}" >/dev/null

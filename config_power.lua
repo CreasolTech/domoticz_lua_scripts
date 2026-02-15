@@ -26,7 +26,7 @@ POWERMETER_SELF='Power_SelfConsumption'			-- Electric+Counter virtual device (to
 PERCENTAGE_SELF='Perc_SelfConsumption'			-- Percentage virtual device (to be created manually)
 PERCENTAGE_SUFF='Perc_SelfSufficiency'			-- Percentage virtual device (to be created manually)
 
-blackoutDevice='Monitor_HeatPump'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
+blackoutDevice='Monitor_Servizi'			-- device used to monitor the 230V voltage. Off in case of power outage (blackout)
 EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'dombus2 - (ffe3.c) Grid Power'}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
@@ -48,17 +48,18 @@ HOYMILES_RESTART_DEV='PVGarden_RestartInverter'
 ledsGreen={'Led_Cucina_Green','BagnoPT_LedG'}	-- green LEDs that show power production
 -- ledsRed={'Led_Cucina_Red','Living_Led_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
 ledsRed={'Led_Cucina_Red','BagnoPT_LedR' }		-- red LEDs that show power usage
-ledsWhite={'Living_Led_White','Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
-ledsWhiteSelector={'Led_Cucina_White','BagnoPT_LedW'}		-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
+--ledsWhite={'LEDWhite_Living','Light_Night_Led','Led_Camera_White','Led_Camera_Ospiti_White','Led_Camera_Ospiti_WhiteLow'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
+ledsWhite={'LEDWhite_Living','Led_Camera_White','Light_Night_Led'}	-- White LEDs that will be activated in case of blackout. List of devices configured as On/Off switches
+ledsWhiteSelector={'Led_Cucina_White'}		-- White LEDs that will be activated in case of blackout. List of devices configured as Selector switches
 blackoutBuzzers={'Buzzer_Camera'}			-- Audio alert in case of power outage
 HPMode='HeatPump_Mode'              		-- Selector switch for Off, Winter (heating), Summer (cooling) 
 
 EVLedStatus={''}				-- status indicator for the electric car charging (1 flash => more than 1kW, 2 flashes => more than 2kW, ...}
 PowerThreshold={
 	5450,  	-- available power (Italy: power+10%)
-	6300,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
+	6650,	-- threshold (Italy: power+27%), power over available_power and lower than this threshold is available for max 90 minutes
 	4800,	-- send alert after 4800s (80minutes) . Imported power can stay at TH[2] for 90min, then must be below TH[1] for at least 90 minutes
-	100		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect within 120s)
+	40		-- above threshold, send notification in 60 seconds (or the energy meter will disconnect within 120s)
 }
 --[[	-- DEBUG: reduce power and time threshold to test script
 PowerThreshold={ --DEBUG values
@@ -83,9 +84,9 @@ DeviceToDisconnect={	-- list of device that can be disabled to reduce power usag
 	{'Bagno_Scaldasalviette', 'Off', 'On'},
 	{'Socket_Nord', 'Off', 'On'},
 	{'Socket_Garden', 'Off', 'On'},
-	{'EV Mode', 'Off', 'Solar'},
-	{'Relay_HotWater', 'Off', 'On'},
 	{'HeatPump', 'Off', 'On'},
+	{'Relay_HotWater', 'Off', 'On'},
+	{'EV Mode', 'Off', 'Solar'},
 }
 	
 

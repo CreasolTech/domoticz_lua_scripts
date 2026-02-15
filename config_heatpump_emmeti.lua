@@ -107,8 +107,8 @@ zones={
 	-- zone name		temp device_name	Rel.Hum device		valve					start	stop	offset	weight  overheat	start	stop	offset	weight  overcool
 	{'Cucina',			'Temp_Cucina',		'RH_Cucina',		'',						8,		20,		-0.1,	1,				7,		23,		0.2,	1},	
 	{'Studio',			'Temp_Studio',		'',                 '',						9,		18,		-0.2,	0.2,	8,		19,		0.5,	0.8},
-	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			11,		21,		-1,		0.3,	16,		19,		1,		0.5},
-	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			12,		22,		-0.6,	0.3,	10,		23,		0.5,	0.8},	
+	{'Bagno',			'Temp_Bagno', 		'',                 'Valve_Bagno',			12,		22,		-2,		0.3,	16,		19,		1,		0.5},
+	{'Camera',			'Temp_Camera', 		'RH_Camera',        'Valve_Camera',			12,		22,		-1,		0.3,	10,		23,		0.5,	0.8},	
 	{'Camera_Valentina','Temp_Camera_Valentina','',           'Valve_Camera_Valentina',	12,		22,		-0.8,	0.3,	13,		23,		0.5,	0.8},	
 	{'Camera_Ospiti',	'Temp_Camera_Ospiti','',                'Valve_Camera_Ospiti',	12,		22,		-0.8,	0.3,	13,		23,		0.5,	0.3},
 	{'Stireria',		'Temp_Stireria',	'',                 'Valve_Stireria',		12,		18,		-1,		0.3,	8,		20,		1,		0.3},

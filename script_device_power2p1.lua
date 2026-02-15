@@ -5,6 +5,16 @@
 -- Also, it groups several energy sources (photovoltaic1, photovoltaic2, wind, ...) into a single renewable generator virtual device, used by the Energy Dashboard
 -- The virtual device (name is written in GENERATOR_SUM_DEV below) should be created manually: see below.
 
+if (false) then
+	devs=""
+	ndevs=0
+	for name,value in pairs(devicechanged) do
+		ndevs=ndevs+1
+		devs=devs..name.."; "
+	end
+	print("power2p1: "..ndevs.." items in devicechanged: "..devs)
+end
+
 GRID_DEV="PowerMeter Grid"		-- existing meter used to measure the grid power (negative when producing)
 P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that is managed/updated by this script: MUST BE CREATED (type P1 meter)
 TARIFF1_START=420				-- minutes since midnight when TARIFF1 starts (420=7:00)

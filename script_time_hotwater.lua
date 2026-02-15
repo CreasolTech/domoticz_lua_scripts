@@ -44,7 +44,8 @@ if (HW_POWERSUPPLY~='') then
 		goto hotwaterEnd
 	elseif (otherdevices[HW_POWERSUPPLY]=='Off') then
 		-- at 4:00 turn On relay to supply the heatpump, to measure the internal water temperature
-		if (timeNow.hour==HW_NIGHT_CHECKHOUR and timeNow.min==0 and mode=='Auto') then
+		if (timeNow.hour==HW_NIGHT_CHECKHOUR and timeNow.min==0 and mode=='Auto' and otherdevices[HW_NIGHTENABLE]~='Off') then
+			-- otherdevices[HW_NIGHTENABLE]~='Off' => hotwater must be enabled in the night to heat the water
 			commandArray[HW_POWERSUPPLY]='On'	-- activate the hotwater heatpump in the night to be sure that water temperature is sufficient for the morning
 			log(E_INFO,"HotWater power supply On to check water tank temperature")
 		elseif (mode=='On') then

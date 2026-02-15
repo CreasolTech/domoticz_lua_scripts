@@ -139,13 +139,13 @@ function powerMeterAlert(on)
 	for k,pma in pairs(PowerMeterAlerts) do
 		if (on~=0) then
 			if (otherdevices[ pma[1] ]~=pma[3]) then
-				log(E_INFO,"Activate sould alert "..pma[1])
+				log(E_INFO,"Activate sound alert "..pma[1])
 				commandArray[ pma[1] ]=pma[3]
 			end
 		else
 			-- OFF command
 			if (otherdevices[ pma[1] ]~=pma[2]) then
-				log(E_INFO,"Disable sould alert "..pma[1])
+				log(E_DEBUG,"Disable sound alert "..pma[1])
 				commandArray[ pma[1] ]=pma[2]
 			end
 		end
@@ -238,6 +238,7 @@ for devName,devValue in pairs(devicechanged) do
 	if (devName==blackoutDevice) then
 		log(E_WARNING,"========== BLACKOUT: "..devName.." is "..devValue.." ==========")
 		if (devValue=='Off') then -- blackout
+			log(E_WARNING, "Turn on white leds")
 			for k,led in pairs(ledsWhite) do
 				if (otherdevices[led]~=nil and otherdevices[led]~='0n') then
 					commandArray[led]='On'
@@ -275,6 +276,18 @@ for devName,devValue in pairs(devicechanged) do
 			end
 		end
 	end
+	if (devName=='Voltage_Battery') then
+		-- check battery voltage, AC detector and disable internet router when battery voltage is very low
+		batteryVoltage=tonumber(otherdevices_svalues['Voltage_Battery'])
+		if (otherdevices[blackoutDevice]=='Off' and otherdevices['Router_WAN_Reset']=='Off' and batteryVoltage<12.4) then
+			log(E_CRITICAL, "Blackout e tensione batteria bassa " .. batteryVoltage .." => tolgo alimentazione al router internet")
+			commandArray['Router_WAN_Reset']='On'
+		elseif (otherdevices[blackoutDevice]=='On' and otherdevices['Router_WAN_Reset']=='On') then
+			log(E_CRITICAL, "Blackout restored => riabilito alimentazione al router internet")
+			commandArray['Router_WAN_Reset']='Off'
+		end
+	end
+
 end
 
 -- check that main powermeter is really working...
@@ -806,12 +819,12 @@ if (currentPower>-20000 and currentPower<20000) then
 			if (Power['th2']>=POWERMETER_INTERVAL) then Power['th2']=Power['th2']-POWERMETER_INTERVAL else Power['th2']=0 end
 		else -- very high power consumption : short time to disconnect some loads
 			Power['th2']=Power['th2']+POWERMETER_INTERVAL
-			log(E_WARNING, "Power>"..PowerThreshold[2].." for "..Power['th2'].."/"..PowerThreshold[4].."s")
+			log(E_WARNING, "Power="..currentPower.." > "..PowerThreshold[2].." for "..Power['th2'].."/"..PowerThreshold[4].."s")
 			if (Power['th2']>=PowerThreshold[4]) then
 				-- can I disconnect anything?
 				-- very high power consumption: short intervention time before power outage
-				time=os.time()-Power['disc']	-- disconnect devices every 20s
-				if (time>=20 and powerDisconnect()==0) then
+				time=os.time()-Power['disc']	-- disconnect devices every 10s
+				if (time>=10 and powerDisconnect()==0) then
 					-- nothing to disconnect
 					powerMeterAlert(1)  -- send alert
 					log(E_CRITICAL,"Potenza assorbita="..currentPower.."W: Pericolo di disconnessione. Spegnere elettrodomestici!") -- send alert by Telegram
@@ -822,7 +835,7 @@ if (currentPower>-20000 and currentPower<20000) then
 				end
 			end
 		end
-		log(E_WARNING, "Power>"..PowerThreshold[1].." for "..Power['th1'].."/"..PowerThreshold[3].."s")
+		log(E_WARNING, "Power="..currentPower.." > "..PowerThreshold[1].." for "..Power['th1'].."/"..PowerThreshold[3].."s")
 		if (Power['th1']>=PowerThreshold[3]) then
 			-- can I disconnect anything?
 			time=os.time()-Power['disc']	-- disconnect devices every 60s
@@ -840,6 +853,9 @@ if (currentPower>-20000 and currentPower<20000) then
 		if (Power['th1']>=POWERMETER_INTERVAL) then Power['th1']=Power['th1']-POWERMETER_INTERVAL else Power['th1']=0 end
 		if (Power['th2']>=POWERMETER_INTERVAL) then Power['th2']=Power['th2']-POWERMETER_INTERVAL else Power['th2']=0 end
 	end
+
+	-- DEBUG: TRACKER WIND SENSOR
+	--commandArray['dombusLab - (ffd0.d) Wind']='3'
 
 
 	-- save variables in Domoticz, in a json variable Power
