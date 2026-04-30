@@ -91,7 +91,7 @@ for devName,devValue in pairs(devicechanged) do
 	]]  -- remove this line to enable the section above
 
 	-- pushbutton that toggles lights ON/OFF when push quickly, and turn lights OFF when push for more than 2 seconds
-	if (devName=='PULSANTE SUD luci esterne') then -- PULSANTE SUD luci estern = device name for outdoor lights pushbutton switch
+	if (devName=='PULSANTE SUD') then -- PULSANTE SUD luci estern = device name for outdoor lights pushbutton switch
 		-- 1 short pulse => toggles lights ON/OFF
 		-- 1 long pulse => lights OFF
 		PBinit(devName)	-- read zPushButton variable into PB[] and add this devName if not exists 
@@ -100,14 +100,30 @@ for devName,devValue in pairs(devicechanged) do
 			-- compute pulse length
 			pulseLen=timeElapsed(devName)
 			log(E_INFO,"EVENT: pushbutton released, pulseLen="..tostring(pulseLen).."s")
-			if (pulseLen<=1 and otherdevices['LightOut2']=='Off') then
-				-- short pulse, and commanded device is OFF => ON
-				commandArray['LightOut2']='On FOR 15 MINUTES'
-				commandArray['LightOut3']='On FOR 15 MINUTES'
+			if (pulseLen<=1) then
+				-- short pulse => OFF => ON
+				if (timeofday['Nighttime']) then
+					-- Night time => turn ON/Off the lights
+					if (otherdevices['LightOut2']=='Off') then
+						commandArray['LightOut2']='On FOR 15 MINUTES'
+						commandArray['LightOut3']='On FOR 15 MINUTES'
+					else
+						commandArray['LightOut2']='Off'
+						commandArray['LightOut3']='Off'
+					end
+				else
+					-- Day time => turn On/Off water pump relay
+					if (otherdevices['Relay_Irrigazione']=='Off') then
+						commandArray['Relay_Irrigazione']='On'
+					else
+						commandArray['Relay_Irrigazione']='Off'
+					end
+				end
 			else
 				-- long pulse, or commanded device was ON
 				commandArray['LightOut2']='Off'
 				commandArray['LightOut3']='Off'
+				commandArray['Relay_Irrigazione']='Off'
 			end
 		else
 			-- devValue==On => store the current date/time in PB array

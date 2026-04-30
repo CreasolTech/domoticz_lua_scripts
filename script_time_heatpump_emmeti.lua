@@ -252,7 +252,7 @@ avgPower=math.floor(avgPower)
 prodPower=0-avgPower
 gridVoltage=0
 if (GRID_VOLTAGE~='') then
-	gridVoltage=tonumber(otherdevices[GRID_VOLTAGE])
+	gridVoltage=math.floor(tonumber(otherdevices[GRID_VOLTAGE]))
 end
 
 if (heatpumpMeter~='' and otherdevices[heatpumpMeter]~=nil) then
@@ -331,10 +331,22 @@ targetPower=0
 CompressorMin=6
 CompressorMax=100
 
-inverter2Power=0	-- PVGarden inverter
-if (inverter2Meter~='' and otherdevices[inverter2Meter]~=nil) then
-	-- inverter2Meter device exists: extract power (skip energy or other values, separated by ;)
-	inverter2Power=getPowerValue(otherdevices[inverter2Meter])
+if (otherdevices[powerMeter]~=nil) then
+	-- power meter exists, returning value "usagePower;totalEnergy"
+	-- Also, script_device_power.lua is writing the user variable avgPower with average consumed power in the minute
+	inverter2Power=0	-- PVTracker inverter
+	if (inverter2Meter~='' and otherdevices[inverter2Meter]~=nil) then
+		-- inverter2Meter device exists: extract power (skip energy or other values, separated by ;)
+		inverter2Power=getPowerValue(otherdevices[inverter2Meter])
+	end
+	inverterPower=0
+	if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
+		-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
+		inverterPower=math.floor(getPowerValue(otherdevices[inverterMeter]))
+		inverter1Power=inverterPower
+	end
+	inverterPower=math.floor(inverterPower+inverter2Power)
+	log(E_INFO,"AveragePower="..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
 end
 
 if (EVSTATE_DEV~='') then
@@ -389,16 +401,16 @@ if (HPlevel~="Off") then
 			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.05 between 20:00 and 00:59")
 		end
 		if (timeNow.yday>=41 and timeNow.yday<320 and timeNow.hour<9) then	
-			if (CLOUDS_TODAY~='' and otherdevices[CLOUDS_TODAY]~=nil and tonumber(otherdevices[CLOUDS_TODAY])<=60) then
-				-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
+			-- during night, after 10 Feb with sunny weather => do not start heatpump if possible
+			if (HP['pv']>=20000) then
 				diffMaxTh=diffMaxTh+0.1
 				log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 from 10 Feb to 15 Nov in case of Sunny day")
 			end
-			if (timeNow.yday>=71 and timeNow.yday<305) then
-				-- during night, between 10 Mar and 1 Nov => do not start heatpump in the night
-				diffMaxTh=diffMaxTh+0.1
-				log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 from 10 Mar to 15 Nov")
-			end
+		end
+		if (((timeNow.hour<10 or timeNow.hour>=17) or HP['Pp']<1) and timeNow.yday>=60 and timeNow.yday<305) then
+			-- during peak hours or in the night, between 1 Mar and 1 Nov => do not start heatpump
+			diffMaxTh=diffMaxTh+0.1
+			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 from 10 Mar to 15 Nov")
 		end
 		if (peakPower() and HP['Pp']<=0.9) then 
 			diffMaxTh=diffMaxTh+0.2
@@ -409,7 +421,7 @@ if (HPlevel~="Off") then
 		overlimitTemp=OVERHEAT		-- max overheat temperature
 		overlimitPower=500			-- minimum power to start overheating
 		overlimitPowerExport=0		-- exporting power in overlimit
-		if (timeNow.month>=4 and timeNow.month<=10) then overlimitPowerExport=1500 end
+		if (timeNow.month>=3 and timeNow.month<=10) then overlimitPowerExport=1000 end
 		overlimitDiff=0.4			-- forced diffmax value
 		prodPowerOn=300				-- minimum extra power to turn ON the heatpump
 		gridPowerMin=300			-- minimum power from the grid, even when PV is producing
@@ -517,20 +529,9 @@ if (HPlevel~="Off") then
 		log(E_INFO,"tempDerivate>0 => decrease diffmax to "..diffMax)
 	end
 
-
 	-- Also, I have to consider the availability of power from photovoltaic
 	if (otherdevices[powerMeter]~=nil) then
 		-- power meter exists, returning value "usagePower;totalEnergy"
-		-- Also, script_device_power.lua is writing the user variable avgPower with average consumed power in the minute
-		inverterPower=0
-		if (inverterMeter ~= '' and otherdevices[inverterMeter]~=nil) then
-			-- inverterMeter device exists: extract power (skip energy or other values, separated by ;)
-			inverterPower=getPowerValue(otherdevices[inverterMeter])
-			inverter1Power=inverterPower
-		end
-		inverterPower=math.floor(inverterPower+inverter2Power)
-		log(E_INFO,"AveragePower="..uservariables['avgPower'].."W InstPower="..instPower.."W From PV:"..inverterPower.."W")
-
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
 		if (peakPower() and HP['Pp']<=0.9) then
@@ -699,7 +700,7 @@ if (HPlevel~="Off") then
 					end
 
 					-- use all available power from photovoltaic?
-					if ((peakPower() and HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh and HP['pv']>15000) then 
+					if ((peakPower() or HP['Pp']<=0.9) and HP['pv']>15000 and (((HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh) or (timeNow.month>=3 and timeNow.month<=10 and timeNow.hour<10))) then 
 						HP['Level']=LEVEL_OFF
 						diffMax=0
 						log(E_INFO,"Peak hour and targetPower="..targetPower.." is very low => turn off heat pump")
@@ -755,7 +756,7 @@ if (HPlevel~="Off") then
 				end
 
 				if (HP['OL']>0) then -- overlimit, but no power available
-					targetPower=HPPower+prodPower
+					targetPower=HPPower+prodPower-overlimitPowerExport
 					log(E_INFO,"targetPower="..targetPower.." reduced because overlimit and prodPower<0. TargetPowerMin="..TargetPowerMin)
 					if (targetPower<TargetPowerMin) then targetPower=TargetPowerMin end
 				end
@@ -799,7 +800,7 @@ if (HPlevel~="Off") then
 				end
 				if (HP['Level']==LEVEL_OFF) then -- HP['Level']=LEVEL_OFF => Heat pump is OFF
 					if (HPforce=="Night" or (diffMax>=diffMaxTh or (timeNow.hour>=9 and prodPower>targetPower and (timeNow.month<4 or timeNow.month>10)))) then -- force heat pump ON, if diffTime>0
-						log(E_INFO,"Level was OFF, but diffMax>diffMaxTh or time>=9:00 and prodPower>targetPower => turn Heat Pump ON")
+						log(E_INFO,"Level was OFF, but diffMax>diffMaxTh or (time>=9:00 and prodPower>targetPower) => turn Heat Pump ON")
 						HP['Level']=LEVEL_ON
 						if (HPmode=="Winter") then
 							HP['o']=29	-- outletTemp min
@@ -876,7 +877,7 @@ if (HPlevel~="Off") then
 				log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
 				HP['Level']=LEVEL_OFF
 			end
-		elseif (diffMax>=0 and peakPower()==false and HP['toff']>=90) then
+		elseif (diffMax>=0 and peakPower()==false and HP['Pp']>0.9 and HP['toff']>=90) then
 			log(E_DEBUG,"Start heat pump, because off for more than 90 minutes and peakPower()==false")
 			HP['Level']=LEVEL_ON
 		end
@@ -1141,6 +1142,10 @@ if (otherdevices[EVNIGHTCHARGE]~='Off' and (timeNow.hour>=22 or timeNow.hour<5))
 	end
 
 end
+-- Also, at 10:00 change EVMODE from Off to Solar
+if (timeNow.hour==10 and timeNow.min==0 and otherdevices[EVMODE]=='Off') then
+	commandArray[#commandArray +1]={[EVMODE]='Set Level: 1'}	-- enable solar charging
+end
 
 ---------------------- save variables -----------------------------
 diffMax=string.format("%.2f", diffMax)
@@ -1166,7 +1171,7 @@ commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx['HeatPump_tar
 --commandArray[HPCompressorSP] = "Set Level:"..compressorPerc
 commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|2|" .. compressorPerc}	-- Compressor SetPoint virtual device
 --commandArray[#commandArray+1] = {['UpdateDevice']=otherdevices_idx[HPCompressorSP].."|".. compressorPerc .."|" .. compressorPerc}	-- Compressor SetPoint virtual device
-commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV Garden: '..inverter2Power..'W Inv.Limit: '..otherdevices['PVGarden_Limit']..'% V='..gridVoltage..'\nEV car: '..carsoc..' P='..evsolar..'+'..evgrid..'W'}
+commandArray[#commandArray+1] = {['UpdateDevice']=HPStatus2IDX..'|0|HeatPump '..hpstat..diffMaxText.." dT/dt="..tempDerivate..'\nPV: Roof='..inverter1Power..'W Tracker='..inverter2Power..'W V='..gridVoltage..'\nEV car: '..carsoc..' P='..evsolar..'+'..evgrid..'W'}
 HP['CP']=compressorPerc
 --print("commandArray="..commandArray[#commandArray])
 commandArray['Variable:zHeatPump']=json.encode(HP)

@@ -9,7 +9,7 @@
 -- The following variables should be defined in config_power.lua:
 -- PowerMeterImport='PowerMeter Import'         	-- Meter measuring import power
 -- PowerMeterExport='PowerMeter Export'         	-- Meter measuring export power
--- POWERMETER_GENS={'PV_PowerMeter', 'PV_Garden'}  	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
+-- POWERMETER_GENS={'PV_PowerMeter', 'PVTracker_PowerMeter'}  	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
 
 -- The following 5 devices have to be created manually, and will be filled by the script
 -- POWERMETER_USAGE='Power_Used'                   	-- Electric+Counter virtual device (to be created manually)
@@ -69,7 +69,7 @@ if ((timeNow.min%10)==0 and minutesNow>timeofday['SunriseInMinutes']+60 and minu
 		log(E_CRITICAL,"Inverter ".. POWERMETER_GENS[1] .." does not respond for more than 6 minutes ")
 	end
 	-- Hoymiles inverter: check RELAY that disable it (may be OFF during storms), and lastupdate for power and voltage
-	if (otherdevices['Relay_PV_Garden'] and timedifference(otherdevices_lastupdate[ POWERMETER_GENS[2] ])>360 and timedifference(otherdevices_lastupdate['PVGarden_Voltage'])>360)  then
+	if (otherdevices['Relay_PVTracker'] and timedifference(otherdevices_lastupdate[ POWERMETER_GENS[2] ])>360 and timedifference(otherdevices_lastupdate['PVTracker_Voltage'])>360)  then
 		log(E_CRITICAL,"Inverter ".. POWERMETER_GENS[2] .." does not respond for more than 6 minutes ")
 	end
 end

@@ -118,7 +118,7 @@ else
 			availablePower=hwPower-gridPower-500
 			tempWaterBot=tonumber(otherdevices[HW_TEMPWATER_BOTTOM])
 			tempWaterTop=tonumber(otherdevices[HW_TEMPWATER_TOP])
-			if (timedifference(otherdevices_lastupdate[HW_TEMPWATER_TOP])>3600 and timeNow.min==6) then
+			if (timeNow.min==8 and timedifference(otherdevices_lastupdate['HotWater - Temp air inlet'])>3600 and timedifference(otherdevices_lastupdate[HW_TEMPWATER_TOP])>3600) then
 				log(E_CRITICAL, "Lo scaldacqua non risponde da piu di 1 ora\nRiavviare il raspberry da Domoticz -> Configurazione -> Piu opzioni -> Riavvia il sistema")
 			end
 			log(E_DEBUG, "DAY: gridPower="..gridPower.." pvPower="..pvPower.." pvGarden="..pvGardenPower.." hwPower="..hwPower.." tempWaterBot="..tempWaterBot)

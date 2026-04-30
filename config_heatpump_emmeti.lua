@@ -21,7 +21,7 @@ GasHeater=''		-- it's not cheaper not greener than PDC => manually enabled only 
 GRID_VOLTAGE='Inverter - AC Voltage'	-- Device measuring house voltage: if above 248V, heatpump can consume all available power
 powerMeter='PowerMeter Grid'	-- device name of power meter, that measure consumed power from the electric grid (negative when photovoltaic produced more than house usage)
 inverterMeter='PV_PowerMeter'	-- Inverter output power (photovoltaic). Set to '' if not available
-inverter2Meter='PV_Garden'		-- Inverter for the 2nd renewable energy source. Set to '' if not available
+inverter2Meter='PVTracker_PowerMeter'		-- Inverter for the 2nd renewable energy source. Set to '' if not available
 heatpumpMeter='PowerMeter HeatPump'	-- power meter that supply the heat pump ('' if not used)
 TEMPHPOUT_DEV='Temp_HeatPumpFluidOut' 	-- Temperature of water produced by heat pump (before entering coils or underfloor radiant system)
 TEMPHPIN_DEV= 'Temp_HeatPumpFluidIn'	-- Temperature of water that exits from coils and/or underfloor radiant system, and gets into the Heat Pump again

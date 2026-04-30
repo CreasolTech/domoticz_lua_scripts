@@ -16,7 +16,7 @@ PowerMeterImport='PowerMeter Import'				-- Alternative devices to measure import
 --PowerMeterImport=''
 PowerMeterExport='PowerMeter Export'
 --PowerMeterExport=''
-POWERMETER_GENS={'PV_PowerMeter', 'PV_Garden'}	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
+POWERMETER_GENS={'PV_PowerMeter', 'PVTracker_PowerMeter'}	-- list of devices measuring power from renewable plants (PV on the roof, PV on the garden, wind, ...)
 POWERMETER_INTERVAL=3	-- sampling time for PowerMeter (normally 3s) 
 
 -- The following 5 devices have to be created manually, and will be filled by the script
@@ -30,18 +30,19 @@ blackoutDevice='Monitor_Servizi'			-- device used to monitor the 230V voltage. O
 EVPowerMeter='EV Energy'	-- Device measuring EV charging power, if available
 --DOMBUSEVSE_GRIDPOWER={'dombus2 - (ffe3.c) Grid Power'}	-- Virtual device on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 DOMBUSEVSE_GRIDPOWER={'Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
---DOMBUSEVSE_GRIDPOWER={'Grid Power','dombusLab - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
+DOMBUSEVSE_GRIDPOWER={'Grid Power','dombusLab - (ffe3.c) Grid Power'}	-- Virtual devices on DomBusEVSE to send current grid power measured by another energy meter not directly connected to DomBusEVSE
 
 -- Hoymiles inverter using OpenDTU monitoring device: automatically update the output power limit to get a Grid power corresponding to the specified HOYMILES_TARGET_POWER
 -- In this example, I can export max 6000W and have two inverters connected to my house. Hoymiles inverter (1600W, in my case) will limit the production power to export max 6000W to the grid
 HOYMILES_ID='solar/116493522530/cmd/limit_nonpersistent_absolute'	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 --HOYMILES_ID=''	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 HOYMILES_LIMIT_MAX=1600		-- Max power in watt
-HOYMILES_TARGET_POWER=-6000		-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
-HOYMILES_VOLTAGE_DEV='PVGarden_Voltage'
-HOYMILES_LIMIT_PERC_DEV='PVGarden_Limit'
-HOYMILES_PRODUCING_DEV='PVGarden_InverterProducing'
-HOYMILES_RESTART_DEV='PVGarden_RestartInverter'
+HOYMILES_LIMIT_VOLTAGE=251	-- set to 251.5 or similar to get the script sending limit value to prevent disconnections for overvoltage. Set to 0 to use internal APC
+HOYMILES_TARGET_POWER=-6000	-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
+HOYMILES_VOLTAGE_DEV='PVTracker_Voltage'
+HOYMILES_LIMIT_PERC_DEV='PVTracker_Limit'
+HOYMILES_PRODUCING_DEV='PVTracker_InverterProducing'
+HOYMILES_RESTART_DEV='PVTracker_RestartInverter'
 
 -- Output device: use any name of your choice
 --ledsGreen={'Led_Cucina_Green','Living_Led_Green','BagnoPT_LedG'}	-- green LEDs that show power production
@@ -146,7 +147,7 @@ DEVauxlist={
     -- device                   minwinterlevel  minsummerlevel  power   condition_to_enable		condition_to_disable, work_minutes 
     {'Dehumidifier_Camera_Ospiti',  0,          0,              300,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Camera_Ospiti"])>=70', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Camera_Ospiti"])<=65', 0}, -- Dehumidifier 
     {'Dehumidifier_Cantina',        0,          0,              500,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Cantina"])>=70 and timeNow.hour>=12 and timeNow.hour<=15', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Cantina"])<=65', 600},   -- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
---    {'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20', 0} -- Electric heater in bathroom
+    --{'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20 or tonumber(otherdevices["Voltage_Mains"])>249', 0} -- Electric heater in bathroom
 }
 
 DEVauxfastlist={

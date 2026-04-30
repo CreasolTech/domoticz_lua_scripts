@@ -1,8 +1,20 @@
 -- check name of devices that have changed status, and call the appropriate script. Used to avoid calling all script_device_* scripts when a device changes status.
 
 DEBUG=0
-
 if (DEBUG>=2) then ms=math.floor(os.clock()*1000); end;	-- ms=current time in ms
+
+-- print the list of devices that have changed
+if (false) then
+    devs=""
+    ndevs=0
+    for name,value in pairs(devicechanged) do
+        ndevs=ndevs+1
+        devs=devs..name.."; "
+    end
+    print("master: "..ndevs.." items in devicechanged: "..devs)
+end
+
+
 
 commandArray = {}
 

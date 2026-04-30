@@ -34,6 +34,9 @@ function PowerInit()
 	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- current limit value
 	if (Power['HS']==nil and HOYMILES_ID~='') then Power['HS']=0 end	-- Inverter producing status (0=Off, 1=On) 
 	if (Power['Ht']==nil and HOYMILES_ID~='') then Power['Ht']=0 end	-- time, since epoch, when hoymiles inverter limit was set
+	if (Power['H1']==nil and HOYMILES_ID~='') then Power['H1']=0 end	-- energy measured every 15 minutes on inverter1
+	if (Power['HI']==nil and HOYMILES_ID~='') then Power['HI']=0 end	-- exported energy measured on grid
+	if (Power['Hm']==nil and HOYMILES_ID~='') then Power['Hm']=0 end	-- exported energy measured on grid
 	--if (PowerAux==nil) then PowerAux={} end
 end	
 
@@ -87,6 +90,7 @@ function getPower() -- extract the values coded in JSON format from domoticz zPo
 			Power=json.decode(uservariables['zPower'])
 		end
 		PowerInit()
+		PowerChanged=false
 	end	
 	if (PowerAux==nil) then
 		-- check variable zPower
@@ -145,7 +149,7 @@ function powerMeterAlert(on)
 		else
 			-- OFF command
 			if (otherdevices[ pma[1] ]~=pma[2]) then
-				log(E_DEBUG,"Disable sound alert "..pma[1])
+				--log(E_DEBUG,"Disable sound alert "..pma[1])
 				commandArray[ pma[1] ]=pma[2]
 			end
 		end
@@ -178,13 +182,8 @@ if (HPmode==nil) then
 end
 
 getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (coded in JSON format)
-
-if (otherdevices['116493522530']~=nil) then 
-	print("DEVICE '116493522530' EXISTS")
-end
-if (otherdevices[116493522530]~=nil) then 
-	print("DEVICE 116493522530 EXISTS")
-end
+inverter1Power=math.floor(getPowerValue(otherdevices['PV_PowerMeter']))
+inverter2Power=getPowerValue(otherdevices['PVTracker_PowerMeter'])
 
 for devName,devValue in pairs(devicechanged) do
 	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
@@ -231,7 +230,7 @@ for devName,devValue in pairs(devicechanged) do
 				batteryLevel=unknown
 			end
 		end
-		log(E_INFO, "V="..otherdevices['EV Voltage'].." => EVCurr="..otherdevices_svalues['EV Current'].."A (EVPower="..getPowerValue(otherdevices['EV Energy']).." GridPower="..getPowerValue(otherdevices['Grid Power']).." PV="..math.floor(getPowerValue(otherdevices['PV_PowerMeter'])).."+"..getPowerValue(otherdevices['PV_Garden']).."W CarSoC="..batteryLevel.."%)" )
+		log(E_INFO, "V="..otherdevices['EV Voltage'].." => EVCurr="..otherdevices_svalues['EV Current'].."A (EVPower="..getPowerValue(otherdevices['EV Energy']).." GridPower="..getPowerValue(otherdevices['Grid Power']).." PV="..inverter1Power.."+"..inverter2Power.."W CarSoC="..batteryLevel.."%)" )
 	end
 
 	-- if blackout, turn on white leds in the building!
@@ -285,6 +284,80 @@ for devName,devValue in pairs(devicechanged) do
 		elseif (otherdevices[blackoutDevice]=='On' and otherdevices['Router_WAN_Reset']=='On') then
 			log(E_CRITICAL, "Blackout restored => riabilito alimentazione al router internet")
 			commandArray['Router_WAN_Reset']='Off'
+		end
+	end
+	if (HOYMILES_ID~='' and devName=='PVTracker_Power') then
+		-- check when value have been modified last time
+		hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
+		if (otherdevices[EVSE_STATE_DEV]~='Ch') then
+			-- not charging EV => modulate power
+			newlimit=Power['HL']-- always MAX power if vehicle is charging
+			if (HOYMILES_LIMIT_VOLTAGE~=0) then
+				if (hoymilesVoltage>=HOYMILES_LIMIT_VOLTAGE) then 
+					-- determine how fast to increase power, depending by difference between hoymilesVoltage and HOYMILES_LIMT_VOLTAGE
+					div=(hoymilesVoltage-HOYMILES_LIMIT_VOLTAGE)
+					if div>3 then div=3 end						
+					newlimit=math.floor((Power['HL']-(div*300)))
+					if (newlimit<100) then newlimit=100 end
+					log(E_INFO,"HOYMILES: Voltage "..hoymilesVoltage..">="..HOYMILES_LIMIT_VOLTAGE.." => Reduce inverter power from "..Power['HL'].." to "..newlimit.."W")
+				else
+					if (Power['HL']<HOYMILES_LIMIT_MAX) then
+						-- determine how fast to increase power, depending by difference between hoymilesVoltage and HOYMILES_LIMT_VOLTAGE
+						div=6-(HOYMILES_LIMIT_VOLTAGE-hoymilesVoltage)/2
+						if div<2 then div=2 end						
+						newlimit=math.floor((Power['HL']+(HOYMILES_LIMIT_MAX-Power['HL'])/div))
+						if (newlimit>(HOYMILES_LIMIT_MAX-50)) then newlimit=HOYMILES_LIMIT_MAX end
+						log(E_INFO,"HOYMILES: Voltage "..hoymilesVoltage.." <"..HOYMILES_LIMIT_VOLTAGE.." => Increase inverter power from "..Power['HL'].." to "..newlimit.."W")
+					end
+				end
+			end
+		else
+			newlimit=HOYMILES_LIMIT_MAX	-- always MAX power if vehicle is charging
+		end
+		-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
+		-- if (exported power > HOYMILES_TARGET_POWER) reduce inverter power
+		local cp=getPowerValue(otherdevices[PowerMeter])	-- Grid Power 
+		if (cp-HOYMILES_TARGET_POWER<0) then		-- HOYMILES_TARGET_POWER=-6000 => Try to limit export to 6000W (no more than 6000W)
+			newlimit=Power['HL']+cp-HOYMILES_TARGET_POWER
+			log(E_WARNING, "HOYMILES: Exported power too high ("..(0-cp).."W), reduce inverter power to "..newlimit.."W")
+		end
+		-- Try to export no more than PV_PowerMeter (PV on the roof)
+		e1=getEnergyValue(otherdevices['PV_PowerMeter'])
+		ei=getEnergyValue(otherdevices['PowerMeter Export'])
+		if ((timeNow.min%15)==0 and Power['Hm']~=timeNow.min) then
+			-- every 15 minutes: store the current produced and exported energy
+			Power['H1']=e1
+			Power['HI']=ei
+			Power['Hm']=timeNow.min
+			log(E_WARNING,"HOYMILES: Invert1Energy="..Power['H1'].." ExportedEnergy="..Power['HI'])
+		end
+		ep1=e1-Power['H1']	-- Energy produced by inverter1 in the last 15 minutes slot
+		epi=ei-Power['HI']	-- Energy feed to grid in the last 15 minutes slot
+		-- dp=inverter1Power+100+cp	-- inverter1Power=600, cp=-1000 => dp=-300 => must reduce inverter2Power by 300W
+		dp=inverter1Power+cp	-- inverter1Power=600, cp=-1000 => dp=-300 => must reduce inverter2Power by 300W
+		if (dp < 0 and epi>=ep1) then
+			-- exporting more than inverter1Power + 100W => limit inverter2 power to avoid troubles with GSE
+			nl=inverter2Power+dp
+			if (nl<newlimit) then
+				newlimit=nl
+			end
+			log(E_WARNING, "HOYMILES: exporting more power (".. 0-cp .."W) than inverter1="..inverter1Power.."W => limit "..Power['HL'].."->"..newlimit.."W")
+		end
+		log(E_WARNING, "HOYMILES: invert1Energy="..ep1.." FedEnergy="..epi.." limit="..newlimit.." V="..hoymilesVoltage)
+		if (newlimit>HOYMILES_LIMIT_MAX) then
+			newlimit=HOYMILES_LIMIT_MAX
+		elseif (newlimit<0) then
+			newlimit=0	-- 100 Watt: avoid turning off the inverter completely
+		end
+		local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
+		
+		--log(E_INFO, "HOYMILES new limit="..newlimit.." old limit="..Power['HL'])
+		if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
+			log(E_DEBUG,"HOYMILES: Voltage="..hoymilesVoltage.."V => Newlimit "..Power['HL'].."->"..newlimit.."W "..newlimitPerc.."%")
+			os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
+			Power['HL']=newlimit
+			PowerChanged=true
+			commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
 		end
 	end
 
@@ -362,66 +435,6 @@ if (currentPower>-20000 and currentPower<20000) then
 		end
 	end
 	
-	if (HOYMILES_ID~='' and (os.time()-Power['Ht'])>=10) then
-		-- more than 10s since last time the hoymiles limit was set
-		Power['Ht']=os.time()
-		-- check when value have been modified last time
-		local newlimit=HOYMILES_LIMIT_MAX	-- always MAX power if vehicle is charging
-		local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
-		if (otherdevices[EVSE_STATE_DEV]~='Ch') then
-			-- not charging EV => modulate power
-			-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
-			newlimit=Power['HL']+currentPower-HOYMILES_TARGET_POWER
-			-- log(E_DEBUG, "HOYMILES: Power[HL]="..Power['HL'].." currentPower="..currentPower.." HOYMILES_TARGET_POWER="..HOYMILES_TARGET_POWER.." newlimit="..newlimit)
-			if (newlimit>HOYMILES_LIMIT_MAX) then
-				newlimit=HOYMILES_LIMIT_MAX
-			elseif (newlimit<100) then
-				newlimit=100	-- avoid turning off the inverter completely
-			end
-			if (hoymilesVoltage>=251.5) then 
-				log(E_WARNING,"HOYMILES: Reduce inverter power")
-				if (newlimit>Power['HL']/2) then
-					newlimit=Power['HL']/2
-				end
-			else
-				if (Power['HL']<1600 and newlimit>(Power['HL']*1.35)) then
-					log(E_INFO,"HOYMILES: Increase inverter power")
-					newlimit=Power['HL']*1.35
-				end
-			end
-			newlimit=math.floor(newlimit)
-			if (newlimit>HOYMILES_LIMIT_MAX) then
-				newlimit=HOYMILES_LIMIT_MAX
-			elseif (newlimit<100) then
-				newlimit=100	-- 100 Watt: avoid turning off the inverter completely
-			end
-		end
-		local newlimitPerc=math.floor(newlimit*100/HOYMILES_LIMIT_MAX)
-		
-		-- log(E_INFO, "HOYMILES new limit="..newlimit.." old limit="..Power['HL'])
-		if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
-			log(E_INFO,"HOYMILES: Voltage="..hoymilesVoltage.."V currentPower="..currentPower.."W target="..HOYMILES_TARGET_POWER.."W => Transmit newlimit="..newlimit.." "..newlimitPerc.."%")
-			os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
-			Power['HL']=newlimit
-			commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
-		end
-		-- Now check that inverter is producing
-		if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
-			-- inverter not producing
-			if (Power['HS']==1 and hoymilesVoltage>=240) then
-				-- inverter not producing due to overvoltage => restart it
-				newlimit=100	-- start inverter from 100W only to prevent overvoltage
-				os.execute('/usr/bin/mosquitto_pub -u ' .. MQTT_OWNER .. ' -P ' .. MQTT_PASSWORD .. ' -t ' .. HOYMILES_ID .. ' -m ' .. newlimit)
-				Power['HL']=newlimit
-				log(E_WARNING,"HOYMILES: inverter not producing => restart now with limit="..newlimit.."W")
-				commandArray[HOYMILES_RESTART_DEV]='On'
-			end
-			Power['HS']=0
-		else
-			Power['HS']=1
-		end
-	end
-
 
 
 	if (currentPower<PowerThreshold[1]) then
@@ -857,6 +870,28 @@ if (currentPower>-20000 and currentPower<20000) then
 	-- DEBUG: TRACKER WIND SENSOR
 	--commandArray['dombusLab - (ffd0.d) Wind']='3'
 
+	if (HOYMILES_ID~='' and (os.time()-Power['Ht'])>=10) then
+		-- more than 10s since last time the hoymiles limit was set
+		Power['Ht']=os.time()
+		-- Now check that inverter is producing
+		if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
+			-- inverter not producing
+			local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
+			log(E_INFO,"HOYMILES: Inverter not producing, Power[HS]="..Power['HS'].." and hoymilesVoltage="..hoymilesVoltage.."V")
+			if (Power['HS']==1 and hoymilesVoltage<HOYMILES_LIMIT_VOLTAGE) then
+				-- inverter not producing due to overvoltage => restart it
+				newlimit=400	-- start inverter from 100W only to prevent overvoltage
+				os.execute('/usr/bin/mosquitto_pub -u ' .. MQTT_OWNER .. ' -P ' .. MQTT_PASSWORD .. ' -t ' .. HOYMILES_ID .. ' -m ' .. newlimit)
+				Power['HL']=newlimit
+				log(E_WARNING,"HOYMILES: inverter not producing => restart now")
+			end
+			commandArray[HOYMILES_RESTART_DEV]='On'
+			Power['HS']=0
+		else
+			Power['HS']=1
+		end
+		PowerChanged=true
+	end
 
 	-- save variables in Domoticz, in a json variable Power
 	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
@@ -869,5 +904,8 @@ if (currentPower>-20000 and currentPower<20000) then
 		log(E_DEBUG,"PowerAux="..json.encode(PowerAux))
 	end
 end -- if currentPower is set
+if (PowerChanged and commandArray['Variable:zPower']==nil) then
+	commandArray['Variable:zPower']=json.encode(Power)
+end
 --print("power end: "..os.clock()-startTime) --DEBUG
 
