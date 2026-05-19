@@ -251,8 +251,10 @@ end
 avgPower=math.floor(avgPower)
 prodPower=0-avgPower
 gridVoltage=0
+PVlimit=false
+if (otherdevices['Inverter1_Limit']~='100' or otherdevices['PVTracker_Limit']~='100') then PVlimit=true end	-- PVlimit=true if inverters are limiting power
 if (GRID_VOLTAGE~='') then
-	gridVoltage=math.floor(tonumber(otherdevices[GRID_VOLTAGE]))
+	gridVoltage=tonumber(otherdevices[GRID_VOLTAGE])
 end
 
 if (heatpumpMeter~='' and otherdevices[heatpumpMeter]~=nil) then
@@ -276,6 +278,8 @@ if (uservariables['entsoe_today']~=nil) then
 	if (timeNow.min==1) then
 		HP['P']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', 24))*1000)/1000
 		HP['p']=math.floor(tonumber(getItemFromCSV(uservariables['entsoe_today'], ';', timeNow.hour))*1000)/1000
+		checkVar('entsoe_price',1,HP['p'])
+		commandArray['Variable:entsoe_price']=HP['p']
 		HP['Pp']=math.floor(HP['P']*100/HP['p'])/100
 	end
 else
@@ -412,7 +416,7 @@ if (HPlevel~="Off") then
 			diffMaxTh=diffMaxTh+0.1
 			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.1 from 10 Mar to 15 Nov")
 		end
-		if (peakPower() and HP['Pp']<=0.9) then 
+		if (peakPower() and HP['Pp']<=0.9 and PVlimit==false) then 
 			diffMaxTh=diffMaxTh+0.2
 			log(E_INFO,"diffMaxTh="..diffMaxTh..": +0.2 due to peak hours")
 		end
@@ -421,7 +425,7 @@ if (HPlevel~="Off") then
 		overlimitTemp=OVERHEAT		-- max overheat temperature
 		overlimitPower=500			-- minimum power to start overheating
 		overlimitPowerExport=0		-- exporting power in overlimit
-		if (timeNow.month>=3 and timeNow.month<=10) then overlimitPowerExport=1000 end
+		if (timeNow.month>=3 and timeNow.month<=10) then overlimitPowerExport=500 end
 		overlimitDiff=0.4			-- forced diffmax value
 		prodPowerOn=300				-- minimum extra power to turn ON the heatpump
 		gridPowerMin=300			-- minimum power from the grid, even when PV is producing
@@ -534,7 +538,7 @@ if (HPlevel~="Off") then
 		-- power meter exists, returning value "usagePower;totalEnergy"
 
 		-- In the morning, if room temperature is almost ok, try to export power to help the electricity grid
-		if (peakPower() and HP['Pp']<=0.9) then
+		if (peakPower() and HP['Pp']<=0.9  and PVlimit==false) then
 			if (prodPower>inverter1Power) then	-- check that I'm not exporting more power than photovoltaic on the roof
 				log(E_INFO,"Use only power from secondary PV: prodPower ".. prodPower .." -> "..(prodPower-inverter1Power))
 				prodPower=prodPower-inverter1Power	-- use only power from secondary PV system
@@ -568,7 +572,7 @@ if (HPlevel~="Off") then
 			log(E_INFO,"diffMax="..diffMax.." reduced because electricity price is high Apr-Oct ("..HP['p'].."€)")
 		end
 		if (diffMax<=diffMaxTh and diffMax+overlimitTemp>0) then
-			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or (HP['Pp']>0.9 and (timeNow.month<4 or timeNow.month>10))) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
+			if (HP['OL']==0 and prodPower>overlimitPower and (peakPower()==false or PVlimit==true or (HP['Pp']>0.9 and (timeNow.month<4 or timeNow.month>10))) and (EVSEON_DEV=='' or otherdevices[EVSEON_DEV]=='Off')) then
 				log(E_INFO,"diffMax="..diffMax.."=>"..overlimitDiff.." because overLimit and prodPower>overlimitPower")
 				diffMax=overlimitDiff
 				HP['OL']=1
@@ -576,7 +580,7 @@ if (HPlevel~="Off") then
 		end
 		if (HP['OL']~=0) then
 			-- overlimit is ON
-			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or (peakPower() and HP['Pp']<=0.9)) then
+			if ((EVSEON_DEV~='' and otherdevices[EVSEON_DEV]~='Off') or (peakPower() and HP['Pp']<=0.9 and PVlimit==false)) then
 				-- EV is charging => disable overlimit now
 				log(E_INFO,"Peak time or EV is charging => disable heat pump OverLimit")
 				HP['OL']=0
@@ -638,7 +642,7 @@ if (HPlevel~="Off") then
 						-- Sunny !!
 						targetPower=targetPower-300 -- Try to use energy from photovoltaic, reducing power during the night
 						log(E_INFO,"targetPower-=300 because it is Sunny and diffMax is low")
-						if (peakPower() and HP['Pp']<=0.9) then -- try to export power
+						if (peakPower() and HP['Pp']<=0.9 and PVlimit==false) then -- try to export power
 							log(E_INFO,"targetPower-=300 peakPower()")
 							targetPower=targetPower-300 
 						end
@@ -663,7 +667,7 @@ if (HPlevel~="Off") then
 						end
 
 					end
-					if (peakPower() and HP['Pp']<=0.9) then
+					if (peakPower() and HP['Pp']<=0.9 and PVlimit==false) then
 						targetPower=math.floor(targetPower*HP['Pp'])
 						log(E_INFO,"targetPower="..targetPower.." multiplied to avgPrice/currentPrice")
 						--[[
@@ -700,11 +704,11 @@ if (HPlevel~="Off") then
 					end
 
 					-- use all available power from photovoltaic?
-					if ((peakPower() or HP['Pp']<=0.9) and HP['pv']>15000 and (((HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh) or (timeNow.month>=3 and timeNow.month<=10 and timeNow.hour<10))) then 
+					if ((peakPower() or HP['Pp']<=0.9) and HP['pv']>15000 and (((HP['Pp']<=0.9) and targetPower<450 and diffMax<=diffMaxTh and PVlimit==false))) then 
 						HP['Level']=LEVEL_OFF
 						diffMax=0
 						log(E_INFO,"Peak hour and targetPower="..targetPower.." is very low => turn off heat pump")
-					elseif (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch') and (peakPower()==false or HP['Pp']>0.9)) then --more power available
+					elseif (targetPower<HPPower+prodPower and (EVSTATE_DEV=='' or otherdevices[EVSTATE_DEV]~='Ch') and (peakPower()==false or HP['Pp']>0.9 or PVlimit==true)) then --more power available
 						targetPower=math.floor(HPPower+prodPower) -- increase targetPower because there more power is available from photovoltaic
 						log(E_INFO,"targetPower="..targetPower.." increased due to available prodPower")
 						if (timeNow.yday>=75 and timeNow.yday<310) then
@@ -877,7 +881,7 @@ if (HPlevel~="Off") then
 				log(E_INFO,"All zones are in temperature! RHMax="..rhMax)
 				HP['Level']=LEVEL_OFF
 			end
-		elseif (diffMax>=0 and peakPower()==false and HP['Pp']>0.9 and HP['toff']>=90) then
+		elseif (diffMax>=0 and ((peakPower()==false and HP['Pp']>0.9) or PVlimit==true) and HP['toff']>=90) then
 			log(E_DEBUG,"Start heat pump, because off for more than 90 minutes and peakPower()==false")
 			HP['Level']=LEVEL_ON
 		end
@@ -964,7 +968,17 @@ else
 end	
 if (HP['OL']~=0 and heatingCoolingEnabled~=0) then
 	-- overlimit on : track power
+	if (timeNow.month>=5 and timeNow.month<=10) then
+		overlimitPowerExport=inverter1Power-400	-- try to export all power from the roof photovoltaic
+		log(E_DEBUG,"OverLimit ON: from May to October try to export all power from roof photovoltaic")
+		if (overlimitPowerExport<500) then overlimitPowerExport=500 end
+	end
+	if (gridVoltage>246) then 
+		overlimitPowerExport=overlimitPowerExport-(gridVoltage-246)*400
+		log(E_DEBUG,"OverLimit ON: PV Voltage="..gridVoltage.." => reduce export power")
+	end
 	compressorPerc=math.floor(compressorPercOld+(prodPower-overlimitPowerExport)/30)
+	if (compressorPerc>=60) then compressorPerc=60 end
 	log(E_DEBUG,"OverLimit ON: keep "..overlimitPowerExport.."W for exporting => compressorPerc "..compressorPercOld.." -> "..compressorPerc.."%")
 	if (HP['Level']==0 and otherdevices[HPLevel]~='Off') then HP['Level']=LEVEL_ON end
 end

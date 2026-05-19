@@ -140,30 +140,31 @@ windgust = math.ceil(windgust / 0.36)
 -- Raspberry room
 if not ( inhumidity == nil or intemperature == nil ) then
         tempdevice = indoor_device_idx..'|0|'..intemperature..';'..inhumidity..';0'
-        commandArray[1]={['UpdateDevice'] = tempdevice }
+        commandArray[#commandArray+1]={['UpdateDevice'] = tempdevice }
 end
 -- Outdoor place where Meteo station is placed
 if not ( humidity == nil or temperature == nil or pressure == nil ) then
         tempdevice = outdoor_device_idx..'|0|'..temperature..';'..humidity..';0;'..pressure..';0'
-        commandArray [2] = {['UpdateDevice'] = tempdevice }
+        commandArray [#commandArray+1] = {['UpdateDevice'] = tempdevice }
 end
 
 -- Rain 
 if not ( rainrate == nil or rain == nil ) then
         tempdevice = rain_device_idx..'|0|'..rainrate..';'..rain
-        commandArray [3] = {['UpdateDevice'] = tempdevice }
+        commandArray [#commandArray+1] = {['UpdateDevice'] = tempdevice }
 end
 
 -- Wind
 if not (  temperature == nil ) then
 	tempdevice = wind_device_idx..'|0|'..winddir..';'..windcomp..';'..wind..';'..windgust..';'..temperature..';'..windchill
-	commandArray [4] = {['UpdateDevice'] = tempdevice }
+	commandArray [#commandArray+1] = {['UpdateDevice'] = tempdevice }
+	commandArray ['Tracker Wind'] = tostring(math.floor(wind/10))	-- Update DomBusTracker device
 end
 
 -- Aux sensor, if supported by the weather station
 if not ( auxhumidity == nil or auxtemperature == nil or aux_device_idx == 255 ) then
         tempdevice = aux_device_idx..'|0|'..auxtemperature..';'..auxhumidity..';0'
-        commandArray [5] = {['UpdateDevice'] = tempdevice }
+        commandArray [#commandArray+1] = {['UpdateDevice'] = tempdevice }
 end
 return commandArray
 

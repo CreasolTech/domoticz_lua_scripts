@@ -48,9 +48,6 @@ MOSQUITTO_STOP2=120		-- stop at 120=02:00
 TRASH_ALERT_TIME=1140			-- time when alert will be sent, in minutes: 19*60=1140
 TRASH_DEV="Living_Buzzer"		-- Buzzer or Led device to turn ON
 
---TRACKER_WIND_DEV="Tracker Wind"				-- If a DomBusTracker is installed, send wind speed to the tracker.
-TRACKER_WIND_DEV="dombusLab - (ff38.13) Wind"				-- If a DomBusTracker is installed, send wind speed to the tracker.
-
 dofile "scripts/lua/globalvariables.lua"  -- some variables common to all scripts
 dofile "scripts/lua/globalfunctions.lua"  -- some functions common to all scripts
 
@@ -402,10 +399,6 @@ else
 		log(E_INFO,"GeoFence: Car at home, time>=19:00 and gate power==On => turn Off")
 		commandArray[RELAY_GATE_DEV]='Off'
 	end
-end
-
-if (TRACKER_WIND_DEV ~= "" and otherdevices[TRACKER_WIND_DEV] ~= nil) then
-	commandArray[TRACKER_WIND_DEV]="5"
 end
 
 commandArray['Variable:raining']=tostring(raining)

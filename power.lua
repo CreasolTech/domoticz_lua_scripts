@@ -11,7 +11,7 @@
 -- At least a device with "Power" in its name has changed: let's go!
 
 DEBUG_LEVEL=E_WARNING
---DEBUG_LEVEL=E_INFO
+DEBUG_LEVEL=E_INFO
 --DEBUG_LEVEL=E_DEBUG
 
 dofile "scripts/lua/config_power.lua"		-- configuration file
@@ -25,13 +25,14 @@ function PowerInit()
 	if (Power==nil) then Power={} end
 	if (Power['th1']==nil) then Power['th1']=0 end
 	if (Power['th2']==nil) then Power['th2']=0 end
-	if (Power['above']==nil) then Power['above']=0 end
-	if (Power['usage']==nil) then Power['usage']=0 end
-	if (Power['disc']==nil) then Power['disc']=0 end
+	if (Power['a']==nil) then Power['a']=0 end
+	if (Power['u']==nil) then Power['u']=0 end
+	if (Power['d']==nil) then Power['d']=0 end
 	if (Power['min']==nil) then Power['min']=0 end	-- current time minute: used to check something only 1 time per minute
-	if (Power['ev']==nil) then Power['ev']=0 end	-- used to force EV management now, without waiting 1 minute
 	if (Power['EV']==nil) then Power['EV']=0 end	-- EV Charge power
-	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- current limit value
+	if (Power['L1']==nil and HOYMILES_ID~='') then Power['L1']=6000 end	-- Inverter1 power limit
+	if (Power['D1']==nil and HOYMILES_ID~='') then Power['D1']=0 end	-- Delay (in minutes) since last power limit setup
+	if (Power['HL']==nil and HOYMILES_ID~='') then Power['HL']=HOYMILES_LIMIT_MAX end	-- Hoymiles power limit
 	if (Power['HS']==nil and HOYMILES_ID~='') then Power['HS']=0 end	-- Inverter producing status (0=Off, 1=On) 
 	if (Power['Ht']==nil and HOYMILES_ID~='') then Power['Ht']=0 end	-- time, since epoch, when hoymiles inverter limit was set
 	if (Power['H1']==nil and HOYMILES_ID~='') then Power['H1']=0 end	-- energy measured every 15 minutes on inverter1
@@ -70,9 +71,9 @@ function setAvgPower() -- store in the user variable avgPower the building power
 	else
 		avgPower=tonumber(uservariables['avgPower'])
 	end
-	log(E_INFO,"currentPower="..currentPower.." Usage="..Power['usage'].." EV="..Power['EV'])
-	avgPower=(math.floor((avgPower*11 + currentPower - Power['usage'] - Power['EV'])/12)) -- average on 12*5s=60s
-	commandArray['Variable:zPower']=json.encode(Power)
+	log(E_DEBUG,"currentPower="..currentPower.." Usage="..Power['u'].." EV="..Power['EV'])
+	avgPower=(math.floor((avgPower*11 + currentPower - Power['u'] - Power['EV'])/12)) -- average on 12*5s=60s
+	powerChanged=true
 end
 
 
@@ -182,8 +183,47 @@ if (HPmode==nil) then
 end
 
 getPower() -- get Power, PowerAUX, HP, EVSE structures from domoticz variables (coded in JSON format)
+incMinute=0	-- zero if script was executed not at the start of the current minute
+if (Power['min']~=timeNow.min) then
+	-- minute was incremented
+	Power['min']=timeNow.min
+	PowerChanged=true	-- force saving Power[]
+	incMinute=1 -- minute incremented => set this variable to exec some checking and functions
+	if (Power['D1']<9) then Power['D1']=Power['D1']+1 end	-- time since last power limit command
+end
+
 inverter1Power=math.floor(getPowerValue(otherdevices['PV_PowerMeter']))
 inverter2Power=getPowerValue(otherdevices['PVTracker_PowerMeter'])
+
+if (incMinute==1) then
+	-- every minute
+	if ((timeNow.min%15)==0) then
+		-- every 15 minutes
+		if (timeNow.min==0 and timeNow.hour==0) then
+			-- at midnight
+			-- Download ENTSOE csv file with prices every 15 minutes
+			os.execute("wget -O scripts/lua/bidq.csv https://images.creasol.it/IT_NORDq.csv")
+		end
+		-- read current price
+		local file = io.open("scripts/lua/bidq.csv", "r")
+		local fields = {}
+		if file then
+			local line = file:read("*line")  -- Legge solo la prima riga
+			for f in string.gmatch(line, "([^,]+)") do
+				table.insert(fields, f)
+			end
+		end
+		-- extract current price and avgprice
+
+		local price=fields[timeNow.hour*4+timeNow.min//15+1]
+		local avgPrice=fields[96]
+		checkVar('entsoe_price',1,0.1)
+		checkVar('entsoe_avgPrice',1,0.1)
+		commandArray['Variable:entsoe_price']=tostring(price)
+		commandArray['Variable:entsoe_avgPrice']=tostring(avgPrice)
+		log(E_INFO,"HOYMILES: CurrentPrice="..price.." AveragePrice="..avgPrice)
+	end
+end
 
 for devName,devValue in pairs(devicechanged) do
 	-- check for device named PowerMeter and update all DomBusEVSE GRIDPOWER virtual devices
@@ -209,7 +249,7 @@ for devName,devValue in pairs(devicechanged) do
 			-- new value from the electric vehicle charging power meter
 			Power['EV']=getPowerValue(devValue)
 			log(E_INFO,"Power[EV]="..Power['EV'])
-			commandArray['Variable:zPower']=json.encode(Power)	-- save Power['EV']
+			powerChanged=true
 			-- output current value to led status
 			if (EVLedStatus ~= '') then
 				l=(math.floor(Power['EV']/1000))*10	-- 0=0..999W, 1=1000..1999, 2=2000..2999W, ...
@@ -286,12 +326,12 @@ for devName,devValue in pairs(devicechanged) do
 			commandArray['Router_WAN_Reset']='Off'
 		end
 	end
-	if (HOYMILES_ID~='' and devName=='PVTracker_Power') then
+	if (HOYMILES_ID~='' and devName==HOYMILES_VOLTAGE_DEV) then
 		-- check when value have been modified last time
 		hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
 		if (otherdevices[EVSE_STATE_DEV]~='Ch') then
 			-- not charging EV => modulate power
-			newlimit=Power['HL']-- always MAX power if vehicle is charging
+			newlimit=Power['HL'] -- newlimit = previous limit
 			if (HOYMILES_LIMIT_VOLTAGE~=0) then
 				if (hoymilesVoltage>=HOYMILES_LIMIT_VOLTAGE) then 
 					-- determine how fast to increase power, depending by difference between hoymilesVoltage and HOYMILES_LIMT_VOLTAGE
@@ -299,7 +339,7 @@ for devName,devValue in pairs(devicechanged) do
 					if div>3 then div=3 end						
 					newlimit=math.floor((Power['HL']-(div*300)))
 					if (newlimit<100) then newlimit=100 end
-					log(E_INFO,"HOYMILES: Voltage "..hoymilesVoltage..">="..HOYMILES_LIMIT_VOLTAGE.." => Reduce inverter power from "..Power['HL'].." to "..newlimit.."W")
+					log(E_DEBUG,"HOYMILES: Voltage "..hoymilesVoltage..">="..HOYMILES_LIMIT_VOLTAGE.." => Reduce inverter power from "..Power['HL'].." to "..newlimit.."W")
 				else
 					if (Power['HL']<HOYMILES_LIMIT_MAX) then
 						-- determine how fast to increase power, depending by difference between hoymilesVoltage and HOYMILES_LIMT_VOLTAGE
@@ -307,43 +347,86 @@ for devName,devValue in pairs(devicechanged) do
 						if div<2 then div=2 end						
 						newlimit=math.floor((Power['HL']+(HOYMILES_LIMIT_MAX-Power['HL'])/div))
 						if (newlimit>(HOYMILES_LIMIT_MAX-50)) then newlimit=HOYMILES_LIMIT_MAX end
-						log(E_INFO,"HOYMILES: Voltage "..hoymilesVoltage.." <"..HOYMILES_LIMIT_VOLTAGE.." => Increase inverter power from "..Power['HL'].." to "..newlimit.."W")
+						log(E_DEBUG,"HOYMILES: Voltage "..hoymilesVoltage.." <"..HOYMILES_LIMIT_VOLTAGE.." => Increase inverter power from "..Power['HL'].." to "..newlimit.."W")
 					end
 				end
 			end
 		else
 			newlimit=HOYMILES_LIMIT_MAX	-- always MAX power if vehicle is charging
 		end
-		-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
-		-- if (exported power > HOYMILES_TARGET_POWER) reduce inverter power
 		local cp=getPowerValue(otherdevices[PowerMeter])	-- Grid Power 
-		if (cp-HOYMILES_TARGET_POWER<0) then		-- HOYMILES_TARGET_POWER=-6000 => Try to limit export to 6000W (no more than 6000W)
-			newlimit=Power['HL']+cp-HOYMILES_TARGET_POWER
-			log(E_WARNING, "HOYMILES: Exported power too high ("..(0-cp).."W), reduce inverter power to "..newlimit.."W")
-		end
-		-- Try to export no more than PV_PowerMeter (PV on the roof)
-		e1=getEnergyValue(otherdevices['PV_PowerMeter'])
-		ei=getEnergyValue(otherdevices['PowerMeter Export'])
-		if ((timeNow.min%15)==0 and Power['Hm']~=timeNow.min) then
-			-- every 15 minutes: store the current produced and exported energy
-			Power['H1']=e1
-			Power['HI']=ei
-			Power['Hm']=timeNow.min
-			log(E_WARNING,"HOYMILES: Invert1Energy="..Power['H1'].." ExportedEnergy="..Power['HI'])
-		end
-		ep1=e1-Power['H1']	-- Energy produced by inverter1 in the last 15 minutes slot
-		epi=ei-Power['HI']	-- Energy feed to grid in the last 15 minutes slot
-		-- dp=inverter1Power+100+cp	-- inverter1Power=600, cp=-1000 => dp=-300 => must reduce inverter2Power by 300W
-		dp=inverter1Power+cp	-- inverter1Power=600, cp=-1000 => dp=-300 => must reduce inverter2Power by 300W
-		if (dp < 0 and epi>=ep1) then
-			-- exporting more than inverter1Power + 100W => limit inverter2 power to avoid troubles with GSE
-			nl=inverter2Power+dp
-			if (nl<newlimit) then
-				newlimit=nl
+		local l1=INVERTER1_LIMIT_MAX	-- default value for inverter1 limit
+		local export=0
+		if (uservariables['entsoe_price']<=0) then	--check energy price
+			-- Disable energy export!!
+			-- Modify solaredge inverter power every minute (it's very slow due to the ramping feature that takes minutes!)
+			l1=Power['L1']
+			if (otherdevices[EVSE_STATE_DEV]=='Ch') then 
+				-- while charging the vehicle, 
+				if (tonumber(otherdevices['EV MinVoltage'])<=230) then
+					-- EV MinVoltage is low => full speed charging
+					export=1200
+				else
+					export=400
+				end
+			else
+				export=100
 			end
-			log(E_WARNING, "HOYMILES: exporting more power (".. 0-cp .."W) than inverter1="..inverter1Power.."W => limit "..Power['HL'].."->"..newlimit.."W")
+			if (uservariables['entsoe_price']==0)  then export=export+1000 end	-- Price not negative => increase export to prevent import!
+			if (Power['D1']>5) then
+				-- if cp=-2000W => set inverter limit to current inverter1 power - 2000
+				-- Note: solaredge ramping is very slow => set every minute
+				l1=inverter1Power+cp+(inverter2Power-400)+export
+				log(E_INFO, "HOYMILES: set Inverter1 Limit="..l1)
+			else
+				if (math.abs(inverter1Power-l1)<100) then
+					-- inverter reached the trip
+					Power['D1']=9	-- inverter1 ready for another setpoint
+					PowerChanged=true
+				end
+			end
+			-- Set hoymiles inverter power to have zero export
+			newlimit=math.floor(inverter2Power+cp+export)
+			log(E_INFO, "HOYMILES: price<=0 gridPower="..string.format("%4d", cp).."W => Inv1 Power="..inverter1Power.." Limit="..l1.." | Inv2 Power="..inverter2Power.." Limit="..newlimit)
+		else
+			-- set inverter limit to avoid exporting too much power to the grid (max 6000W in Italy, in case of single phase)
+			-- if (exported power > HOYMILES_TARGET_POWER) reduce inverter power
+			if (cp-HOYMILES_TARGET_POWER<0) then		-- HOYMILES_TARGET_POWER=-6000 => Try to limit export to 6000W (no more than 6000W)
+				newlimit=Power['HL']+cp-HOYMILES_TARGET_POWER
+				log(E_WARNING, "HOYMILES: Exported power too high ("..(0-cp).."W), reduce inverter power to "..newlimit.."W")
+			end
+			-- Try to export no more than PV_PowerMeter (PV on the roof)
+			e1=getEnergyValue(otherdevices['PV_PowerMeter'])
+			ei=getEnergyValue(otherdevices['PowerMeter Export'])
+			m=timeNow.min%15
+			if (m==0 and Power['Hm']~=timeNow.min) then
+				-- every 15 minutes: store the current produced and exported energy
+				ep1=e1-Power['H1']	-- Energy produced by inverter1 in the last 15 minutes slot
+				epi=ei-Power['HI']	-- Energy feed to grid in the last 15 minutes slot
+				if (epi>ep1) then
+					log(E_WARNING,"HOYMILES: in last 15 minutes, Invert1Energy=".. (e1-Power['H1']) .." < ExportedEnergy=".. (ei-Power['HI']))
+				else
+					log(E_INFO,"HOYMILES: in last 15 minutes, Invert1Energy=".. (e1-Power['H1']) .." >= ExportedEnergy=".. (ei-Power['HI']))
+				end
+				Power['H1']=e1
+				Power['HI']=ei
+				Power['Hm']=timeNow.min
+				PowerChanged=true -- used to force saving Power[] array
+			end
+			ep1=e1-Power['H1']	-- Energy produced by inverter1 in the last 15 minutes slot
+			epi=ei-Power['HI']	-- Energy feed to grid in the last 15 minutes slot
+			-- dp=inverter1Power+100+cp	-- inverter1Power=600, cp=-1000 => dp=-300 => must reduce inverter2Power by 300W
+			msg=""
+			if (epi>=ep1+5-m and epi>0) then
+				-- exporting too much energy
+				nl=math.floor(((inverter2Power+inverter1Power+cp-100-(epi-ep1+0.5)*60/(15-m))+Power['HL'])/2)
+				if (nl<newlimit) then
+					newlimit=nl
+				end
+				if (epi>ep1) then msg=' <' end
+			end
+			log(E_INFO, "HOYMILES: inv1Energy="..ep1..msg.." ExportEnergy=".. math.floor(epi) .." V="..hoymilesVoltage.." Limit="..newlimit.."W")
 		end
-		log(E_WARNING, "HOYMILES: invert1Energy="..ep1.." FedEnergy="..epi.." limit="..newlimit.." V="..hoymilesVoltage)
 		if (newlimit>HOYMILES_LIMIT_MAX) then
 			newlimit=HOYMILES_LIMIT_MAX
 		elseif (newlimit<0) then
@@ -353,14 +436,29 @@ for devName,devValue in pairs(devicechanged) do
 		
 		--log(E_INFO, "HOYMILES new limit="..newlimit.." old limit="..Power['HL'])
 		if (newlimit~=Power['HL'] or (timeNow.min==0 and timeNow.sec>45)) then
-			log(E_DEBUG,"HOYMILES: Voltage="..hoymilesVoltage.."V => Newlimit "..Power['HL'].."->"..newlimit.."W "..newlimitPerc.."%")
+			-- log(E_DEBUG,"HOYMILES: Voltage="..hoymilesVoltage.."V => Newlimit "..Power['HL'].."->"..newlimit.."W "..newlimitPerc.."%")
 			os.execute('/usr/bin/mosquitto_pub -u '..MQTT_OWNER..' -P '..MQTT_PASSWORD..' -t '..HOYMILES_ID..' -m '..newlimit)
 			Power['HL']=newlimit
 			PowerChanged=true
 			commandArray[#commandArray + 1]={['UpdateDevice']=otherdevices_idx[HOYMILES_LIMIT_PERC_DEV].."|0|".. newlimitPerc}
 		end
+		-- check inverter1 limit
+		if (l1<100) then
+			l1=100	-- minimum limit value for the inverter1
+		elseif (l1>6000) then
+			l1=6000
+		end
+		if (l1 ~= Power['L1']) then
+			local l1p=math.floor(l1*100/6000)
+			log(E_INFO, "HOYMILES: send inverter1 limit="..l1p.."%")
+			fd=io.popen("mbpoll -q -mtcp -a1 -p1502 -0 -1 -r61441 -l10 192.168.3.229 "..l1p)    -- send limit value, in %
+			ret=tonumber(fd:read("*a"))    -- temp * 0.1°C
+			io.close(fd)
+			Power['L1']=l1
+			Power['D1']=0		-- minute since last inverter changes
+			PowerChanged=true	-- used to force saving the Power[] array
+		end
 	end
-
 end
 
 -- check that main powermeter is really working...
@@ -387,12 +485,6 @@ if (currentPower>-20000 and currentPower<20000) then
 	end
 	]]
 	setAvgPower()
-	incMinute=0	-- zero if script was executed not at the start of the current minute
-	if (Power['min']~=timeNow.min) then
-		-- minute was incremented
-		Power['min']=timeNow.min
-		incMinute=1 -- minute incremented => set this variable to exec some checking and functions
-	end
 
 
 	-- update LED statuses (on Creasol DomBusTH modules, with red/green leds)
@@ -435,136 +527,13 @@ if (currentPower>-20000 and currentPower<20000) then
 		end
 	end
 	
-
-
 	if (currentPower<PowerThreshold[1]) then
 		log(E_DEBUG,"currentPower="..currentPower.." < PowerThreshold[1]="..PowerThreshold[1])
 		-- low power consumption => reset threshold timers, used to count from how many seconds power usage is above thresholds
-		if (incMinute==1 or Power['ev']==1) then --Power['ev'] used to force EV management now
-			Power['ev']=0
-			for k,evRow in pairs(eVehicles) do
-				-- evRow[1]=ON/OFF device
-				-- evRow[2]=charging power
-				-- evRow[3]=current battery level
-				-- evRow[10]=current range (used to avoid problem with Kia battery level that often is not updated)
-				-- evRow[4]=min battery level (charge to that level using imported energy!)
-				-- evRow[5]=max battery level (stop when battery reached that level)
-				if (otherdevices[ evRow[1] ]==nil or otherdevices[ evRow[4] ]==nil or otherdevices[ evRow[5] ]==nil) then
-					log(E_WARNING,"EV: invalid device names in eVehicles structure, row number "..k)
-				else
-					if (Power['ev'..k]==nil) then
-						Power['ev'..k]=0  --initialize counter, incremented every minute when there is not enough power from renewables to charge the vehicle
-					end
-					evPower=evRow[2]
-					if (otherdevices[ evRow[4] ] == nil) then
-						-- user must create the selector switch used to set the minimum level of battery
-						log(E_WARNING,"EV: please create a virtual sensor, selector switch, named '"..evRow[4].."' with levels 0,10,20,..100")
-						batteryMin=50
-					else
-						if (otherdevices[ evRow[4] ]=='Off') then
-							batteryMin=0
-						else
-							batteryMin=tonumber(otherdevices[ evRow[4] ])
-						end
-					end
-					if (otherdevices[ evRow[5] ] == nil) then
-						-- user must create the selector switch used to set the maximum level of battery
-						log(E_WARNING,"EV: please create a virtual sensor, selector switch, named '"..evRow[4].."' with levels 0,10,20,..100")
-						batteryMax=80
-					else
-						if (otherdevices[ evRow[5] ]=='Off') then
-							batteryMax=0
-						else
-							batteryMax=tonumber(otherdevices[ evRow[5] ])
-						end
-					end
-					if (evRow[3]~='' and otherdevices[ evRow[3] ]~=nil) then
-						-- battery state of charge is a device
-						batteryLevel=tonumber(otherdevices[ evRow[3] ])	-- battery level device exists
-						-- compare batteryLevel with battery range, because KIA UVO has a trouble with battery range not updating
-						if (evRow[10]~='' and otherdevices[ evRow[10] ]~=nil) then
-							batteryRange=tonumber(otherdevices[ evRow[10] ])
-							if (batteryLevel<batteryRange/5.2) then
-								log(E_WARNING,"EV: batteryLevel too low if compared with range")
-								batteryLevel=batteryRange/5 	-- 400km = 80%
-							end
-						end
-					elseif (uservariables[ evRow[3] ]~=nil) then
-						-- battery state of charge is a variable
-						batteryLevel=tonumber(uservariables[ evRow[3] ])
-					else
-						-- battery state of charge not available
-						batteryLevel=batteryMin	-- battery level device does not exist => set to 50%
-					end
-					log(E_DEBUG, "EV: batteryLevel="..batteryLevel.." batteryMin="..batteryMin.." batteryMax="..batteryMax);
-					evDistance=0
-					if (evRow[6]~='') then
-						-- car distance sensor exists
-						for name,value in pairs(otherdevices) do
-							if (name:sub(1,evRow[6]:len()) == evRow[6]) then
-								evDistance=tonumber(value)
-							end
-						end
-					end
-					evSpeed=0
-					if (evRow[7]~='') then
-						-- car speed sensor exists
-						evSpeed=tonumber(otherdevices[ evRow[7] ])
-					end
-					log(E_DEBUG,"EV: Battery level="..batteryLevel.." Min="..batteryMin.." Max="..batteryMax)
-					if (otherdevices[ evRow[1] ]=='Off') then
-						-- not charging
-						if (avgPower+evPower<PowerThreshold[1] and batteryLevel<batteryMax and ((evDistance<5 and evSpeed==0) or batteryMin==100)) then
-							-- it's possible to charge without exceeding electricity meter threshold, and current battery level < battery max
-							toleratedUsagePowerEV=evPower/3*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
-							if (HPmode=='Winter') then toleratedUsagePowerEV=toleratedUsagePowerEV*2 end	-- in Winter, don't care if the car is partially charged by grid
-							log(E_INFO,"EV: not charging, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
-							if (batteryLevel<batteryMin or (avgPower+evPower)<toleratedUsagePowerEV) then
-								-- if battery level > min level => charge only if power is available from renewable sources
-								log(E_INFO,"EV: start charging - batteryLevel="..batteryLevel.."<"..batteryMin.." or ("..avgPower.."+"..evPower.."<"..toleratedUsagePowerEV)
-								deviceOn(evRow[1],Power,'de'..k)
-								Power['ev'..k]=0	-- counter
-							end
-						end
-					else
-						-- charging
-						if ((evDistance>5 or evSpeed>0) and batteryMin<100) then
-							log(E_INFO,"EV: car is moving or is not near home => stop charging")
-							deviceOff(evRow[1],Power,'de'..k)
-						elseif (batteryLevel>=batteryMin) then
-							if (batteryLevel>=batteryMax) then
-								-- reached the max battery level
-								log(E_INFO,"EV: stop charging: reach the max battery level")
-								deviceOff(evRow[1],Power,'de'..k)
-							else
-								-- still charging: check available power
-								toleratedUsagePowerEV=evPower/2*(1-(batteryLevel-batteryMin)/(batteryMax-batteryMin))
-								if (HPmode=='Winter') then toleratedUsagePowerEV=toleratedUsagePowerEV*2 end	-- in Winter, don't care if the car is partially charged by grid
-								log(E_DEBUG,"EV: charging with batteryLevel>batteryMin, avgPower="..avgPower.." toleratedUsagePowerEV="..toleratedUsagePowerEV)
-								if (avgPower>toleratedUsagePowerEV) then
-									-- too much power consumption -> increment counter and stop when counter is high
-									Power['ev'..k]=Power['ev'..k]+1	
-									log(E_INFO,"EV: no enough energy from renewables since "..Power['ev'..k].." minutes")
-									if (Power['ev'..k]>5) then
-										log(E_INFO,"EV: stop charging")
-										deviceOff(evRow[1],Power,'de'..k)
-									end
-								else
-									log(E_DEBUG,"EV: enough energy to charge! ")
-									Power['ev'..k]=0	-- enough energy from renewable => reset counter
-								end
-							end
-						else
-							-- batteryLevel < battery min level
-							log(E_DEBUG,"EV: battery level lower than min value "..batteryMin)
-						end
-					end
-				end
-			end
-
+		if (incMinute==1) then --Power['ev'] used to force EV management now
 			-- Every minute
 			------------------------------------ check DEVauxlist to enable/disable aux devices (when we have/haven't got enough power from photovoltaic -----------------------------
-			Power['usage']=0		-- compute power delivered to aux loads
+			Power['u']=0		-- compute power delivered to aux loads
 			if (DEVauxlist~=nil) then
 				log(E_DEBUG,"Parsing DEVauxlist...")
 				if (HPmode=='Winter') then
@@ -620,7 +589,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
 						else 
 							-- device On, and can remain On
-							Power['usage']=Power['usage']+v[4]
+							Power['u']=Power['u']+v[4]
 						end
 					else
 						-- device is OFF
@@ -628,7 +597,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						if (peakPower()==false and auxTimeout<auxMaxTimeout and prodPower>=(v[4]+100) and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 							deviceOn(v[1],PowerAux,'a'..n)
 							prodPower=prodPower-v[4]  -- update prodPower
-							Power['usage']=Power['usage']+v[4]
+							Power['u']=Power['u']+v[4]
 						end
 					end
 				end
@@ -639,7 +608,7 @@ if (currentPower>-20000 and currentPower<20000) then
 		limit=toleratedUsagePower+100
 		if (currentPower<limit) then
 			-- usage power < than first threshold
-			Power['above']=0
+			Power['a']=0
 			if (HPmode=='Winter') then
 				devCond=5 
 				devLevel=2
@@ -667,7 +636,7 @@ if (currentPower>-20000 and currentPower<20000) then
 							-- stop device because conditions are not satisfied, or for more than v[11] minutes (timeout)
 							deviceOff(v[1],PowerAux,'f'..n)
 							prodPower=prodPower+v[4]    -- update prodPower, adding the power consumed by this device that now we're going to switch off
-							Power['usage']=Power['usage']-v[4]
+							Power['u']=Power['u']-v[4]
 						-- else device On, and can remain On
 						end
 					else
@@ -682,7 +651,7 @@ if (currentPower>-20000 and currentPower<20000) then
 						if (peakPower()==false and prodPower>=(v[4]) and cond~=v[devCond+1] and (HP['Level']>=v[devLevel] or HPmode=='Off') and con()) then
 							deviceOn(v[1],PowerAux,'f'..n)
 							prodPower=prodPower-v[4]  -- update prodPower
-							Power['usage']=Power['usage']+v[4]
+							Power['u']=Power['u']+v[4]
 						end
 					end
 				end
@@ -692,138 +661,6 @@ if (currentPower>-20000 and currentPower<20000) then
 		powerMeterAlert(0)
 	end
 
-	----------------------------------  EVSE: check electric vehicle  --------------------------------------------------------------------
-	if (EVSE_CURRENT_DEV~=nil and EVSE_CURRENT_DEV~='' and otherdevices[EVSE_CURRENT_DEV]~=nil) then
-		-- EVSE device exists
-		-- EVSE_CURRENT_DEV = device used to set the charging current
-		-- EVSE_STATE_DEV = device with the current charging state
-		-- EVSE['T']=time when charging has been started. Used to charge 80min at highest power (+27%) and 80m at high power (+10%) ^^^^^^^^^^__________^^^^^^^^_______
-		if (EVSE_SOC_DEV~='' and otherdevices[EVSE_SOC_DEV]~=nil) then
-			batteryLevel=tonumber(otherdevices[EVSE_SOC_DEV])
-		else
-			batteryLevel=50	-- don't know battery level => set to 50%
-		end
-	
-		if (batteryLevel>=tonumber(otherdevices_svalues[EVSE_SOC_MAX])) then
-			-- battery charged => stop charging
-			log(E_DEBUG, "EV: battery full: batteryLevel>="..otherdevices_svalues[EVSE_SOC_MAX]);
-			commandArray[EVSE_CURRENT_DEV]="Off"
-		else
-			if (otherdevices[EVSE_STATE_DEV]=='Con' and tonumber(otherdevices[EVSE_CURRENTMAX])>0 and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX]) and (PowerThreshold[1]-currentPower)>1800 and (currentPower<-800 or (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN]) and (timeNow.hour>=EVSE_NIGHT_START or timeNow.hour<EVSE_NIGHT_STOP or otherdevices[EVSE_SOC_MIN]=='On')))) then
-				-- Connected, batteryLevel<EVSE_SOC_MAX, enough power from energy meter, and
-				-- * extra power available from renewables, or
-				-- * in the night, or
-				-- * EVSE_SOC_MIN slide is active (On) => charge everytime
-				--
-				-- To charge only in the night, Disable the EVSE_SOC_MIN slider
-				-- To enable charge now, just enable EVSE_SOC_MIN slider
-				setCurrent=10   -- start charging
-				EVSE['t']=0
-				log(E_INFO,"EV: Start EV charging, setCurrent="..setCurrent)
-				commandArray[EVSE_CURRENT_DEV]="Set Level "..tostring(setCurrent)
-				if (otherdevices[EVSE_CURRENT_DEV]=='Off') then
-					commandArray[EVSE_CURRENT_DEV]="On"
-				end
-				log(E_INFO,"EVSE_CURRENT_DEV="..commandArray[EVSE_CURRENT_DEV])
-				log(E_INFO,"otherdevices_svalues[EVSE_CURRENT_DEV]="..otherdevices_svalues[EVSE_CURRENT_DEV])
-			elseif (otherdevices[EVSE_STATE_DEV]=='Ch') then
-				-- Cable connected and device is charging
-				-- charging!
-				if (EVSE['S']~='Ch' and EVSE['S']~='Vent') then
-					-- previous state: not charging
-					-- start charging, and start measuring how much renewable energy is used
-					EVSE['Et']=os.time()	-- start measuring energy
-					EVSE['Ec']=getEnergyValue(otherdevices[EVSE_POWERMETER])
-					EVSE['Ei']=getEnergyValue(otherdevices[EVSE_POWERIMPORT])
-				end
-				evtime=os.difftime(os.time(), EVSE['T'])
-				if (evtime>PowerThreshold[3]*2) then
-					EVSE['T']=os.time()
-					evtime=0
-				end
-				currentNow=tonumber(otherdevices_svalues[EVSE_CURRENT_DEV])
-				if (batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MIN])) then
-					-- use any power source, reneable and grid
-					if (evtime<PowerThreshold[3]-60) then
-						-- First 90 minutes => higest power (Power+27%)
-						maxPower=PowerThreshold[2]
-					else
-						-- Remaining 90 minutes at high power (Power+10%) 
-						maxPower=PowerThreshold[1]
-					end
-				else
-					-- SOC_MIN <= SOC < SOC_MAX => use only renewable energy
-					maxPower=0	-- currentPower should be negative (exported)
-					if (currentNow>=6 and currentNow<=12 and batteryLevel<tonumber(otherdevices_svalues[EVSE_SOC_MAX])-5) then
-						-- if charging current is really low and batteryLevel<BatteryMax-5, try to charge using some energy from grid, to improve charging efficiency
-						maxPower=500
-					end
-				end
-				-- Regulate the charging current
-				availablePower=maxPower-currentPower
-				setCurrent=0 -- default: do not change anything
-
-				-- Charge at the maximum power
-				availableCurrent=math.floor(availablePower/230)
-				if (availableCurrent>=4 or availableCurrent<=-4) then
-					availableCurrent=math.floor(availableCurrent/2)	-- increase or decrease slowly
-				elseif (availableCurrent>=1) then
-					availableCurrent=1  -- increase only 1 Ampere
-				elseif (availableCurrent<=-1) then
-					availableCurrent=-1
-				else
-					availableCurrent=0
-				end
-				-- if (availableCurrent~=0) then log(E_INFO,"EVSE: currentPower="..currentPower.." availablePower="..availablePower.." availableCurrent="..availableCurrent) end
-				
-				setCurrent=currentNow+availableCurrent
-				if (setCurrent<6) then
-					-- charge current should be reduced
-					EVSE['t']=EVSE['t']+1
-					maxtime=PowerThreshold[4]	-- max time after which the EVSE must be stopped to prevent disconnections
-					if (currentPower<PowerThreshold[1]) then maxtime=180 end	-- probably setCurrent is low because only renewable energy should be use: increase maxtime
-					log(E_INFO,"EV: Overload for ".. (EVSE['t']*5) .."/"..maxtime.."s")
-					if (EVSE['t']*5>=maxtime) then
-						log(E_INFO,"EV: disable charging because Power[EVt]>=maxtime")
-						setCurrent=0
-					else
-						log(E_INFO,"EV: overload => set current=6A")
-						setCurrent=6
-					end
-				else
-					-- charge current ok
-					if (EVSE['t']>=4) then EVSE['t']=EVSE['t']-4 end	-- decrease overload timeout
-					if (setCurrent>tonumber(otherdevices[EVSE_CURRENTMAX])) then 
-						setCurrent=tonumber(otherdevices[EVSE_CURRENTMAX])
-					end
-					if (setCurrent>EVSE_MAXCURRENTVALUE) then
-						setCurrent=EVSE_MAXCURRENTVALUE
-					end
-				end
-				if (setCurrent~=currentNow) then
-					log(E_INFO,"EVSE: available="..availablePower.."W, I="..currentNow.."->"..setCurrent.."A, batteryLevel="..batteryLevel.." ("..otherdevices_svalues[EVSE_SOC_MIN].."->"..otherdevices_svalues[EVSE_SOC_MAX]..")")
-					if (setCurrent>=6 and
-						otherdevices[EVSE_CURRENT_DEV]=='Off') then
-						commandArray[EVSE_CURRENT_DEV]="On"
-					end
-					commandArray[EVSE_CURRENT_DEV]="Set Level "..setCurrent
-				end
-			end -- while charging
-		end
-		Et=os.difftime(os.time(),EVSE['Et'])
-		if (Et>=18) then
-			-- while charging -> update EVSE_RENEWABLE energy meter
-			Ec=getEnergyValue(otherdevices[EVSE_POWERMETER])
-			Ei=getEnergyValue(otherdevices[EVSE_POWERIMPORT])
-			Er=(Ec-EVSE['Ec'])-(Ei-EVSE['Ei'])	-- renewable energy used to charge the car
-			if (Er<0) then Er=0 end
-			evseSetGreenPower(Er,Et)	-- update the greenPower energy meter
-			EVSE['Ec']=Ec
-			EVSE['Ei']=Ei
-			EVSE['Et']=os.time()
-		end
-		EVSE['S']=otherdevices[EVSE_STATE_DEV]	-- save current state
-	end
 
 	if (currentPower>PowerThreshold[1]) then
 		Power['th1']=Power['th1']+POWERMETER_INTERVAL
@@ -836,7 +673,7 @@ if (currentPower>-20000 and currentPower<20000) then
 			if (Power['th2']>=PowerThreshold[4]) then
 				-- can I disconnect anything?
 				-- very high power consumption: short intervention time before power outage
-				time=os.time()-Power['disc']	-- disconnect devices every 10s
+				time=os.time()-Power['d']	-- disconnect devices every 10s
 				if (time>=10 and powerDisconnect()==0) then
 					-- nothing to disconnect
 					powerMeterAlert(1)  -- send alert
@@ -844,21 +681,21 @@ if (currentPower>-20000 and currentPower<20000) then
 				else
 					-- one device has been disconnected
 					powerMeterAlert(0)
-					Power['disc']=os.time()
+					Power['d']=os.time()
 				end
 			end
 		end
 		log(E_WARNING, "Power="..currentPower.." > "..PowerThreshold[1].." for "..Power['th1'].."/"..PowerThreshold[3].."s")
 		if (Power['th1']>=PowerThreshold[3]) then
 			-- can I disconnect anything?
-			time=os.time()-Power['disc']	-- disconnect devices every 60s
+			time=os.time()-Power['d']	-- disconnect devices every 60s
 			if (time>=60 and powerDisconnect()==0) then
 				-- nothing to disconnect
 				powerMeterAlert(1)	-- send alert
 				log(E_CRITICAL,"Potenza assorbita="..currentPower.."W: Pericolo di disconnessione. Spegnere elettrodomestici!") -- send alert by Telegram
 			else
 				powerMeterAlert(0)
-				Power['disc']=os.time()
+				Power['d']=os.time()
 			end
 		end
 	else	
@@ -874,12 +711,12 @@ if (currentPower>-20000 and currentPower<20000) then
 		-- more than 10s since last time the hoymiles limit was set
 		Power['Ht']=os.time()
 		-- Now check that inverter is producing
-		if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off') then
+		if (otherdevices[HOYMILES_PRODUCING_DEV]=='Off' and inverter2Power<100 and timeofday['Daytime'] and Power['HS']>=3) then
 			-- inverter not producing
 			local hoymilesVoltage=tonumber(otherdevices[HOYMILES_VOLTAGE_DEV])
 			log(E_INFO,"HOYMILES: Inverter not producing, Power[HS]="..Power['HS'].." and hoymilesVoltage="..hoymilesVoltage.."V")
-			if (Power['HS']==1 and hoymilesVoltage<HOYMILES_LIMIT_VOLTAGE) then
-				-- inverter not producing due to overvoltage => restart it
+			if (hoymilesVoltage>=HOYMILES_LIMIT_VOLTAGE) then
+				-- inverter not producing due to overvoltage => set a new limit and restart it
 				newlimit=400	-- start inverter from 100W only to prevent overvoltage
 				os.execute('/usr/bin/mosquitto_pub -u ' .. MQTT_OWNER .. ' -P ' .. MQTT_PASSWORD .. ' -t ' .. HOYMILES_ID .. ' -m ' .. newlimit)
 				Power['HL']=newlimit
@@ -888,18 +725,17 @@ if (currentPower>-20000 and currentPower<20000) then
 			commandArray[HOYMILES_RESTART_DEV]='On'
 			Power['HS']=0
 		else
-			Power['HS']=1
+			if (Power['HS']<99) then 
+				Power['HS']=Power['HS']+1
+			end
 		end
 		PowerChanged=true
 	end
 
-	-- save variables in Domoticz, in a json variable Power
-	-- log(E_INFO,"commandArray['Variable:zPower']="..json.encode(Power))
-	commandArray['Variable:zPower']=json.encode(Power)
-	commandArray['Variable:zPowerAux']=json.encode(PowerAux)
+	PowerChanged=true	-- force saving Power[] array in zPower variable
 	commandArray['Variable:zEVSE']=json.encode(EVSE)
 	commandArray['Variable:avgPower']=tostring(avgPower)
-	log(E_DEBUG,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['usage'])
+	log(E_DEBUG,"currentPower="..currentPower.." avgPower="..avgPower.." Used_by_heaters="..Power['u'])
 	if (PowerAux~=nil) then
 		log(E_DEBUG,"PowerAux="..json.encode(PowerAux))
 	end
@@ -907,5 +743,4 @@ end -- if currentPower is set
 if (PowerChanged and commandArray['Variable:zPower']==nil) then
 	commandArray['Variable:zPower']=json.encode(Power)
 end
---print("power end: "..os.clock()-startTime) --DEBUG
 

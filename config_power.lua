@@ -10,7 +10,7 @@
 --
 
 -- PLEASE NOTE THAT EVERY INPUT DEVICE MUST CONTAINS "Power" in its name!
-PowerMeter='PowerMeter Grid'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
+PowerMeter='Grid_PowerMeter'			-- Device name for power/energy meter (negative value in case of exporting data. PowerMeter='' => use Import/Export devices below
 --PowerMeter=''	-- uses PowerMeterImport and PowerMeterExport devices (defined below)
 PowerMeterImport='PowerMeter Import'				-- Alternative devices to measure import and export energy, in case that two different devices are used. Set to '' if you have a powermeter that measure negative power in case of exporting
 --PowerMeterImport=''
@@ -36,6 +36,7 @@ DOMBUSEVSE_GRIDPOWER={'Grid Power','dombusLab - (ffe3.c) Grid Power'}	-- Virtual
 -- In this example, I can export max 6000W and have two inverters connected to my house. Hoymiles inverter (1600W, in my case) will limit the production power to export max 6000W to the grid
 HOYMILES_ID='solar/116493522530/cmd/limit_nonpersistent_absolute'	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
 --HOYMILES_ID=''	-- MQTT name to set the output power limit using OpenDTU. '' to disable this function
+INVERTER1_LIMIT_MAX=6000		-- Max power for inverter1
 HOYMILES_LIMIT_MAX=1600		-- Max power in watt
 HOYMILES_LIMIT_VOLTAGE=251	-- set to 251.5 or similar to get the script sending limit value to prevent disconnections for overvoltage. Set to 0 to use internal APC
 HOYMILES_TARGET_POWER=-6000	-- Target Power: 0 => no export. 50=import always at least 50W. -300=try to export always 300W
@@ -100,29 +101,6 @@ overloadDisconnect={ -- syntax: device name, command to disable, command to enab
 	{'KEV Mode','Off','Solar'},	-- electric car charging socket
 }
 
--- list of electric vehicles
--- 3rd field is the battery level device name or variable name containing the battery charge level%: if not available, set to '' (will be set to 50%)
--- 4th and 5th fields refers to virtual selector switches (to be added manually) configured with some battery levels, e.g. Off, 25, 50, 80, 90, 100 (%)
---   These selector switches will be used to set the min battery level (if battery state is below, charge EV anyway) and max battery level 
---   (if battery state of charge between min and max level, charge only using energy from photovoltaic)
-eVehicles={ 
-	-- on/off device, 	power	battery level % 		Min battery level			Max battery level			DistanceDev				SpeedDev			Charge mode pushbutton		Charging mode 				Range
-	-- Please note that pushbutton and chargingMode device names must contain the "Power" word
-	-- {'Kia eNiro - Contactor', 	2500,	'Kia eNiro - Battery', 	'Kia eNiro - Battery min', 'Kia eNiro - Battery max', 'Kia eNiro - Distance', 'Kia eNiro - Speed', 'Kia eNiro - PowerButton charge', 'Kia eNiro - PowerCharging mode', 'Kia eNiro - Range'},
-}
-
-
-EVChargingModeNames={'Off', 'Min0', 'Min50', 'Min50_Max100', 'On'}
-EVChargingModeConf={
-	-- MinLevel, value,	MaxLevel, value
-	-- MinLevel: 0=0%, 10=50%, 20=65%, 30=80%, 40=90%, 50=100%
-	-- MaxLevel: 0=0%, 10=60%, 20=70%, 30=80%, 40=90%, 50=100%
-	{	0, 	0,		0, 	0	},
-	{	0, 	0,		30, 80	},
-	{	10,	50, 	30,	80	},
-	{	10,	50, 	50, 100	},
-	{	50,	100,	50, 100	},
-}
 
 EVSE_CURRENT_DEV=''		-- device used to set the charging current. Set to '' to disable EVSE management
 EVSE_STATE_DEV='EV State'			-- EVSE status: Disconnected, Connected, Charging, ....
@@ -147,7 +125,7 @@ DEVauxlist={
     -- device                   minwinterlevel  minsummerlevel  power   condition_to_enable		condition_to_disable, work_minutes 
     {'Dehumidifier_Camera_Ospiti',  0,          0,              300,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Camera_Ospiti"])>=70', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Camera_Ospiti"])<=65', 0}, -- Dehumidifier 
     {'Dehumidifier_Cantina',        0,          0,              500,    'tonumber(uservariables["alarmLevel"])<=1 and tonumber(otherdevices["RH_Cantina"])>=70 and timeNow.hour>=12 and timeNow.hour<=15', 'tonumber(uservariables["alarmLevel"])>1 or tonumber(otherdevices["RH_Cantina"])<=65', 600},   -- Dehumidifier: stop after 480 minutes to avoid water overflow, and notify by telegram that dehumidifier is full
-    --{'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20 or tonumber(otherdevices["Voltage_Mains"])>249', 0} -- Electric heater in bathroom
+    --{'Bagno_Scaldasalviette',       0,          100,            450,    'tonumber(otherdevices["Temp_Bagno"])<20 or tonumber(otherdevices["Grid_Voltage"])>249', 0} -- Electric heater in bathroom
 }
 
 DEVauxfastlist={

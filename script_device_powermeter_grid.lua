@@ -6,8 +6,8 @@
 -- The virtual device (name is written in GENERATOR_SUM_DEV below) should be created manually: see below.
 
 
-GRID_DEV="PowerMeter Grid"		-- existing meter used to measure the grid power (negative when producing)
-P1_DEV="PowerMeter Grid P1"		-- virtual P1 meter that is managed/updated by this script: MUST BE CREATED (type P1 meter)
+GRID_DEV="Grid_PowerMeter"		-- existing meter used to measure the grid power (negative when producing)
+P1_DEV="Grid_PowerMeter_P1"		-- virtual P1 meter that is managed/updated by this script: MUST BE CREATED (type P1 meter)
 TARIFF1_START=420				-- minutes since midnight when TARIFF1 starts (420=7:00)
 TARIFF1_STOP=1360				-- minutes since midnight when TARIFF2 stops  (1360=23:00)
 
@@ -114,9 +114,9 @@ end
 
 --[[
 -- Set the EV Voltage for DomBusEVSE on dombusLab
-if (devicechanged['Voltage_Mains']~=nil) then
-   	print('Voltage_Mains='..otherdevices['Voltage_Mains'])
-	commandArray['dombusLab - (ffe3.a) EV Voltage']=tostring(math.floor(otherdevices_svalues['Voltage_Mains']))
+if (devicechanged['Grid_Voltage']~=nil) then
+   	print('Grid_Voltage='..otherdevices['Grid_Voltage'])
+	commandArray['dombusLab - (ffe3.a) EV Voltage']=tostring(math.floor(otherdevices_svalues['Grid_Voltage']))
 end
 ]]
 

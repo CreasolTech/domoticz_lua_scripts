@@ -31,7 +31,7 @@ for devName,devValue in pairs(devicechanged) do	-- scan all changed devices
 	end
 	if (run_alarm==0 and devName:sub(1,3)=='MCS' or devName:sub(1,3)=='PIR' or devName:sub(1,6)=='TAMPER' or devName:sub(1,5)=='SIREN' or devName:sub(1,5)=='ALARM' or devName:sub(1,5)=="Light") then
 		run_alarm=1
-	elseif (run_power==0 and (devName:find("Power") or devName:find("Button")) or devName=='EV Current' or devName:find("Battery") or devName:find("Monitor")) then
+	elseif (run_power==0 and (devName:find("Power") or devName:find("PVTracker_Voltage") or devName:find("Button")) or devName=='EV Current' or devName:find("Battery") or devName:find("Monitor")) then
 		run_power=1
 	elseif (run_pushbuttons==0 and (devName:sub(1,8)=='PULSANTE' or devName:sub(1,4)=='VMC_')) then
 		run_pushbuttons=1
